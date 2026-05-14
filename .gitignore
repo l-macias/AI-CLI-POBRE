@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.local
+.DS_Store
+*.log
+
+.runtime/checkpoints/*.json
+.runtime/retrieval-cache.md
+.runtime/compressed-context.md

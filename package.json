@@ -1,0 +1,56 @@
+{
+  "name": "zero-runtime",
+  "version": "0.1.0",
+  "description": "A runtime-centered coding agent with deterministic execution, local session memory, and provider abstraction.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "provider:test": "tsx src/examples/provider-smoke-test.ts",
+    "session:test": "tsx src/examples/session-state-test.ts",
+    "session:restore": "tsx src/examples/restore-session.ts",
+    "runtime:context": "tsx src/examples/runtime-context-test.ts",
+    "runtime:test": "tsx src/examples/agent-runtime-test.ts",
+    "runtime:objective": "tsx src/examples/objective-intake-test.ts",
+    "runtime:plan": "tsx src/examples/plan-generation-test.ts",
+    "validation:test": "tsx src/examples/validation-pipeline-test.ts",
+    "tools:test": "tsx src/examples/tool-contract-test.ts",
+    "guards:test": "tsx src/examples/tool-permission-manager-test.ts",
+    "filesystem:read:test": "tsx src/examples/filesystem-readonly-tools-test.ts",
+    "filesystem:write:test": "tsx src/examples/filesystem-write-tools-test.ts",
+    "runtime:tools:test": "tsx src/examples/runtime-tool-execution-gate-test.ts",
+    "execution:test": "tsx src/examples/execution-engine-test.ts",
+    "runtime:loop:test": "tsx src/examples/runtime-loop-test.ts",
+    "failure:test": "tsx src/examples/failure-recovery-test.ts",
+    "runtime:failure-loop:test": "tsx src/examples/runtime-loop-failure-recovery-test.ts",
+    "memory:test": "tsx src/examples/context-compression-test.ts",
+    "retrieval:test": "tsx src/examples/retrieval-system-test.ts"
+  },
+  "keywords": [
+    "ai-agent",
+    "coding-agent",
+    "runtime",
+    "openrouter",
+    "typescript",
+    "llm"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1"
+  }
+}
