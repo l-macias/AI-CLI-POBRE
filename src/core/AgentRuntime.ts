@@ -32,7 +32,7 @@ import type {
 } from '../types/ExecutionTypes.js';
 import { RuntimeLoop } from '../loop/RuntimeLoop.js';
 import type { RuntimeLoopRunInput, RuntimeLoopRunResult } from '../types/RuntimeLoopTypes.js';
-
+import { PlanningContextRetriever } from '../retrieval/PlanningContextRetriever.js';
 export interface AgentRuntimeDependencies {
   logger?: Logger;
 }
@@ -47,6 +47,7 @@ export class AgentRuntime {
   private readonly runtimeToolController: RuntimeToolController;
   private readonly executionEngine: ExecutionEngine;
   private readonly runtimeLoop: RuntimeLoop;
+  private readonly planningContextRetriever = new PlanningContextRetriever();
   private readonly providerManager = new ProviderManager();
   private readonly runtimeInitializer = new RuntimeInitializer();
   private readonly operationalStateManager = new OperationalStateManager();
@@ -265,9 +266,14 @@ export class AgentRuntime {
       model: snapshot.activeModel ?? config.defaultModel,
     });
 
+    const planningRuntimeContext = await this.buildPlanningRuntimeContext({
+      objective: snapshot.activeObjective.normalizedObjective,
+      module: snapshot.activeObjective.module,
+    });
+
     const generatedPlan = await generator.generate({
       objective: snapshot.activeObjective,
-      runtimeContext: this.latestRuntimeContext,
+      runtimeContext: planningRuntimeContext,
     });
 
     let review = this.planReviewStateMachine.createGenerated(generatedPlan);
@@ -501,7 +507,30 @@ export class AgentRuntime {
       throw new Error('Runtime config is not initialized.');
     }
   }
+  private async buildPlanningRuntimeContext(input: {
+    objective: string;
+    module: string;
+  }): Promise<string> {
+    const retrievalContext = await this.planningContextRetriever.retrieve({
+      objective: input.objective,
+      module: input.module,
+      maxChunks: 6,
+    });
 
+    this.logger.info('Planning retrieval context assembled', {
+      query: retrievalContext.query,
+      returnedChunks: retrievalContext.retrieval.chunks.length,
+      filesScanned: retrievalContext.retrieval.filesScanned,
+      chunksScanned: retrievalContext.retrieval.chunksScanned,
+      topFiles: retrievalContext.retrieval.chunks.map((chunk) => chunk.chunk.filePath),
+    });
+
+    return `${this.latestRuntimeContext}
+
+---
+
+${retrievalContext.context}`;
+  }
   private registerRuntimeTools(): void {
     const tools = [...createReadOnlyFilesystemTools(), ...createWriteControlledFilesystemTools()];
 

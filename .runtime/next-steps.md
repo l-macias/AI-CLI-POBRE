@@ -1,34 +1,18 @@
 # Next Steps
 
-## Next session
+## Próxima sesión
 
-Session 23 — Retrieval System v1
+SESIÓN 28 — Provider Strategy + Budget Integration
 
-## Goal
+## Objetivo
 
-Retrieve only relevant project context instead of sending broad project/runtime context to the model.
+Conectar selección de modelo por rol con control de presupuesto.
 
-## Implement
+## Pendientes importantes
 
-- `FileIndexer`
-- `Chunker`
-- `RelevanceScorer`
-- `ContextRetriever`
-- `ImportGraph`
-- `RetrievalCache`
-
-## Expected result
-
-Given a query such as "runtime loop", the runtime should return only relevant project chunks/files.
-
-## Rules
-
-- runtime remains authority
-- no shell tools
-- no git tools
-- no network tools
-- ignore protected files
-- ignore dependency/build directories
-- keep retrieval deterministic
-- keep retrieval cache local
-- prepare foundation for future planning prompts
+- Mover catálogo hardcodeado a configuración externa.
+- Reemplazar modelo ficticio `openai/gpt-5-premium`.
+- Permitir budgets por sesión.
+- Integrar ledger en flujo runtime.
+- Auditar selección + costo estimado.
+- Mantener fallback barato/free.

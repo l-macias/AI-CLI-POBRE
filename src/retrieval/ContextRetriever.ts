@@ -38,7 +38,8 @@ export class ContextRetriever {
     }
 
     const files = await this.getIndexedFiles();
-    const limitedFiles = input.maxFiles ? files.slice(0, input.maxFiles) : files;
+    const filteredFiles = this.filterFiles(files, input.excludePaths ?? []);
+    const limitedFiles = input.maxFiles ? filteredFiles.slice(0, input.maxFiles) : filteredFiles;
     const chunks = this.chunker.chunkFiles(limitedFiles);
     const scored = this.scorer.score(input.query, chunks);
     const maxChunks = input.maxChunks ?? 8;
@@ -74,5 +75,14 @@ export class ContextRetriever {
     return `${input.query}|files:${String(input.maxFiles ?? 'all')}|chunks:${String(
       input.maxChunks ?? 8,
     )}`;
+  }
+  private filterFiles(files: IndexedProjectFile[], excludePaths: string[]): IndexedProjectFile[] {
+    if (excludePaths.length === 0) {
+      return files;
+    }
+
+    return files.filter((file) => {
+      return !excludePaths.some((excludedPath) => file.path.startsWith(excludedPath));
+    });
   }
 }

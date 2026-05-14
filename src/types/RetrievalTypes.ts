@@ -18,6 +18,7 @@ export interface RetrievalQuery {
   query: string;
   maxFiles?: number | undefined;
   maxChunks?: number | undefined;
+  excludePaths?: string[] | undefined;
 }
 
 export interface ScoredChunk {
@@ -37,9 +38,21 @@ export interface RetrievalResult {
 export interface ImportGraphEdge {
   from: string;
   to: string;
+  importPath?: string | undefined;
+  isTypeOnly?: boolean | undefined;
+  specifiers?: string[] | undefined;
+}
+
+export interface ImportGraphImport {
+  sourceFilePath: string;
+  importedPath: string;
+  resolvedPath?: string | undefined;
+  isTypeOnly: boolean;
+  specifiers: string[];
 }
 
 export interface ImportGraphResult {
   files: string[];
   edges: ImportGraphEdge[];
+  imports: ImportGraphImport[];
 }

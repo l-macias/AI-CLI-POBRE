@@ -1,45 +1,24 @@
-import { loadEnv } from "./config/env.js";
-import { Logger } from "./observability/Logger.js";
-import { ModelSelector } from "./providers/ModelSelector.js";
-import { OpenRouterProvider } from "./providers/OpenRouterProvider.js";
-import { PromptBuilder } from "./providers/PromptBuilder.js";
-import { ProviderManager } from "./providers/ProviderManager.js";
+import { CliRunner } from './cli/CliRunner.js';
 
-const logger = new Logger({
-  namespace: "zero-runtime:bootstrap",
-  level: "debug",
-});
+async function main(): Promise<void> {
+  const runner = new CliRunner();
+  const args = process.argv.slice(2);
+  const result = await runner.run(args);
 
-function main(): void {
-  const env = loadEnv();
+  const requestedFormat = args.includes('--format')
+    ? args[args.indexOf('--format') + 1]
+    : undefined;
 
-  const modelSelector = new ModelSelector({
-    defaultModel: env.OPENROUTER_DEFAULT_MODEL,
-  });
+  const format = requestedFormat === 'json' ? 'json' : 'text';
 
-  const providerManager = new ProviderManager();
+  console.log(runner.format(result, format));
 
-  providerManager.register(
-    new OpenRouterProvider({
-      apiKey: env.OPENROUTER_API_KEY,
-      baseUrl: env.OPENROUTER_BASE_URL,
-    }),
-  );
-
-  const promptBuilder = new PromptBuilder();
-
-  const messages = promptBuilder.build({
-    system:
-      'You are a provider connectivity test. Reply with a short JSON object: {"ok": true, "message": "ready"}.',
-    user: "Test provider layer.",
-  });
-
-  logger.info("Provider layer initialized", {
-    provider: "openrouter",
-    model: modelSelector.selectModel(),
-    openRouterConfigured: Boolean(env.OPENROUTER_API_KEY),
-    messageCount: messages.length,
-  });
+  if (result.status === 'error') {
+    process.exitCode = 1;
+  }
 }
 
-main();
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+});

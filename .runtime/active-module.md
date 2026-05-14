@@ -1,42 +1,36 @@
 # Active Module
 
-## Module
+## Módulo activo
 
-Retrieval System v1
+Provider Strategy + Budget Integration
 
-## Session
+## Sesión actual
 
-Session 23 — Retrieval System v1
+SESIÓN 28 — Provider Strategy + Budget Integration
 
-## Status
+## Estado
 
-Starting
+Pendiente.
 
-## Purpose
+## Objetivo
 
-Retrieve relevant project context instead of sending broad runtime/project context to the model.
+Integrar Provider Strategy y Model Budget Controller al runtime real.
 
-## Goal
+## Contexto
 
-The runtime should search, chunk, score, and return only the most relevant project files/chunks for a given query.
+Provider Strategy y Model Budget Controller ya existen y pasan tests aislados.
 
-## Planned components
+Importante:
 
-- FileIndexer
-- Chunker
-- RelevanceScorer
-- ContextRetriever
-- ImportGraph
-- RetrievalCache
+- El catálogo de precios/modelos todavía está hardcodeado.
+- `openai/gpt-5-premium` es ficticio y solo sirve para tests.
+- Antes de producción, mover configuración a `.runtime`.
 
-## Core rule
+## Restricciones
 
-Retrieval is runtime-owned.
-
-The model may consume retrieved context, but the runtime decides:
-
-- which files are indexed
-- which files are ignored
-- how chunks are produced
-- how relevance is scored
-- what context is returned
+- No premium sin aprobación.
+- Toda selección debe auditarse.
+- Todo costo debe estimarse o declararse desconocido.
+- No network tools extra.
+- No usar `any`.
+- Test obligatorio.

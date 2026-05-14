@@ -1,502 +1,254 @@
-# Handoff
+# Zero Runtime — Handoff
 
-## Project
+## Estado actual
 
-Zero Runtime
+Sesiones completadas: 1 a 24.75.
 
-## Current Position
+El proyecto está listo para comenzar:
 
-Sessions 10 and 11 are complete.
+## SESIÓN 25 — CLI v1
 
-The runtime can now generate plans, validate structured output, reject invalid provider/model responses, validate plan architecture, and persist only accepted plans.
+## Resumen reciente
 
-## Completed Recently
+### Sesión 24 — Code Intelligence Layer
 
-### Session 10 - Plan Persistence + Architecture Path Guardrails
+Se creó una capa de inteligencia de código que permite analizar un archivo antes de editarlo.
 
-Implemented:
+Implementado:
 
-- `.runtime/active-plan.json`
-- `.runtime/plan-history.md`
-- `PlanPersistence`
-- `ArchitecturePathGuard`
-- canonical path validation through `PlanValidator`
-- accepted-plan persistence after validation
+- `src/types/CodeIntelligenceTypes.ts`
+- `src/code-intelligence/FileRelationshipMap.ts`
+- `src/code-intelligence/RelatedFilesResolver.ts`
+- `src/code-intelligence/CodeSymbolScanner.ts`
+- `src/code-intelligence/TypeReferenceScanner.ts`
+- `src/code-intelligence/CodeIntelligenceReport.ts`
+- `src/examples/code-intelligence-test.ts`
+- `src/retrieval/ImportGraph.ts` mejorado
 
-Confirmed:
+Tests:
 
-- Generated plans are validated before persistence.
-- Non-canonical architecture paths can be rejected.
-- Accepted plans are written to runtime files.
-- Invalid plans are not persisted.
+- `npm run code-intelligence:test`
+- `npm run typecheck`
+- `npm run lint`
 
-### Session 11 - Plan Rejection + Retry Policy
+Todos pasaron.
 
-Implemented:
+### Sesión 24.5 — AST-Safe Editing v1
 
-- `PlanGenerationAttempt`
-- `PlanGenerationRetryPolicy`
-- runtime-owned classification of plan generation failures
-- retry/rejection policy for provider and structured output errors
-- non-retryable provider rejection
+Se creó la base de edición estructural segura.
 
-Confirmed:
+Implementado:
 
-- Valid plan generation still works.
-- Provider model errors are rejected by retry policy.
-- `PLAN_GENERATION_REJECTED_BY_RETRY_POLICY` works for non-retryable cases.
-- `openai/gpt-oss-120b` successfully generated and persisted a valid plan.
+- `src/types/ASTEditTypes.ts`
+- `src/ast-edit/StructuredEditIntent.ts`
+- `src/ast-edit/FunctionBoundaryDetector.ts`
+- `src/ast-edit/ImportEditorTool.ts`
+- `src/ast-edit/ExportEditorTool.ts`
+- `src/ast-edit/SafeReplacementPlanner.ts`
+- `src/ast-edit/StructuredEditPreview.ts`
+- `src/ast-edit/ASTEditTool.ts`
+- `src/examples/ast-safe-edit-test.ts`
 
-## Current Architecture Rule
+Punto clave:
+`ASTEditTool` no escribe. Solo genera preview y `diffFileInput`.
 
-The runtime remains the authority.
+La escritura sigue bajo:
 
-The model proposes plans only.
+- `DiffFileTool`
+- `EditFileTool`
+- `diffConfirmed: true`
+- backup automático
 
-The runtime validates structured output, schema, safety, architecture, and persistence eligibility.
+Tests:
 
-No invalid or rejected plan may enter runtime state as accepted.
+- `npm run ast-edit:test`
+- `npm run typecheck`
+- `npm run lint`
 
-No plan execution exists yet.
+Todos pasaron.
 
-No filesystem tools exist yet.
+### Sesión 24.75 — Validation Feedback Loop
 
-## Next Session
+Se creó una capa para transformar errores de validación en feedback estructurado.
 
-Session 12 - Plan Review State Machine
+Implementado:
 
-## Session 12 Objective
+- `src/types/ValidationFeedbackTypes.ts`
+- `src/validation-feedback/TypeErrorAnalyzerTool.ts`
+- `src/validation-feedback/LintErrorAnalyzerTool.ts`
+- `src/validation-feedback/ValidationResultAnalyzer.ts`
+- `src/validation-feedback/ValidationFeedbackMapper.ts`
+- `src/validation-feedback/FixCandidateGenerator.ts`
+- `src/validation-feedback/ValidationFailureContextBuilder.ts`
+- `src/examples/validation-feedback-test.ts`
 
-Formalize the lifecycle of a generated plan before execution exists.
+Resultado:
 
-A valid generated plan must not automatically become executable.
+- Parseo de errores TypeScript.
+- Parseo de errores ESLint.
+- Preservación de validaciones skipped.
+- Generación de affected files.
+- Generación de related files/symbols to retrieve.
+- Generación de fix candidates.
+- Decisión sugerida: `inspect_related_files`, `replan`, `block` o `none`.
 
-The runtime should explicitly track whether a plan is:
+Tests:
 
-- generated
-- validated
-- rejected
-- approved
-- ready_for_execution
+- `npm run validation:feedback:test`
+- `npm run typecheck`
+- `npm run lint`
 
-## Session 12 Implementation Targets
+Todos pasaron.
 
-Likely files:
+## Reglas activas
 
-- `src/types/PlanningTypes.ts`
-- `src/core/RuntimeState.ts`
-- `src/core/AgentRuntime.ts`
-- `src/planning/PlanPersistence.ts`
-- possibly `src/planning/PlanReviewStateMachine.ts`
-
-## Constraints
-
-- TypeScript strict.
-- `exactOptionalPropertyTypes: true`.
-- ESM imports must include `.js`.
-- No `any`.
-- No filesystem tools.
-- No real tool execution.
-- No automatic execution after plan validation.
-- Runtime decisions must remain deterministic and validation-first.
-
-# Zero Runtime Handoff
-
-## Current status
-
-Sessions 1 through 18 are completed.
-
-## Latest completed session
-
-Session 18 — Runtime Tool Execution Gate + Plan Step Mapping
-
-## What was completed in Session 18
-
-Runtime tools are now connected to AgentRuntime behind strict runtime gates.
-
-New/updated behavior:
-
-- `AgentRuntime.executeActivePlanStep(stepId)` executes one explicit step.
-- Execution is allowed only when `activePlanReview.status === "ready_for_execution"`.
-- Plan steps map to `ToolExecutionRequest` through `PlanStepToolMapper`.
-- Execution goes through `ToolRuntimeExecutor`.
-- `ToolExecutionValidator` validates request shape, registered tool, permissions policy, and input schema.
-- `ToolPermissionManager` checks guardrails before execution.
-- Runtime audit logs are emitted for gate blocks, mapper failures, and execution results.
-
-## New files
-
-- `src/tools/RuntimeToolExecutionGate.ts`
-- `src/tools/PlanStepToolMapper.ts`
-- `src/tools/RuntimeToolController.ts`
-- `src/examples/runtime-tool-execution-gate-test.ts`
-
-## Updated files
-
-- `src/types/PlanningTypes.ts`
-- `src/core/AgentRuntime.ts`
-- `package.json`
-
-## Confirmed tests
-
-Manual Session 18 test confirmed:
-
-- `validated` plan cannot execute.
-- `approved` plan cannot execute.
-- `ready_for_execution` plan can execute `create_file`.
-- missing step is blocked.
-- `run_command` is blocked.
-- `.env` is blocked by protected file guardrails.
-
-## Important architecture rule
-
-The runtime remains the authority.
-
-The model can propose:
-
-- plan steps
-- `toolIntent`
-
-But only the runtime can:
-
-- map
-- validate
-- authorize
-- execute
-- audit
-
-## Current limitations
-
-- No full-plan execution yet.
-- No execution queue yet.
-- No step state yet.
-- No rollback orchestration yet.
-- No execution history file yet.
-- No shell tools.
+- El runtime manda.
+- El modelo solo propone.
+- Validation-first.
+- Nada escapa de guardrails.
+- No shell tools libres.
 - No git tools.
 - No network tools.
+- No comandos arbitrarios.
+- No `any`.
+- Mantener `exactOptionalPropertyTypes`.
+- ESM imports internos con `.js`.
+- Test obligatorio al final de cada sesión.
 
-## Next session
+## Próximo paso
 
-Session 19 — Execution Engine
+Comenzar SESIÓN 25 — CLI v1.
 
-## Session 19 objective
+Antes de codificar revisar:
 
-Create a controlled execution layer that can execute plan steps sequentially through the already-built `RuntimeToolController`.
+```txt
+src/index.ts
+src/core/AgentRuntime.ts
+src/core/RuntimeInitializer.ts
+src/core/ContextAssembler.ts
+src/core/RuntimeState.ts
+src/types/RuntimeTypes.ts
+src/types/ContextTypes.ts
+src/types/ObjectiveTypes.ts
+src/types/PlanningTypes.ts
+src/validation/ValidationOrchestrator.ts
+src/code-intelligence/CodeIntelligenceReport.ts
+src/validation-feedback/ValidationFailureContextBuilder.ts
+src/ast-edit/ASTEditTool.ts
+package.json
+```
 
-Expected components:
+## Última sesión completada
 
-- `ExecutionEngine`
-- `TaskQueue`
-- `ExecutionHistory`
-- step execution state
-- basic rollback foundation
-- controlled execution APIs in `AgentRuntime`
+### SESIÓN 25 — CLI v1
 
-Do not bypass the Session 18 gate.
+Implementado:
 
-# Zero Runtime Handoff
+- CLI parser
+- help renderer
+- output formatter
+- runtime bridge
+- CLI runner
+- entrada CLI en `src/index.ts`
+- test CLI
 
-## Current status
+Comandos:
 
-Sessions 1 through 19 are completed.
+- `help`
+- `context`
+- `validate`
+- `validation-feedback`
+- `code-intel`
 
-## Latest completed session
+Tests:
 
-Session 19 — Execution Engine
+- `npm run cli:test`
+- `npm run typecheck`
+- `npm run lint`
 
-## What was completed
+Todos pasaron.
 
-The runtime now has a controlled execution engine.
+## Próximo paso
 
-Implemented:
+SESIÓN 26 — Project Bootstrapper
 
-- `ExecutionEngine`
-- `TaskQueue`
-- `StepExecutionStateMachine`
-- `ExecutionHistory`
-- `ExecutionTypes`
+## Última sesión completada
 
-AgentRuntime now supports:
+### SESIÓN 26 — Project Bootstrapper
 
-- executing one explicit step through the engine
-- executing the next pending step
-- sequential execution with a max step limit
+Implementado:
 
-## Confirmed behavior
+- Stack detection
+- Runtime directory inspection
+- Bootstrap templates
+- Bootstrap planner
+- Bootstrap writer
+- ProjectBootstrapper
+- Test de bootstrap
 
-- explicit step execution works
-- already executed steps are blocked
-- next pending step execution works
-- no pending steps is blocked
-- execution history is written
-- execution still goes through Session 18 gates
+Resultado:
+El runtime puede inicializar `.runtime` en un proyecto nuevo con 12 archivos base.
 
-## Important constraints
+Tests:
 
-- no shell tools
-- no git tools
-- no network tools
-- no direct model execution
-- runtime remains authority
-- validation-first remains mandatory
+- `npm run bootstrap:test`
+- `npm run typecheck`
+- `npm run lint`
 
-## Next session
+Todos pasaron.
 
-Session 20 — Runtime Loop v1
+## Próximo paso
 
-## Objective
+SESIÓN 27 — Provider Strategy v1
 
-Build the first end-to-end agent loop:
-objective -> context -> plan -> validate -> approve -> ready -> execute step -> validate result -> update state.
+## Última sesión completada
 
-# Zero Runtime Handoff
+### SESIÓN 27 — Provider Strategy v1
 
-## Current status
+Implementado:
 
-Sessions 1 through 20 are completed.
+- Provider strategy types
+- Provider policy
+- Risk-based model selector
+- Provider selection auditor
+- Test de estrategia
 
-## Latest completed session
+Resultado:
+El runtime puede elegir modelos por rol, usar fallback chain y bloquear premium si no está permitido.
 
-Session 20 — Runtime Loop v1
+Tests:
 
-## What was completed
+- `npm run provider:strategy:test`
+- `npm run typecheck`
+- `npm run lint`
 
-The first end-to-end runtime-centered agent loop is working.
+Todos pasaron.
 
-Flow confirmed:
+## Próximo paso
 
-1. accept objective
-2. load context
-3. generate plan
-4. validate plan
-5. persist plan
-6. approve plan
-7. mark plan ready for execution
-8. execute controlled step
-9. audit result
-10. complete loop state
+SESIÓN 27.5 — Model Budget Controller
 
-## Confirmed test
+## Última sesión completada
 
-`runtime:loop:test` completed successfully.
+### SESIÓN 27.5 — Model Budget Controller
 
-Observed:
+Implementado:
 
-- plan generated by model
-- runtime validated the plan
-- runtime persisted the plan
-- runtime approved the plan
-- runtime marked it ready for execution
-- runtime executed `create_file`
-- runtime loop completed
+- ModelPricingCatalog
+- TokenBudget
+- CostBudget
+- ModelEscalationGuard
+- FreeModelFirstPolicy
+- PremiumApprovalGate
+- ProviderUsageLedger
+- ModelBudgetController
 
-## Important architecture state
+Resultado:
+El runtime puede bloquear excedentes de tokens/costo, exigir aprobación premium y registrar uso estimado.
 
-The model still cannot execute tools directly.
+Nota:
+Los modelos, precios y budgets actuales están hardcodeados para test.
+`openai/gpt-5-premium` es ficticio.
 
-The runtime owns:
-
-- plan validation
-- approval transition
-- ready-for-execution transition
-- step execution
-- guardrail checks
-- audit logging
-
-## Current limitations
-
-- no failure recovery yet
-- no replanner yet
-- no loop detector yet
-- no recursive failure guard yet
-- no retry policy by step yet
-
-## Next session
-
-Session 21 — Failure Recovery + Replanner
-
-## Objective
-
-If execution fails, the runtime must classify the failure, decide whether retry/replan is allowed, prevent recursive failures, prevent loops, and keep control.
-
-# Next Steps
-
-## Next session
-
-Session 22 — Context Compressor + Memory Compactor
-
-## Goal
-
-Reduce context/token usage while preserving useful runtime state.
-
-## Implement
-
-- `ContextCompressor`
-- `MemoryCompactor`
-- `SummaryMemory`
-- `.runtime/compressed-context.md`
-- `.runtime/runtime-summary.md`
-- compression policy
-- runtime summary writer
-- compacted context loader support
-
-## Rules
-
-- runtime remains authority
-- compression must be deterministic where possible
-- preserve recent decisions
-- preserve current module
-- preserve next steps
-- preserve unresolved issues
-- avoid sending all project context
-- no shell tools
-- no git tools
-- no network tools
-
-## Next known session
-
-Session 23 — Retrieval System v1
-
-Purpose:
-Retrieve relevant project context instead of sending the whole project.
-
-Planned:
-
-- FileIndexer
-- Chunker
-- RelevanceScorer
-- ContextRetriever
-- basic ImportGraph
-- RetrievalCache
-
-# Zero Runtime Handoff
-
-## Current status
-
-Sessions 1 through 21 are completed.
-
-## Latest completed session
-
-Session 21 — Failure Recovery + Replanner
-
-## What was completed
-
-The runtime now has controlled failure recovery.
-
-Implemented:
-
-- failure classification
-- recursive failure guard
-- loop detector
-- failure history
-- replanner base
-- failure recovery orchestration
-
-## Confirmed tests
-
-`failure:test` confirmed:
-
-- protected path failure -> `protected_path`
-- repeated protected path failure -> `loop_detected`
-- excessive recovery depth -> `recursive_failure`
-
-`runtime:failure-loop:test` confirmed:
-
-- protected `.env` access is blocked by guardrails
-- ExecutionEngine marks the step as `blocked`
-- blocked execution result can be classified by recovery pipeline
-
-## Important architecture state
-
-The runtime does not improvise on failure.
-
-Failure flow:
-
-1. classify failure
-2. check recursive depth
-3. check repeated failure loop
-4. choose action
-5. write failure history
-6. optionally suggest replan objective
-
-## Current limitations
-
-- retry is classified but not automatically executed
-- replan is suggested but not automatically executed
-- rollback orchestration is not implemented yet
-- context compression is not implemented yet
-- retrieval is not implemented yet
-
-## Next session
-
-Session 22 — Context Compressor + Memory Compactor
-
-## Session 23 preview
-
-Retrieval System v1:
-
-- FileIndexer
-- Chunker
-- RelevanceScorer
-- ContextRetriever
-- ImportGraph básico
-- RetrievalCache
-
-# Zero Runtime Handoff
-
-## Current status
-
-Sessions 1 through 22 are completed.
-
-## Latest completed session
-
-Session 22 — Context Compressor + Memory Compactor
-
-## Completed
-
-The runtime now supports deterministic memory compaction.
-
-Files generated:
-
-- `.runtime/compressed-context.md`
-- `.runtime/runtime-summary.md`
-
-RuntimeInitializer now prefers compressed context when available.
-
-## Confirmed test
-
-`memory:test` completed successfully.
-
-Observed:
-
-- original characters: 47429
-- compressed characters: 7924
-- compression ratio: 0.1671
-- compressed context files written
-- compressed context loaded successfully
-
-## Important architecture state
-
-The runtime now has:
-
-- controlled tool execution
-- execution engine
-- runtime loop
-- failure recovery
-- memory compaction
-
-## Next session
-
-Session 23 — Retrieval System v1
-
-## Objective
-
-Add deterministic project context retrieval:
-
-- index files
-- chunk content
-- score relevance
-- retrieve relevant chunks
-- cache results
-- build a basic import graph
+Próximo paso:
+Integrar Provider Strategy + Budget Controller al runtime y mover configuración a `.runtime`.

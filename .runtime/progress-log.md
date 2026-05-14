@@ -1020,3 +1020,416 @@ Session 22 completed successfully.
 
 Next:
 Session 23 — Retrieval System v1.
+
+## Session 23 — Retrieval System v1
+
+Completed deterministic retrieval system.
+
+Implemented:
+
+- `src/types/RetrievalTypes.ts`
+- `src/retrieval/FileIndexer.ts`
+- `src/retrieval/Chunker.ts`
+- `src/retrieval/RelevanceScorer.ts`
+- `src/retrieval/ContextRetriever.ts`
+- `src/retrieval/ImportGraph.ts`
+- `src/retrieval/RetrievalCache.ts`
+- `src/examples/retrieval-system-test.ts`
+
+Confirmed:
+
+- 153 files scanned
+- 278 chunks scanned
+- 8 relevant chunks returned
+- import graph built with 153 files and 327 edges
+- relevant files ranked correctly for runtime/failure query
+
+Result:
+Session 23 completed successfully.
+
+## Session 23.5 — Retrieval Integration into Runtime Context
+
+Completed planning retrieval integration.
+
+Implemented:
+
+- `src/types/RetrievalContextTypes.ts`
+- `src/retrieval/RetrievalContextBuilder.ts`
+- `src/retrieval/PlanningContextRetriever.ts`
+- `src/examples/retrieval-planning-context-test.ts`
+
+Updated:
+
+- `src/core/AgentRuntime.ts`
+- `src/types/RetrievalTypes.ts`
+- `src/retrieval/ContextRetriever.ts`
+- `package.json`
+
+Confirmed:
+
+- planning retrieval returned 6 relevant chunks
+- `src/examples/` excluded from planning retrieval
+- top result became `src/loop/RuntimeLoop.ts`
+- retrieved context included RuntimeLoop, RuntimeLoopTypes, FailureTypes, and decisions
+
+Result:
+Session 23.5 completed successfully.
+
+Next:
+Session 24 — Code Intelligence Layer.
+
+## SESIÓN 24 — Code Intelligence Layer
+
+Estado: Completada.
+
+Objetivo:
+Crear una capa de inteligencia de código para que el runtime entienda relaciones entre archivos antes de editar.
+
+Implementado:
+
+- `src/types/CodeIntelligenceTypes.ts`
+- `src/code-intelligence/FileRelationshipMap.ts`
+- `src/code-intelligence/RelatedFilesResolver.ts`
+- `src/code-intelligence/CodeSymbolScanner.ts`
+- `src/code-intelligence/TypeReferenceScanner.ts`
+- `src/code-intelligence/CodeIntelligenceReport.ts`
+- `src/examples/code-intelligence-test.ts`
+- `src/retrieval/ImportGraph.ts` mejorado
+- Script `code-intelligence:test`
+
+Resultado:
+
+- El runtime puede detectar qué importa un archivo.
+- El runtime puede detectar quién importa un archivo.
+- El runtime puede resolver archivos relacionados por import graph + retrieval.
+- El runtime puede detectar exports/imports básicos.
+- El runtime puede detectar referencias textuales de tipos.
+- El runtime puede generar un reporte de inteligencia previo a edición.
+
+Ajustes realizados:
+
+- Se excluyó `.runtime/` del retrieval usado por Code Intelligence.
+- Se evitó escanear `src/examples/` como archivos de símbolos/tipos relacionados.
+- Se limpió detección basura del `TypeReferenceScanner`.
+
+Tests:
+
+- `npm run code-intelligence:test` pasó.
+- `npm run typecheck` pasó.
+- `npm run lint` pasó.
+
+Reglas respetadas:
+
+- No shell tools.
+- No git tools.
+- No network tools.
+- No edición automática.
+- No uso de `any`.
+- ESM imports con `.js`.
+- `exactOptionalPropertyTypes` respetado.
+
+---
+
+## SESIÓN 24.5 — AST-Safe Editing v1
+
+Estado: Completada.
+
+Objetivo:
+Crear una base inicial de edición estructural segura, sin permitir que el modelo escriba archivos libremente.
+
+Implementado:
+
+- `src/types/ASTEditTypes.ts`
+- `src/ast-edit/StructuredEditIntent.ts`
+- `src/ast-edit/FunctionBoundaryDetector.ts`
+- `src/ast-edit/ImportEditorTool.ts`
+- `src/ast-edit/ExportEditorTool.ts`
+- `src/ast-edit/SafeReplacementPlanner.ts`
+- `src/ast-edit/StructuredEditPreview.ts`
+- `src/ast-edit/ASTEditTool.ts`
+- `src/examples/ast-safe-edit-test.ts`
+- Script `ast-edit:test`
+
+Resultado:
+
+- `ASTEditTool` prepara previews estructurados.
+- `ASTEditTool` no escribe archivos.
+- `ASTEditTool` trabaja como runtime tool con permiso `read`.
+- Se puede preparar:
+  - agregar import;
+  - remover import;
+  - agregar named export;
+  - remover named export;
+  - reemplazar función;
+  - reemplazar body de función.
+- Se genera `proposedContent`.
+- Se genera `diffFileInput` para pasar a `DiffFileTool`.
+- Ediciones ambiguas o imposibles se rechazan.
+- Función inexistente se rechaza correctamente.
+
+Ajustes realizados:
+
+- Se corrigió `FunctionBoundaryDetector` para evitar duplicados entre `functionDeclarationPattern` y `methodPattern`.
+- Se agregó normalización de boundaries duplicados anidados.
+- Se confirmó que `replace_function_body` cambia solo la línea esperada.
+- Se agregó `.runtime/**` al ignore de ESLint para evitar lint de archivos temporales.
+
+Tests:
+
+- `npm run ast-edit:test` pasó.
+- `npm run typecheck` pasó.
+- `npm run lint` pasó.
+
+Reglas respetadas:
+
+- No escritura directa.
+- No bypass de `EditFileTool`.
+- `diffConfirmed: true` sigue siendo obligatorio para escritura real.
+- Backup automático sigue dependiendo de `EditFileTool`.
+- No shell tools.
+- No git tools.
+- No network tools.
+- No uso de `any`.
+
+Nota técnica:
+El preview/diff actual usa comparación lineal simple. Funciona, pero cuando se inserta una línea puede mostrar más cambios visuales de los reales. No bloquea la sesión; queda como mejora futura.
+
+---
+
+## SESIÓN 24.75 — Validation Feedback Loop
+
+Estado: Completada.
+
+Objetivo:
+Convertir errores de validación en feedback estructurado para el runtime.
+
+Implementado:
+
+- `src/types/ValidationFeedbackTypes.ts`
+- `src/validation-feedback/TypeErrorAnalyzerTool.ts`
+- `src/validation-feedback/LintErrorAnalyzerTool.ts`
+- `src/validation-feedback/ValidationResultAnalyzer.ts`
+- `src/validation-feedback/ValidationFeedbackMapper.ts`
+- `src/validation-feedback/FixCandidateGenerator.ts`
+- `src/validation-feedback/ValidationFailureContextBuilder.ts`
+- `src/examples/validation-feedback-test.ts`
+- Script `validation:feedback:test`
+
+Resultado:
+
+- El runtime puede analizar resultados de validación disponibles/manuales.
+- Detecta errores TypeScript con:
+  - archivo;
+  - línea;
+  - columna;
+  - código TS;
+  - mensaje limpio;
+  - símbolo/import involucrado.
+- Detecta errores ESLint con:
+  - archivo;
+  - línea;
+  - columna;
+  - regla;
+  - símbolo involucrado.
+- Preserva validaciones `skipped` como contexto informativo.
+- Genera:
+  - `affectedFiles`;
+  - `relatedFilesToRetrieve`;
+  - `symbols`;
+  - `fixCandidates`;
+  - decisión sugerida.
+
+Decisiones posibles:
+
+- `none`
+- `inspect_related_files`
+- `replan`
+- `block`
+
+Ajustes realizados:
+
+- Se corrigió el test para contemplar validaciones `skipped`.
+- Se mejoró `TypeErrorAnalyzerTool` para extraer símbolos del patrón:
+  - `'X' is declared but its value is never read`.
+
+Tests:
+
+- `npm run validation:feedback:test` pasó.
+- `npm run typecheck` pasó.
+- `npm run lint` pasó.
+
+Reglas respetadas:
+
+- No ejecución de comandos fuera de validadores existentes.
+- No shell tools libres.
+- No git tools.
+- No network tools.
+- No retry automático.
+- No replan automático.
+- No modificación de `FailureRecovery` todavía.
+- No uso de `any`.
+
+Conclusión:
+La sesión 24.75 deja preparada una capa de feedback para que futuros errores de TypeScript/lint/build puedan alimentar recuperación controlada, retrieval y replanning seguro.
+
+## SESIÓN 25 — CLI v1
+
+Estado: Completada.
+
+Objetivo:
+Crear una CLI inicial para operar capacidades internas del runtime sin abrir shell/git/network.
+
+Implementado:
+
+- `src/cli/CliTypes.ts`
+- `src/cli/CliCommandParser.ts`
+- `src/cli/CliHelpRenderer.ts`
+- `src/cli/CliOutputFormatter.ts`
+- `src/cli/CliRuntimeBridge.ts`
+- `src/cli/CliRunner.ts`
+- `src/examples/cli-test.ts`
+- `src/index.ts` ahora funciona como entrada CLI
+- Scripts:
+  - `cli`
+  - `cli:test`
+
+Comandos disponibles:
+
+- `help`
+- `context`
+- `validate`
+- `validation-feedback`
+- `code-intel`
+
+Ajustes:
+
+- Se movió el bootstrap provider viejo fuera del `index.ts`.
+- Se corrigió `validation-feedback` para clasificar `VALIDATION_COMMAND_NOT_EXECUTED` como `validation_skipped`.
+- Se limpiaron falsos positivos `A` / `Za` en `TypeReferenceScanner`.
+
+Tests:
+
+- `npm run cli:test` pasó.
+- `npm run typecheck` pasó.
+- `npm run lint` pasó.
+
+Reglas:
+
+- No shell tools.
+- No git tools.
+- No network tools.
+- No `child_process`.
+- No comandos arbitrarios.
+- No escritura.
+
+## SESIÓN 26 — Project Bootstrapper
+
+Estado: Completada.
+
+Objetivo:
+Permitir inicializar Zero Runtime en un repo nuevo de forma determinística.
+
+Implementado:
+
+- `src/bootstrap/BootstrapTypes.ts`
+- `src/bootstrap/StackDetector.ts`
+- `src/bootstrap/RuntimeDirectoryInspector.ts`
+- `src/bootstrap/RuntimeBootstrapTemplate.ts`
+- `src/bootstrap/RuntimeBootstrapPlanner.ts`
+- `src/bootstrap/RuntimeBootstrapWriter.ts`
+- `src/bootstrap/ProjectBootstrapper.ts`
+- `src/examples/project-bootstrapper-test.ts`
+
+Resultado:
+
+- Detecta stack básico.
+- Genera preview de `.runtime`.
+- Crea 12 archivos base.
+- Bloquea escritura sin `confirmCreate`.
+- Bloquea sobrescritura de `.runtime` existente sin `confirmOverwrite`.
+- No toca código del proyecto.
+- No lee `.env`.
+
+Tests:
+
+- `npm run bootstrap:test` pasó.
+- `npm run typecheck` pasó.
+- `npm run lint` pasó.
+
+## SESIÓN 27 — Provider Strategy v1
+
+Estado: Completada.
+
+Objetivo:
+Preparar selección de modelos por rol sin usar premium por defecto.
+
+Implementado:
+
+- `src/types/ProviderStrategyTypes.ts`
+- `src/providers/ProviderPolicy.ts`
+- `src/providers/ProviderStrategy.ts`
+- `src/providers/RiskBasedModelSelector.ts`
+- `src/providers/ProviderSelectionAuditor.ts`
+- `src/examples/provider-strategy-test.ts`
+
+Resultado:
+
+- Roles: `planner`, `retriever`, `coder`, `reviewer`, `repair`.
+- Modelo por rol.
+- Fallback chain por rol.
+- Premium bloqueado si no hay `allowPremium`.
+- Selección auditada.
+- OpenRouter sigue compatible.
+
+Tests:
+
+- `npm run provider:strategy:test` pasó.
+- `npm run typecheck` pasó.
+- `npm run lint` pasó.
+
+## SESIÓN 27.5 — Model Budget Controller
+
+Estado: Completada.
+
+Objetivo:
+Controlar presupuesto de tokens/costo y evitar gasto innecesario en modelos premium.
+
+Implementado:
+
+- `src/types/ModelBudgetTypes.ts`
+- `src/providers/ModelPricingCatalog.ts`
+- `src/providers/TokenBudget.ts`
+- `src/providers/CostBudget.ts`
+- `src/providers/ModelEscalationGuard.ts`
+- `src/providers/FreeModelFirstPolicy.ts`
+- `src/providers/PremiumApprovalGate.ts`
+- `src/providers/ProviderUsageLedger.ts`
+- `src/providers/ModelBudgetController.ts`
+- `src/examples/model-budget-controller-test.ts`
+
+Resultado:
+
+- Control de tokens por prompt/completion/total.
+- Estimación de costo por modelo.
+- Bloqueo de premium sin aprobación.
+- Guard de escalada premium.
+- Política free-model-first.
+- Ledger de uso/costo estimado.
+- Resumen de tokens y costo por sesión.
+
+Nota importante:
+En esta versión los modelos, precios y límites están hardcodeados para validar arquitectura y tests.
+`openai/gpt-5-premium` es un modelo ficticio usado solo para probar el flujo premium.
+
+Pendiente:
+Mover modelos, precios y budgets a configuración externa, por ejemplo:
+
+- `.runtime/runtime-config.json`
+- `.runtime/model-budget.json`
+- `.runtime/provider-rules.md`
+
+Tests:
+
+- `npm run model:budget:test` pasó.
+- `npm run typecheck` pasó.
+- `npm run lint` pasó.

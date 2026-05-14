@@ -370,3 +370,241 @@ Session 23 will add project-context retrieval.
 
 Reason:
 Compression reduces runtime memory; retrieval reduces project source context.
+
+## Session 23 — Retrieval System v1
+
+### Decision: retrieval is deterministic and local
+
+The runtime indexes local project files, chunks content, scores relevance, and returns ranked chunks without network calls.
+
+Reason:
+Project context retrieval must be cheap, deterministic, and runtime-controlled.
+
+### Decision: protected and irrelevant paths are ignored
+
+The file indexer ignores dependency/build/protected paths such as:
+
+- `node_modules`
+- `.git`
+- `dist`
+- `build`
+- `.next`
+- `.env`
+
+Reason:
+Retrieval must not expose protected files or waste context on generated/dependency content.
+
+### Decision: retrieval uses chunk-level scoring
+
+Files are split into chunks and scored independently.
+
+Reason:
+Planning should receive only relevant parts of files, not entire files by default.
+
+### Decision: import graph is basic but useful
+
+The first import graph extracts local imports and resolves `.js` ESM imports back to TypeScript source files when possible.
+
+Reason:
+This creates the foundation for code intelligence and relationship-aware editing.
+
+## Session 23.5 — Retrieval Integration into Runtime Context
+
+### Decision: planning context includes retrieved project chunks
+
+`AgentRuntime.generatePlan()` now enriches runtime memory with retrieved project context before calling `PlanGenerator`.
+
+Reason:
+The model should plan with relevant project files instead of relying only on memory summaries.
+
+### Decision: examples are excluded from planning retrieval
+
+`PlanningContextRetriever` excludes `src/examples/`.
+
+Reason:
+Planning should prioritize production/runtime files, not test/demo files.
+
+### Decision: PlanGenerator remains unchanged
+
+Retrieval context is appended to the existing `runtimeContext` string.
+
+Reason:
+This keeps the planning contract simple and avoids adding new provider/schema complexity.
+
+```md
+## Decisión — Code Intelligence antes de editar
+
+Fecha: 2026-05-14
+
+Decisión:
+Antes de preparar ediciones estructuradas, el runtime debe poder construir contexto estructural del archivo objetivo.
+
+Motivo:
+El runtime debe saber qué archivo toca, quién lo importa, qué importa, qué símbolos expone y qué chunks relacionados existen antes de permitir una edición.
+
+Implementado en:
+
+- `CodeIntelligenceReport`
+- `FileRelationshipMap`
+- `RelatedFilesResolver`
+- `CodeSymbolScanner`
+- `TypeReferenceScanner`
+- `ImportGraph` mejorado
+
+Estado:
+Aplicado.
+
+---
+
+## Decisión — ASTEditTool no escribe archivos
+
+Fecha: 2026-05-14
+
+Decisión:
+`ASTEditTool` en v1 solo genera preview estructurado. No escribe archivos.
+
+Motivo:
+La escritura debe seguir controlada por `EditFileTool`, que exige `diffConfirmed: true` y backup automático.
+
+Flujo correcto:
+`ASTEditTool` → `StructuredEditPreview` → `DiffFileTool` → revisión/confirmación → `EditFileTool`
+
+Estado:
+Aplicado.
+
+---
+
+## Decisión — Validation Feedback no reintenta ni replanea automáticamente
+
+Fecha: 2026-05-14
+
+Decisión:
+La capa `validation-feedback` solo analiza resultados de validación y genera contexto/decisión sugerida.
+
+No debe:
+
+- ejecutar comandos;
+- corregir automáticamente;
+- reintentar automáticamente;
+- replanear automáticamente;
+- modificar `FailureRecovery` todavía.
+
+Motivo:
+La recuperación automática debe integrarse de forma controlada después, respetando loop guard, failure recovery y runtime authority.
+
+Estado:
+Aplicado.
+
+---
+
+## Decisión — `.runtime/` queda fuera de ESLint
+
+Fecha: 2026-05-14
+
+Decisión:
+`.runtime/**` debe quedar ignorado por ESLint.
+
+Motivo:
+`.runtime/` contiene estado interno, backups, checkpoints, logs y archivos temporales de tests. No forma parte del código fuente del producto.
+
+Estado:
+Aplicado.
+```
+
+## Decisión — CLI controlada sin comandos arbitrarios
+
+Fecha: 2026-05-14
+
+Decisión:
+La CLI v1 solo expone capacidades internas del runtime.
+
+Incluye:
+
+- context
+- validate
+- validation-feedback
+- code-intel
+
+No incluye:
+
+- shell tools
+- git tools
+- network tools
+- `child_process`
+- comandos arbitrarios
+
+Estado:
+Aplicado.
+
+## Decisión — Bootstrap determinístico y confirmado
+
+Fecha: 2026-05-14
+
+Decisión:
+El Project Bootstrapper debe operar con preview primero y escritura confirmada.
+
+Reglas:
+
+- No sobrescribir `.runtime` existente sin `confirmOverwrite`.
+- No escribir sin `confirmCreate`.
+- No leer `.env`.
+- No tocar código del proyecto.
+- No usar shell/git/network.
+
+Estado:
+Aplicado.
+
+## Decisión — Modelos por rol con premium bloqueado por defecto
+
+Fecha: 2026-05-14
+
+Decisión:
+La selección de modelos debe depender del rol de tarea y quedar auditada.
+
+Roles:
+
+- planner
+- retriever
+- coder
+- reviewer
+- repair
+
+Reglas:
+
+- Premium no se usa por defecto.
+- `allowPremium` debe habilitar escalada.
+- OpenRouter sigue siendo compatible.
+- La selección queda registrada en audit log.
+
+Estado:
+Aplicado.
+
+## Decisión — Budgets y precios hardcodeados solo para arquitectura inicial
+
+Fecha: 2026-05-14
+
+Decisión:
+En SESIÓN 27.5 se aceptan modelos, precios y límites hardcodeados solo para validar arquitectura y tests.
+
+Motivo:
+Primero se necesitaba comprobar:
+
+- token budget;
+- cost budget;
+- premium approval gate;
+- escalation guard;
+- free-model-first policy;
+- usage ledger.
+
+Aclaración:
+`openai/gpt-5-premium` es ficticio y solo existe para probar bloqueo/aprobación premium.
+
+Pendiente:
+Mover configuración a archivos externos antes de uso real:
+
+- `.runtime/runtime-config.json`
+- `.runtime/model-budget.json`
+- `.runtime/provider-rules.md`
+
+Estado:
+Aceptado temporalmente.

@@ -29,7 +29,16 @@
     "failure:test": "tsx src/examples/failure-recovery-test.ts",
     "runtime:failure-loop:test": "tsx src/examples/runtime-loop-failure-recovery-test.ts",
     "memory:test": "tsx src/examples/context-compression-test.ts",
-    "retrieval:test": "tsx src/examples/retrieval-system-test.ts"
+    "retrieval:test": "tsx src/examples/retrieval-system-test.ts",
+    "retrieval:planning:test": "tsx src/examples/retrieval-planning-context-test.ts",
+    "code-intelligence:test": "tsx src/examples/code-intelligence-test.ts",
+    "ast-edit:test": "tsx src/examples/ast-safe-edit-test.ts",
+    "validation:feedback:test": "tsx src/examples/validation-feedback-test.ts",
+    "bootstrap:test": "tsx src/examples/project-bootstrapper-test.ts",
+    "provider:strategy:test": "tsx src/examples/provider-strategy-test.ts",
+    "model:budget:test": "tsx src/examples/model-budget-controller-test.ts",
+    "cli:test": "tsx src/examples/cli-test.ts",
+    "cli": "tsx src/index.ts"
   },
   "keywords": [
     "ai-agent",

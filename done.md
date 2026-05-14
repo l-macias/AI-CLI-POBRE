@@ -692,3 +692,242 @@ Implementar:
 Resultado:
 
 - El runtime mantiene contexto barato y útil.
+
+SESIÓN 23 — Retrieval System v1
+Objetivo:
+
+- Buscar contexto relevante del proyecto.
+
+Implementar:
+
+- FileIndexer
+- Chunker
+- RelevanceScorer
+- ContextRetriever
+- ImportGraph básico
+- RetrievalCache
+
+Resultado:
+
+- El runtime no manda todo el proyecto al modelo.
+- Recupera solo archivos relevantes.
+
+SESIÓN 23.5 — Retrieval Integration into Runtime Context
+Conecta retrieval con AgentRuntime / PlanGenerator
+
+# SESIÓN 24 — Code Intelligence Layer
+
+## Objetivo
+
+Mejorar edición de código con estructura y relaciones antes de editar.
+
+## Implementar recomendado
+
+- `FileRelationshipMap`
+- `ImportGraph` mejorado
+- `RelatedFilesResolver`
+- `CodeSymbolScanner` básico
+- `TypeReferenceScanner` básico
+- `CodeIntelligenceReport`
+- base para `ASTEditTool` posterior
+
+## Resultado esperado
+
+Antes de tocar un archivo, el runtime debe saber:
+
+- quién importa el archivo;
+- qué importa el archivo;
+- qué archivos están relacionados;
+- qué chunks relevantes recupera retrieval;
+- símbolos exportados/importados básicos;
+- referencias textuales útiles.
+
+## Reglas
+
+- No editar archivos todavía salvo los de la sesión.
+- No avanzar a AST-Safe Editing completa.
+- No shell tools.
+- No git tools.
+- No network tools.
+- No usar `any`.
+- Mantener `exactOptionalPropertyTypes`.
+- ESM imports con `.js`.
+- Test obligatorio al final.
+
+---
+
+# SESIÓN 24.5 — AST-Safe Editing v1
+
+## Objetivo
+
+Crear la primera base de edición estructural segura.
+
+La idea no es que el modelo escriba archivos completos libremente, sino que proponga una intención y el runtime prepare una edición más controlada.
+
+## Implementar recomendado
+
+- `ASTEditTool` base
+- `StructuredEditIntent`
+- `SafeReplacementPlanner`
+- `FunctionBoundaryDetector`
+- `ImportEditorTool`
+- `ExportEditorTool`
+- `StructuredEditPreview`
+- validación de target antes de editar
+- integración inicial con `DiffFileTool`
+
+## Resultado esperado
+
+El runtime debe poder preparar ediciones estructuradas como:
+
+- agregar import;
+- quitar import;
+- reemplazar bloque dentro de función/clase;
+- detectar límites básicos de función;
+- generar preview antes de escribir;
+- rechazar ediciones ambiguas.
+
+## Reglas
+
+- No escribir directo sin preview/diff.
+- No bypass de `EditFileTool`.
+- `diffConfirmed: true` sigue siendo obligatorio.
+- Backup automático sigue siendo obligatorio.
+- No shell tools.
+- No git tools.
+- No network tools.
+- No usar `any`.
+- Test obligatorio al final.
+
+---
+
+# SESIÓN 24.75 — Validation Feedback Loop
+
+## Objetivo
+
+Convertir errores de validación en feedback estructurado para el runtime.
+
+Cuando TypeScript, lint o build fallen, el runtime debe analizar el error y transformarlo en contexto útil para un nuevo plan controlado.
+
+## Implementar recomendado
+
+- `ValidationResultAnalyzer`
+- `TypeErrorAnalyzerTool`
+- `LintErrorAnalyzerTool`
+- `ValidationFeedbackMapper`
+- `FixCandidateGenerator`
+- `ValidationFailureContext`
+- integración con `FailureRecovery`
+- integración futura con `Replanner`
+
+## Resultado esperado
+
+Si aparece un error de TypeScript/lint/build, el runtime debe poder responder:
+
+- qué archivo falló;
+- en qué línea aproximada;
+- qué tipo de error es;
+- qué símbolo o import parece involucrado;
+- qué archivos relacionados conviene recuperar;
+- si requiere retry, replan o bloqueo.
+
+## Reglas
+
+- No ejecutar comandos todavía fuera de validadores existentes.
+- Si los validadores siguen en modo `skipped`, analizar solamente resultados disponibles/manuales.
+- No shell tools libres.
+- No git tools.
+- No network tools.
+- No usar `any`.
+- Test obligatorio al final.
+
+---
+
+# SESIÓN 25 — CLI v1
+
+## Objetivo
+
+Hacer que Zero Runtime sea usable desde terminal como producto local.
+
+## Implementar recomendado
+
+- CLI entrypoint
+- `zero-runtime init`
+- `zero-runtime status`
+- `zero-runtime objective`
+- `zero-runtime plan`
+- `zero-runtime approve`
+- `zero-runtime ready`
+- `zero-runtime run-step`
+- `zero-runtime loop`
+- `zero-runtime memory compact`
+- `zero-runtime retrieve`
+- salida clara en consola
+- códigos de salida correctos
+
+## Resultado esperado
+
+El usuario debe poder usar Zero Runtime sin tocar scripts internos de `src/examples`.
+
+Flujo mínimo:
+
+```bash
+zero-runtime init
+zero-runtime objective "..."
+zero-runtime plan
+zero-runtime approve
+zero-runtime ready
+zero-runtime run-step step-001
+zero-runtime status
+```
+
+Reglas
+CLI solo orquesta APIs existentes.
+CLI no debe saltarse gates.
+CLI no debe ejecutar shell arbitrario.
+CLI no debe modificar estado sin pasar por runtime.
+No git tools todavía.
+No network tools extra.
+Test obligatorio al final.
+
+SESIÓN 26 — Project Bootstrapper
+Objetivo
+
+Permitir que Zero Runtime se inicialice en cualquier repo real.
+
+Implementar recomendado
+.runtime bootstrap
+bootstrap.md
+runtime-rules.md
+provider-rules.md
+coding-conventions.md
+security-policy.md
+project-profile.md
+runtime-config.json
+detección básica de stack
+plantilla inicial de memoria
+Resultado esperado
+
+En un proyecto nuevo, Zero Runtime debe poder crear una estructura inicial:
+
+.runtime/
+├── current-state.md
+├── active-module.md
+├── decisions.md
+├── next-steps.md
+├── progress-log.md
+├── handoff.md
+├── runtime-rules.md
+├── provider-rules.md
+├── coding-conventions.md
+├── security-policy.md
+├── project-profile.md
+└── runtime-config.json
+Reglas
+No sobrescribir .runtime existente sin confirmación.
+No leer .env.
+No tocar código del proyecto durante bootstrap.
+Bootstrap debe ser determinístico.
+No shell tools.
+No git tools.
+Test obligatorio al final.
