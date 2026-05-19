@@ -1,9 +1,0 @@
-{
-  "name": "cli-fixture",
-  "scripts": {
-    "typecheck": "tsc --noEmit"
-  },
-  "devDependencies": {
-    "typescript": "^5.7.2"
-  }
-}

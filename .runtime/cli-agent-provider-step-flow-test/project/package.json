@@ -1,9 +1,0 @@
-{
-  "name": "cli-agent-provider-step-flow-fixture",
-  "scripts": {
-    "typecheck": "tsc --noEmit"
-  },
-  "devDependencies": {
-    "typescript": "^5.7.2"
-  }
-}
