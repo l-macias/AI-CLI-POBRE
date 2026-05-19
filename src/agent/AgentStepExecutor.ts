@@ -530,6 +530,7 @@ export class AgentStepExecutor {
     const patchValidation = this.asRecord(record['patchValidation']);
     const diffPreviews = this.asArray(record['diffPreviews']);
     const modelPolicyDecision = this.asRecord(record['modelPolicyDecision']);
+    const agentProviderAudit = this.asRecord(record['agentProviderAudit']);
 
     return {
       status: this.stringValue(record['status']),
@@ -540,6 +541,7 @@ export class AgentStepExecutor {
       modelPolicyStatus: this.stringValue(modelPolicyDecision['status']),
       selectedModel: this.stringValue(modelPolicyDecision['selectedModel']),
       fallbackUsed: this.booleanValue(record['providerFallbackUsed']),
+      agentProviderAudit: this.jsonValue(agentProviderAudit),
     };
   }
 

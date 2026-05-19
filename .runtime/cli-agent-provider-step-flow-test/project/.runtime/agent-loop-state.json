@@ -1,0 +1,257 @@
+{
+  "id": "agent-loop-2026-05-19T143430490Z",
+  "status": "running",
+  "objective": "Validate CLI agent provider flow without applying patches.",
+  "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-agent-provider-step-flow-test\\project",
+  "projectName": "CLI Agent Provider Step Flow Fixture",
+  "targetFiles": [
+    "src/index.ts"
+  ],
+  "turns": [
+    {
+      "id": "agent-turn-2026-05-19T143430490Z",
+      "role": "user",
+      "message": "Validate CLI agent provider flow without applying patches.",
+      "createdAt": "2026-05-19T14:34:30.490Z"
+    },
+    {
+      "id": "agent-turn-2026-05-19T143430490Z",
+      "role": "runtime",
+      "message": "Agent loop initialized. Runtime will inspect, validate, propose, preview, request approval, apply, and revalidate in controlled phases.",
+      "createdAt": "2026-05-19T14:34:30.490Z"
+    },
+    {
+      "id": "agent-turn-2026-05-19T143436677Z",
+      "role": "runtime",
+      "message": "Repair proposal requested through runtime-controlled provider flow.",
+      "createdAt": "2026-05-19T14:34:36.677Z",
+      "metadata": {
+        "status": "failed",
+        "proposalId": "unknown",
+        "proposal": {},
+        "patchValid": false,
+        "diffPreviewCount": 0,
+        "modelPolicyStatus": "unknown",
+        "selectedModel": "unknown",
+        "fallbackUsed": false,
+        "agentProviderAudit": {
+          "source": "agent-runtime-bridge:request-repair-proposal",
+          "provider": "openrouter",
+          "requestedProvider": "openrouter",
+          "selectedProvider": "openrouter",
+          "allowRealProvider": true,
+          "allowPremium": false,
+          "premiumApproved": false,
+          "includeProjectMemory": true,
+          "estimatedCompletionTokens": 1200,
+          "policyStatus": "allowed",
+          "policyAllowed": true,
+          "fallbackProvider": "fake-llm",
+          "issueCount": 0,
+          "issues": [],
+          "requestedModel": "poolside/laguna-xs.2:free",
+          "selectedModel": "poolside/laguna-xs.2:free"
+        }
+      }
+    }
+  ],
+  "actions": [
+    {
+      "id": "agent-action-inspect_project",
+      "kind": "inspect_project",
+      "label": "Inspect project",
+      "description": "Inspect target project in read-only mode.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-19T14:34:30.490Z"
+    },
+    {
+      "id": "agent-action-validate_project",
+      "kind": "validate_project",
+      "label": "Validate project",
+      "description": "Run controlled validation to collect findings.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-19T14:34:30.490Z"
+    },
+    {
+      "id": "agent-action-check_git",
+      "kind": "check_git",
+      "label": "Check git status",
+      "description": "Capture git boundary and working tree safety.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-19T14:34:30.490Z"
+    },
+    {
+      "id": "agent-action-build_repair_context",
+      "kind": "build_repair_context",
+      "label": "Build repair context",
+      "description": "Build repair request from findings and target files.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-19T14:34:30.490Z"
+    },
+    {
+      "id": "agent-action-request_repair_proposal",
+      "kind": "request_repair_proposal",
+      "label": "Request repair proposal",
+      "description": "Ask configured provider for a patch proposal through runtime policy.",
+      "status": "executed",
+      "requiresApproval": false,
+      "createdAt": "2026-05-19T14:34:30.490Z",
+      "completedAt": "2026-05-19T14:34:36.677Z",
+      "metadata": {
+        "status": "failed",
+        "proposalId": "unknown",
+        "proposal": {},
+        "patchValid": false,
+        "diffPreviewCount": 0,
+        "modelPolicyStatus": "unknown",
+        "selectedModel": "unknown",
+        "fallbackUsed": false,
+        "agentProviderAudit": {
+          "source": "agent-runtime-bridge:request-repair-proposal",
+          "provider": "openrouter",
+          "requestedProvider": "openrouter",
+          "selectedProvider": "openrouter",
+          "allowRealProvider": true,
+          "allowPremium": false,
+          "premiumApproved": false,
+          "includeProjectMemory": true,
+          "estimatedCompletionTokens": 1200,
+          "policyStatus": "allowed",
+          "policyAllowed": true,
+          "fallbackProvider": "fake-llm",
+          "issueCount": 0,
+          "issues": [],
+          "requestedModel": "poolside/laguna-xs.2:free",
+          "selectedModel": "poolside/laguna-xs.2:free"
+        }
+      }
+    },
+    {
+      "id": "agent-action-show_diff_preview",
+      "kind": "show_diff_preview",
+      "label": "Show diff preview",
+      "description": "Generate and present diff preview.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-19T14:34:30.490Z"
+    },
+    {
+      "id": "agent-action-request_approval",
+      "kind": "request_approval",
+      "label": "Request approval",
+      "description": "Ask user approval before any controlled write.",
+      "status": "pending",
+      "requiresApproval": true,
+      "createdAt": "2026-05-19T14:34:30.490Z"
+    },
+    {
+      "id": "agent-action-apply_patch",
+      "kind": "apply_patch",
+      "label": "Apply patch",
+      "description": "Apply patch only after explicit approval.",
+      "status": "pending",
+      "requiresApproval": true,
+      "createdAt": "2026-05-19T14:34:30.490Z"
+    },
+    {
+      "id": "agent-action-revalidate_project",
+      "kind": "revalidate_project",
+      "label": "Revalidate project",
+      "description": "Run validation again after patch.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-19T14:34:30.490Z"
+    },
+    {
+      "id": "agent-action-report_result",
+      "kind": "report_result",
+      "label": "Report result",
+      "description": "Write final loop report.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-19T14:34:30.490Z"
+    }
+  ],
+  "decisions": [],
+  "approvals": [],
+  "issues": [],
+  "createdAt": "2026-05-19T14:34:30.490Z",
+  "updatedAt": "2026-05-19T14:34:36.677Z",
+  "metadata": {
+    "provider": "openrouter",
+    "fakeProviderMode": "markdown_json",
+    "allowRealProvider": true,
+    "allowPremium": false,
+    "premiumApproved": false,
+    "includeProjectMemory": true,
+    "providerModel": "poolside/laguna-xs.2:free",
+    "estimatedCompletionTokens": 1200,
+    "lastExecution": {
+      "actionId": "agent-action-request_repair_proposal",
+      "actionKind": "request_repair_proposal",
+      "status": "executed",
+      "message": "Repair proposal requested through runtime-controlled provider flow.",
+      "summary": {
+        "status": "failed",
+        "proposalId": "unknown",
+        "proposal": {},
+        "patchValid": false,
+        "diffPreviewCount": 0,
+        "modelPolicyStatus": "unknown",
+        "selectedModel": "unknown",
+        "fallbackUsed": false,
+        "agentProviderAudit": {
+          "source": "agent-runtime-bridge:request-repair-proposal",
+          "provider": "openrouter",
+          "requestedProvider": "openrouter",
+          "selectedProvider": "openrouter",
+          "allowRealProvider": true,
+          "allowPremium": false,
+          "premiumApproved": false,
+          "includeProjectMemory": true,
+          "estimatedCompletionTokens": 1200,
+          "policyStatus": "allowed",
+          "policyAllowed": true,
+          "fallbackProvider": "fake-llm",
+          "issueCount": 0,
+          "issues": [],
+          "requestedModel": "poolside/laguna-xs.2:free",
+          "selectedModel": "poolside/laguna-xs.2:free"
+        }
+      },
+      "createdAt": "2026-05-19T14:34:30.495Z"
+    },
+    "execution_request_repair_proposal": {
+      "status": "failed",
+      "proposalId": "unknown",
+      "proposal": {},
+      "patchValid": false,
+      "diffPreviewCount": 0,
+      "modelPolicyStatus": "unknown",
+      "selectedModel": "unknown",
+      "fallbackUsed": false,
+      "agentProviderAudit": {
+        "source": "agent-runtime-bridge:request-repair-proposal",
+        "provider": "openrouter",
+        "requestedProvider": "openrouter",
+        "selectedProvider": "openrouter",
+        "allowRealProvider": true,
+        "allowPremium": false,
+        "premiumApproved": false,
+        "includeProjectMemory": true,
+        "estimatedCompletionTokens": 1200,
+        "policyStatus": "allowed",
+        "policyAllowed": true,
+        "fallbackProvider": "fake-llm",
+        "issueCount": 0,
+        "issues": [],
+        "requestedModel": "poolside/laguna-xs.2:free",
+        "selectedModel": "poolside/laguna-xs.2:free"
+      }
+    }
+  }
+}

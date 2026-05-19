@@ -95,6 +95,13 @@
     "security:runtime-report-leak:test": "tsx src/examples/security-runtime-report-leak-test.ts",
     "security:regression:test": "tsx src/examples/security-regression-suite-test.ts",
     "cli:security-review:test": "tsx src/examples/cli-security-review-test.ts",
+    "agent:provider-config:test": "tsx src/examples/agent-provider-config-test.ts",
+    "cli:agent-provider-flow:test": "tsx src/examples/cli-agent-provider-flow-test.ts",
+    "agent:provider-policy:test": "tsx src/examples/agent-provider-policy-test.ts",
+    "agent:openrouter-opt-in:test": "tsx src/examples/agent-openrouter-opt-in-test.ts",
+    "agent:provider-runtime-flow:test": "tsx src/examples/agent-provider-runtime-flow-test.ts",
+    "agent:real-provider-smoke:test": "tsx src/examples/agent-real-provider-smoke-test.ts",
+    "cli:agent-provider-step-flow:test": "tsx src/examples/cli-agent-provider-step-flow-test.ts",
     "cli:test": "tsx src/examples/cli-test.ts"
   },
   "keywords": [

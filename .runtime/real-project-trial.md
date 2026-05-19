@@ -2,15 +2,15 @@
 
 ## Objective tested
 
-Test approval replay protection for patch application.
+Validate CLI agent provider flow without applying patches.
 
 ## Status
 
-- Attempt ID: repair-attempt-2026-05-18T204304274Z
-- Status: diff_ready
-- Project root: C:\Users\LUCAS\Desktop\zero\.runtime\security-approval-bypass-regression-test\project
-- Created: 2026-05-18T20:43:04.274Z
-- Completed: 2026-05-18T20:43:04.286Z
+- Attempt ID: repair-attempt-2026-05-19T143433861Z
+- Status: failed
+- Project root: C:\Users\LUCAS\Desktop\zero\.runtime\cli-agent-provider-step-flow-test\project
+- Created: 2026-05-19T14:34:33.861Z
+- Completed: 2026-05-19T14:34:36.675Z
 
 ## Plan generated
 
@@ -21,9 +21,6 @@ The runtime generated a repair request and prompt. The repair proposal was provi
 - [executed] context_built: Repair context built from target files.
 - [executed] request_built: Repair request built.
 - [executed] prompt_built: Repair prompt built.
-- [executed] proposal_received: Patch proposal received.
-- [executed] patch_validation: Patch proposal passed safety validation.
-- [executed] diff_preview: Diff preview generated.
 
 ## Findings
 
@@ -31,46 +28,24 @@ The runtime generated a repair request and prompt. The repair proposal was provi
 
 ## Target files
 
-- src/index.ts (24 bytes)
+- none
 
 ## Patch proposal
 
-- Summary: Fake repair proposal for src/index.ts.
-- Risk level: low
+- Summary: none
+- Risk level: none
 
 ### Operations
 
-- replace_file: src/index.ts — Fake provider echoes the current content to exercise parser, schema, safety validation, and diff generation.
+- none
 
 ## Patch validation
 
-- Valid: true
+- Valid: false
 
-- none
+- [error] REPAIR_ATTEMPT_FAILED: OpenRouter repair proposal failed validation: Patch proposal schema validation failed at id: Required
 
-## Diff Preview — src/index.ts
-
-- Changed: false
-- Changed lines: 0
-
-# Real Project Trial Diff Preview
-
-## Target
-
-src/index.ts
-
-## Issues
-
-- none
-
-## Diff Preview
-
-No changes proposed.
-
-## Notes
-
-No files were edited. This preview was generated from an external patch proposal.
-
+No diff previews generated.
 
 ## Blockers
 
@@ -78,30 +53,30 @@ No files were edited. This preview was generated from an external patch proposal
 
 ## Failures
 
-- none
+- OpenRouter repair proposal failed validation: Patch proposal schema validation failed at id: Required
 
 ## Cost estimate
 
-- Provider: fake-llm
-- Model: fake-repair-proposal-provider
-- Prompt tokens: 312
-- Completion tokens: 144
-- Total tokens: 456
+- Provider: none
+- Model: none
+- Prompt tokens: 0
+- Completion tokens: 0
+- Total tokens: 0
 - Estimated USD: 0
 ## Model policy
 
-- Allowed: true
-- Status: allowed
-- Provider requested: fake-llm
-- Selected provider: fake-llm
-- Selected model: fake-repair-proposal-provider
+- Allowed: false
+- Status: none
+- Provider requested: none
+- Selected provider: none
+- Selected model: none
 - Requires premium approval: false
 - Fallback used: false
-- Fallback reason: Primary repair provider allowed by model policy.
+- Fallback reason: none
 
 ### Model policy issues
 
-- [info] LOCAL_REPAIR_PROVIDER: fake-llm is local/non-paid and does not require external model budget approval.
+- none
 ## Improvements needed
 
 - Connect repair proposal provider to the real LLM provider policy.

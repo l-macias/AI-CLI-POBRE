@@ -564,6 +564,15 @@ Project: ${state?.projectName ?? 'unknown'}
 Root: ${state?.projectRoot ?? 'unknown'}
 Objective: ${state?.objective ?? 'unknown'}
 
+Provider:
+- Provider: ${this.stringFromRecord(state?.metadata, 'provider')}
+- Model: ${this.stringFromRecord(state?.metadata, 'providerModel')}
+- Real provider enabled: ${this.yesNo(this.booleanFromRecord(state?.metadata, 'allowRealProvider'))}
+- Premium allowed: ${this.yesNo(this.booleanFromRecord(state?.metadata, 'allowPremium'))}
+- Premium approved: ${this.yesNo(this.booleanFromRecord(state?.metadata, 'premiumApproved'))}
+- Project memory: ${this.yesNo(this.booleanFromRecord(state?.metadata, 'includeProjectMemory'))}
+- Estimated completion tokens: ${this.numberFromRecord(state?.metadata, 'estimatedCompletionTokens')}
+
 Target files:
 ${this.formatList(state?.targetFiles)}
 
@@ -845,6 +854,21 @@ Summary:
   Decision: ${approval.decisionReason ?? 'none'}`;
       })
       .join('\n');
+  }
+  private stringFromRecord(record: Record<string, unknown> | undefined, key: string): string {
+    const value = record?.[key];
+
+    return typeof value === 'string' && value.trim().length > 0 ? value : 'none';
+  }
+
+  private booleanFromRecord(record: Record<string, unknown> | undefined, key: string): boolean {
+    return record?.[key] === true;
+  }
+
+  private numberFromRecord(record: Record<string, unknown> | undefined, key: string): number {
+    const value = record?.[key];
+
+    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
   }
   private yesNo(value: boolean | undefined): string {
     if (value === true) {

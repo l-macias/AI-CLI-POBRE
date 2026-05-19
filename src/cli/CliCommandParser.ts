@@ -36,6 +36,7 @@ const knownProjectActions = new Set(['add', 'list', 'use', 'current', 'remove'])
 const knownGitActions = new Set(['status', 'diff', 'doctor']);
 const knownPatchActions = new Set(['apply']);
 const knownSecurityActions = new Set(['review']);
+
 const knownAgentActions = new Set([
   'start',
   'status',
@@ -179,9 +180,11 @@ export class CliCommandParser {
     if (commandName === 'agent') {
       return this.buildAgentCommand(args, flags, format);
     }
+
     if (commandName === 'security') {
       return this.buildSecurityCommand(args, flags, format);
     }
+
     const projectCommand = this.buildProjectCommand(commandName, flags, format);
 
     if (projectCommand instanceof Error) {
@@ -427,6 +430,13 @@ export class CliCommandParser {
         reason: this.getOptionalStringFlag(flags, 'reason'),
         confirmReset: this.hasBooleanFlag(flags, 'confirm-reset'),
         includeProjectMemory: this.hasBooleanFlag(flags, 'include-project-memory'),
+        provider: this.resolveRepairProvider(flags),
+        fakeProviderMode: this.resolveAgentFakeProviderMode(flags),
+        providerModel: this.getOptionalStringFlag(flags, 'model'),
+        estimatedCompletionTokens: this.getOptionalNumberFlag(flags, 'estimated-completion-tokens'),
+        allowRealProvider: this.hasBooleanFlag(flags, 'allow-real-provider'),
+        allowPremium: this.hasBooleanFlag(flags, 'allow-premium'),
+        premiumApproved: this.hasBooleanFlag(flags, 'premium-approved'),
       },
       flags,
     );
@@ -445,6 +455,7 @@ export class CliCommandParser {
       command,
     };
   }
+
   private buildSecurityCommand(
     args: string[],
     flags: Map<string, FlagValue>,
@@ -489,6 +500,7 @@ export class CliCommandParser {
       command,
     };
   }
+
   private validateSecurityCommand(command: CliSecurityCommand): CliParseIssue[] {
     const issues: CliParseIssue[] = [];
 
@@ -501,11 +513,14 @@ export class CliCommandParser {
 
     return issues;
   }
+
   private validateAgentCommand(command: {
     action: CliAgentAction;
     stepKind?: AgentActionKind | undefined;
     approvalId?: string | undefined;
     confirmReset: boolean;
+    provider: CliRepairProvider;
+    allowRealProvider: boolean;
   }): CliParseIssue[] {
     const issues: CliParseIssue[] = [];
 
@@ -527,6 +542,18 @@ export class CliCommandParser {
       issues.push({
         code: 'CLI_AGENT_CONFIRM_RESET_REQUIRED',
         message: 'agent reset requires --confirm-reset.',
+      });
+    }
+
+    if (
+      command.action === 'start' &&
+      command.provider === 'openrouter' &&
+      command.allowRealProvider !== true
+    ) {
+      issues.push({
+        code: 'CLI_AGENT_REAL_PROVIDER_OPT_IN_REQUIRED',
+        message:
+          'agent start --provider openrouter requires --allow-real-provider to prevent accidental real provider calls.',
       });
     }
 
@@ -693,6 +720,16 @@ export class CliCommandParser {
     }
 
     return 'json_only';
+  }
+
+  private resolveAgentFakeProviderMode(flags: Map<string, FlagValue>): FakeLlmRepairProposalMode {
+    const value = this.getOptionalStringFlag(flags, 'fake-provider-mode') ?? 'markdown_json';
+
+    if (knownFakeProviderModes.has(value)) {
+      return value as FakeLlmRepairProposalMode;
+    }
+
+    return 'markdown_json';
   }
 
   private withProjectRoot<TCommand extends CliCommand>(

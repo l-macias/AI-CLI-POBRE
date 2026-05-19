@@ -29,6 +29,7 @@ import { ProjectMemoryReader } from '../memory/ProjectMemoryReader.js';
 import { ProjectMemoryStore } from '../memory/ProjectMemoryStore.js';
 import { SecurityRegressionSuite } from '../security/SecurityRegressionSuite.js';
 import { SecurityReviewReporter } from '../security/SecurityReviewReporter.js';
+import { AgentProviderConfigReader } from '../agent/AgentProviderConfigReader.js';
 import type {
   TargetProjectResolveResult,
   WorkspaceTargetProject,
@@ -73,6 +74,7 @@ export class CliRuntimeBridge {
   private readonly gitReporter: GitReporter;
   private readonly patchApplyRunner: PatchApplyRunner;
   private readonly patchProposalParser: PatchProposalParser;
+  private readonly agentProviderConfigReader: AgentProviderConfigReader;
 
   public constructor(options: CliRuntimeBridgeOptions = {}) {
     this.bootstrapper = options.bootstrapper ?? new ProjectBootstrapper();
@@ -90,6 +92,7 @@ export class CliRuntimeBridge {
     this.gitReporter = options.gitReporter ?? new GitReporter();
     this.patchApplyRunner = options.patchApplyRunner ?? new PatchApplyRunner();
     this.patchProposalParser = options.patchProposalParser ?? new PatchProposalParser();
+    this.agentProviderConfigReader = new AgentProviderConfigReader();
   }
 
   public async init(command: CliInitCommand): Promise<unknown> {
@@ -392,14 +395,14 @@ export class CliRuntimeBridge {
     });
 
     if (command.action === 'start') {
+      const providerConfig = this.agentProviderConfigReader.fromCliCommand(command);
+
       const state = await loop.start({
         objective: command.objective,
         projectRoot,
         projectName: command.projectName,
         targetFiles: command.targetFiles,
-        metadata: {
-          includeProjectMemory: command.includeProjectMemory,
-        },
+        metadata: this.agentProviderConfigReader.toMetadata(providerConfig),
       });
 
       return {

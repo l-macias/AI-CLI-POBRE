@@ -131,6 +131,13 @@ export interface CliAgentCommand extends CliBaseCommand {
   reason?: string | undefined;
   confirmReset: boolean;
   includeProjectMemory: boolean;
+  provider: CliRepairProvider;
+  fakeProviderMode: FakeLlmRepairProposalMode;
+  providerModel?: string | undefined;
+  estimatedCompletionTokens?: number | undefined;
+  allowRealProvider: boolean;
+  allowPremium: boolean;
+  premiumApproved: boolean;
 }
 
 export interface CliSecurityCommand extends CliBaseCommand {

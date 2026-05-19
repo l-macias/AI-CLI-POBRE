@@ -38,6 +38,14 @@ export class AgentLoopReporter {
   public toMarkdown(state: AgentLoopState): string {
     const report = this.buildReport(state);
 
+    const provider = this.stringMetadata(state, 'provider');
+    const providerModel = this.stringMetadata(state, 'providerModel');
+    const allowRealProvider = this.booleanMetadata(state, 'allowRealProvider');
+    const allowPremium = this.booleanMetadata(state, 'allowPremium');
+    const premiumApproved = this.booleanMetadata(state, 'premiumApproved');
+    const includeProjectMemory = this.booleanMetadata(state, 'includeProjectMemory');
+    const estimatedCompletionTokens = this.numberMetadata(state, 'estimatedCompletionTokens');
+
     const actions = report.actions
       .map((action) => {
         return `- [${action.status}] ${action.kind}: ${action.label}${
@@ -99,6 +107,16 @@ export class AgentLoopReporter {
 
 ${report.objective}
 
+## Provider config
+
+- Provider: ${provider}
+- Provider model: ${providerModel}
+- Allow real provider: ${this.yesNo(allowRealProvider)}
+- Allow premium: ${this.yesNo(allowPremium)}
+- Premium approved: ${this.yesNo(premiumApproved)}
+- Include project memory: ${this.yesNo(includeProjectMemory)}
+- Estimated completion tokens: ${estimatedCompletionTokens}
+
 ## Actions
 
 ${actions || '- none'}
@@ -135,5 +153,25 @@ ${issues}
     await writeFile(this.outputPath, markdown, 'utf8');
 
     return this.outputPath;
+  }
+
+  private stringMetadata(state: AgentLoopState, key: string): string {
+    const value = state.metadata?.[key];
+
+    return typeof value === 'string' && value.trim().length > 0 ? value : 'none';
+  }
+
+  private booleanMetadata(state: AgentLoopState, key: string): boolean {
+    return state.metadata?.[key] === true;
+  }
+
+  private numberMetadata(state: AgentLoopState, key: string): number {
+    const value = state.metadata?.[key];
+
+    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  }
+
+  private yesNo(value: boolean): string {
+    return value ? 'yes' : 'no';
   }
 }
