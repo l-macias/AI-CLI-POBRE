@@ -245,6 +245,24 @@ interface AgentLoopStateOutputLike {
   issues?: IssueLike[];
   metadata?: Record<string, unknown>;
 }
+interface ScaffoldCommandOutputLike {
+  action?: string;
+  projectRoot?: string;
+  reportPath?: string;
+  status?: string;
+  failures?: unknown[];
+  operations?: {
+    kind?: string;
+    targetFile?: string;
+    reason?: string;
+  }[];
+  diffPreviews?: {
+    targetFile?: string;
+    changed?: boolean;
+    changedLines?: number;
+    markdown?: string;
+  }[];
+}
 
 export class CliOutputFormatter {
   public format(result: CliRunResult, format: 'text' | 'json'): string {
@@ -300,6 +318,9 @@ export class CliOutputFormatter {
     }
     if (result.command === 'security') {
       return this.formatSecurity(result.output);
+    }
+    if (result.command === 'scaffold') {
+      return this.formatScaffold(result.output);
     }
     return JSON.stringify(result.output, null, 2);
   }
@@ -869,6 +890,80 @@ Summary:
     const value = record?.[key];
 
     return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  }
+  private formatScaffold(output: unknown): string {
+    const data = output as ScaffoldCommandOutputLike;
+    const operations = data.operations ?? [];
+    const previews = data.diffPreviews ?? [];
+    const failures = data.failures ?? [];
+
+    return `Zero Runtime scaffold
+
+Action: ${data.action ?? 'unknown'}
+Status: ${data.status ?? 'unknown'}
+Root: ${data.projectRoot ?? 'unknown'}
+Report: ${data.reportPath ?? 'unknown'}
+
+Operations:
+${this.formatScaffoldOperations(operations)}
+
+Diff previews:
+${this.formatScaffoldDiffPreviews(previews)}
+
+Failures:
+${this.formatUnknownList(failures)}`;
+  }
+
+  private formatScaffoldOperations(
+    operations: readonly {
+      kind?: string;
+      targetFile?: string;
+      reason?: string;
+    }[],
+  ): string {
+    if (operations.length === 0) {
+      return '- none';
+    }
+
+    return operations
+      .map((operation) => {
+        return `- ${operation.kind ?? 'unknown'} ${operation.targetFile ?? 'unknown'} — ${
+          operation.reason ?? 'no reason'
+        }`;
+      })
+      .join('\n');
+  }
+
+  private formatScaffoldDiffPreviews(
+    previews: readonly {
+      targetFile?: string;
+      changed?: boolean;
+      changedLines?: number;
+      markdown?: string;
+    }[],
+  ): string {
+    if (previews.length === 0) {
+      return '- none';
+    }
+
+    return previews
+      .map((preview) => {
+        return [
+          `- ${preview.targetFile ?? 'unknown'}: ${
+            preview.changed === true ? 'changed' : 'unchanged'
+          } (${String(preview.changedLines ?? 0)} lines)`,
+          preview.markdown ?? '',
+        ].join('\n');
+      })
+      .join('\n\n');
+  }
+
+  private formatUnknownList(values: readonly unknown[]): string {
+    if (values.length === 0) {
+      return '- none';
+    }
+
+    return values.map((value) => `- ${String(value)}`).join('\n');
   }
   private yesNo(value: boolean | undefined): string {
     if (value === true) {

@@ -13,6 +13,9 @@ import type {
   CliRepairProvider,
   CliSecurityAction,
   CliSecurityCommand,
+  CliScaffoldAction,
+  CliScaffoldCommand,
+  CliScaffoldModuleKind,
 } from './CliTypes.js';
 
 type FlagValue = string | string[] | boolean;
@@ -30,13 +33,21 @@ const knownCommands = new Set([
   'patch',
   'agent',
   'security',
+  'scaffold',
 ]);
 
 const knownProjectActions = new Set(['add', 'list', 'use', 'current', 'remove']);
 const knownGitActions = new Set(['status', 'diff', 'doctor']);
 const knownPatchActions = new Set(['apply']);
 const knownSecurityActions = new Set(['review']);
-
+const knownScaffoldActions = new Set(['module']);
+const knownScaffoldModuleKinds = new Set([
+  'backend',
+  'frontend',
+  'fullstack',
+  'library',
+  'generic',
+]);
 const knownAgentActions = new Set([
   'start',
   'status',
@@ -184,7 +195,9 @@ export class CliCommandParser {
     if (commandName === 'security') {
       return this.buildSecurityCommand(args, flags, format);
     }
-
+    if (commandName === 'scaffold') {
+      return this.buildScaffoldCommand(args, flags, format);
+    }
     const projectCommand = this.buildProjectCommand(commandName, flags, format);
 
     if (projectCommand instanceof Error) {
@@ -500,7 +513,116 @@ export class CliCommandParser {
       command,
     };
   }
+  private buildScaffoldCommand(
+    args: string[],
+    flags: Map<string, FlagValue>,
+    format: CliOutputFormat,
+  ): CliParseResult {
+    const action = args.find((arg) => !arg.startsWith('--')) ?? 'module';
 
+    if (!knownScaffoldActions.has(action)) {
+      return {
+        ok: false,
+        issues: [
+          {
+            code: 'CLI_UNKNOWN_SCAFFOLD_ACTION',
+            message: `Unknown scaffold action "${action}". Allowed: module.`,
+          },
+        ],
+      };
+    }
+
+    const command = this.withProjectRoot(
+      {
+        name: 'scaffold' as const,
+        format,
+        action: action as CliScaffoldAction,
+        moduleName: this.getOptionalStringFlag(flags, 'name') ?? '',
+        moduleKind: this.resolveScaffoldModuleKind(flags),
+        targetPath: this.getOptionalStringFlag(flags, 'target') ?? '',
+        provider: this.resolveRepairProvider(flags),
+        providerModel: this.getOptionalStringFlag(flags, 'model'),
+        allowRealProvider: this.hasBooleanFlag(flags, 'allow-real-provider'),
+        allowPremium: this.hasBooleanFlag(flags, 'allow-premium'),
+        premiumApproved: this.hasBooleanFlag(flags, 'premium-approved'),
+        includeProjectMemory: this.hasBooleanFlag(flags, 'include-project-memory'),
+        overwriteExisting: this.hasBooleanFlag(flags, 'overwrite'),
+        dryRun: !this.hasBooleanFlag(flags, 'no-dry-run'),
+        objective: this.getOptionalStringFlag(flags, 'objective'),
+        outputPath: this.getOptionalStringFlag(flags, 'output'),
+      },
+      flags,
+    );
+
+    const issues = this.validateScaffoldCommand(command);
+
+    if (issues.length > 0) {
+      return {
+        ok: false,
+        issues,
+      };
+    }
+
+    return {
+      ok: true,
+      command,
+    };
+  }
+
+  private validateScaffoldCommand(command: CliScaffoldCommand): CliParseIssue[] {
+    const issues: CliParseIssue[] = [];
+
+    if (command.action !== 'module') {
+      issues.push({
+        code: 'CLI_SCAFFOLD_ACTION_INVALID',
+        message: 'scaffold supports only the module action.',
+      });
+    }
+
+    if (command.moduleName.trim().length === 0) {
+      issues.push({
+        code: 'CLI_SCAFFOLD_NAME_REQUIRED',
+        message: 'scaffold module requires --name.',
+      });
+    }
+
+    if (command.targetPath.trim().length === 0) {
+      issues.push({
+        code: 'CLI_SCAFFOLD_TARGET_REQUIRED',
+        message: 'scaffold module requires --target.',
+      });
+    }
+
+    if (command.provider === 'openrouter' && command.allowRealProvider !== true) {
+      issues.push({
+        code: 'CLI_SCAFFOLD_REAL_PROVIDER_OPT_IN_REQUIRED',
+        message:
+          'scaffold module --provider openrouter requires --allow-real-provider to prevent accidental real provider calls.',
+      });
+    }
+
+    if (
+      command.provider === 'openrouter' &&
+      (!command.providerModel || command.providerModel.trim().length === 0)
+    ) {
+      issues.push({
+        code: 'CLI_SCAFFOLD_PROVIDER_MODEL_REQUIRED',
+        message: 'scaffold module --provider openrouter requires --model.',
+      });
+    }
+
+    return issues;
+  }
+
+  private resolveScaffoldModuleKind(flags: Map<string, FlagValue>): CliScaffoldModuleKind {
+    const value = this.getOptionalStringFlag(flags, 'kind') ?? 'generic';
+
+    if (knownScaffoldModuleKinds.has(value)) {
+      return value as CliScaffoldModuleKind;
+    }
+
+    return 'generic';
+  }
   private validateSecurityCommand(command: CliSecurityCommand): CliParseIssue[] {
     const issues: CliParseIssue[] = [];
 

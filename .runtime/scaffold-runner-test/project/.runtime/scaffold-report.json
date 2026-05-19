@@ -1,0 +1,198 @@
+{
+  "id": "scaffold-run-2026-05-19T155034277Z",
+  "status": "proposal_invalid",
+  "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\scaffold-runner-test\\project",
+  "proposalValidation": {
+    "valid": false,
+    "issues": [
+      {
+        "code": "SCAFFOLD_PROPOSAL_FIELD_REQUIRED",
+        "message": "Scaffold proposal field is required: moduleName",
+        "severity": "error"
+      },
+      {
+        "code": "SCAFFOLD_PROPOSAL_MODULE_KIND_INVALID",
+        "message": "Unsupported scaffold module kind: undefined",
+        "severity": "error"
+      },
+      {
+        "code": "SCAFFOLD_PROPOSAL_FIELD_REQUIRED",
+        "message": "Scaffold proposal field is required: targetRoot",
+        "severity": "error"
+      },
+      {
+        "code": "SCAFFOLD_PROPOSAL_RISK_LEVEL_INVALID",
+        "message": "Unsupported scaffold risk level: undefined",
+        "severity": "error"
+      },
+      {
+        "code": "SCAFFOLD_PROPOSAL_FIELD_REQUIRED",
+        "message": "Scaffold proposal field is required: explanation",
+        "severity": "error"
+      },
+      {
+        "code": "SCAFFOLD_PROPOSAL_FILES_INVALID",
+        "message": "Scaffold proposal files must be an array.",
+        "severity": "error"
+      }
+    ]
+  },
+  "safety": {
+    "safe": false,
+    "issues": []
+  },
+  "diffPreviews": [],
+  "steps": [
+    {
+      "id": "parse_intent",
+      "status": "executed",
+      "description": "Scaffold intent parsed.",
+      "timestamp": "2026-05-19T15:50:34.277Z"
+    },
+    {
+      "id": "read_project_conventions",
+      "status": "executed",
+      "description": "Project conventions detected.",
+      "timestamp": "2026-05-19T15:50:34.279Z"
+    },
+    {
+      "id": "build_request",
+      "status": "executed",
+      "description": "Scaffold request built.",
+      "timestamp": "2026-05-19T15:50:34.279Z"
+    },
+    {
+      "id": "generate_proposal",
+      "status": "executed",
+      "description": "Scaffold provider returned raw proposal output.",
+      "timestamp": "2026-05-19T15:50:34.279Z"
+    },
+    {
+      "id": "parse_proposal",
+      "status": "blocked",
+      "description": "Scaffold proposal parsing or schema validation failed.",
+      "timestamp": "2026-05-19T15:50:34.279Z"
+    }
+  ],
+  "failures": [
+    "SCAFFOLD_PROPOSAL_FIELD_REQUIRED: Scaffold proposal field is required: moduleName",
+    "SCAFFOLD_PROPOSAL_MODULE_KIND_INVALID: Unsupported scaffold module kind: undefined",
+    "SCAFFOLD_PROPOSAL_FIELD_REQUIRED: Scaffold proposal field is required: targetRoot",
+    "SCAFFOLD_PROPOSAL_RISK_LEVEL_INVALID: Unsupported scaffold risk level: undefined",
+    "SCAFFOLD_PROPOSAL_FIELD_REQUIRED: Scaffold proposal field is required: explanation",
+    "SCAFFOLD_PROPOSAL_FILES_INVALID: Scaffold proposal files must be an array."
+  ],
+  "createdAt": "2026-05-19T15:50:34.277Z",
+  "completedAt": "2026-05-19T15:50:34.279Z",
+  "request": {
+    "id": "scaffold-request-2026-05-19T155034279Z",
+    "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\scaffold-runner-test\\project",
+    "objective": "Scaffold backend module \"reports\" at src/modules/reports.",
+    "intent": {
+      "id": "scaffold-intent-2026-05-19T155034277Z",
+      "kind": "module",
+      "name": "reports",
+      "normalizedName": "reports",
+      "moduleKind": "backend",
+      "targetPath": "src/modules/reports",
+      "normalizedTargetPath": "src/modules/reports",
+      "provider": "fake-llm",
+      "providerModel": null,
+      "allowRealProvider": false,
+      "allowPremium": false,
+      "premiumApproved": false,
+      "includeProjectMemory": false,
+      "overwriteExisting": false,
+      "dryRun": true,
+      "createdAt": "2026-05-19T15:50:34.277Z"
+    },
+    "convention": {
+      "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\scaffold-runner-test\\project",
+      "detectedStack": [
+        "express",
+        "node",
+        "typescript"
+      ],
+      "packageManager": "npm",
+      "hasTypeScript": true,
+      "hasSrcDirectory": true,
+      "hasPackageJson": true,
+      "hasTsConfig": true,
+      "preferredSourceRoot": "src",
+      "moduleRootHint": "src/modules",
+      "testRootHint": null
+    },
+    "constraints": [
+      {
+        "code": "SCAFFOLD_NO_DIRECT_WRITES",
+        "description": "Scaffolding must produce a proposal only. Runtime will validate, show diff, request approval, and apply through PatchApplyRunner.",
+        "severity": "error"
+      },
+      {
+        "code": "SCAFFOLD_RESPECT_TARGET_PATH",
+        "description": "All generated files must stay under src/modules/reports.",
+        "severity": "error"
+      },
+      {
+        "code": "SCAFFOLD_NO_PROTECTED_PATHS",
+        "description": "Generated file paths must not target protected files, runtime state, secrets, build outputs, node_modules, or .git.",
+        "severity": "error"
+      },
+      {
+        "code": "SCAFFOLD_NO_SECRET_CONTENT",
+        "description": "Generated files must not include API keys, tokens, credentials, private keys, or placeholder secrets that look real.",
+        "severity": "error"
+      },
+      {
+        "code": "SCAFFOLD_MATCH_PROJECT_CONVENTIONS",
+        "description": "Respect detected stack and project conventions: express, node, typescript.",
+        "severity": "warning"
+      },
+      {
+        "code": "SCAFFOLD_NO_OVERWRITE_WITHOUT_OPT_IN",
+        "description": "Do not replace existing files unless overwriteExisting is explicitly enabled and runtime validation confirms it.",
+        "severity": "error"
+      },
+      {
+        "code": "SCAFFOLD_TYPESCRIPT_STRICT",
+        "description": "Prefer strict TypeScript, explicit exports, ESM-compatible imports, and no unsafe any.",
+        "severity": "warning"
+      }
+    ],
+    "expectedOutput": {
+      "format": "json_scaffold_proposal",
+      "requireFileTree": true,
+      "requireExplanation": true,
+      "requireRiskAssessment": true,
+      "allowedOperations": [
+        "create_file",
+        "replace_file"
+      ]
+    },
+    "createdAt": "2026-05-19T15:50:34.279Z"
+  },
+  "intent": {
+    "id": "scaffold-intent-2026-05-19T155034277Z",
+    "kind": "module",
+    "name": "reports",
+    "normalizedName": "reports",
+    "moduleKind": "backend",
+    "targetPath": "src/modules/reports",
+    "normalizedTargetPath": "src/modules/reports",
+    "provider": "fake-llm",
+    "providerModel": null,
+    "allowRealProvider": false,
+    "allowPremium": false,
+    "premiumApproved": false,
+    "includeProjectMemory": false,
+    "overwriteExisting": false,
+    "dryRun": true,
+    "createdAt": "2026-05-19T15:50:34.277Z"
+  },
+  "providerResult": {
+    "rawOutput": "{\n  \"id\": \"scaffold-proposal-reports\",\n  \"summary\": \"Create backend module reports.\",\n  \"files\": \"not-an-array\"\n}",
+    "provider": "fake-llm",
+    "model": "fake-scaffold-model",
+    "createdAt": "2026-05-19T15:50:34.279Z"
+  }
+}

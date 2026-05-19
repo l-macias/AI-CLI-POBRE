@@ -102,6 +102,14 @@
     "agent:provider-runtime-flow:test": "tsx src/examples/agent-provider-runtime-flow-test.ts",
     "agent:real-provider-smoke:test": "tsx src/examples/agent-real-provider-smoke-test.ts",
     "cli:agent-provider-step-flow:test": "tsx src/examples/cli-agent-provider-step-flow-test.ts",
+    "scaffold:intent:test": "tsx src/examples/scaffold-intent-parser-test.ts",
+    "scaffold:request:test": "tsx src/examples/scaffold-request-builder-test.ts",
+    "scaffold:proposal-parser:test": "tsx src/examples/scaffold-proposal-parser-test.ts",
+    "scaffold:safety:test": "tsx src/examples/scaffold-safety-validator-test.ts",
+    "scaffold:patch-bridge:test": "tsx src/examples/scaffold-patch-bridge-test.ts",
+    "scaffold:runner:test": "tsx src/examples/scaffold-runner-test.ts",
+    "scaffold:diff:test": "tsx src/examples/scaffold-diff-builder-test.ts",
+    "cli:scaffold-module:test": "tsx src/examples/cli-scaffold-module-test.ts",
     "cli:test": "tsx src/examples/cli-test.ts"
   },
   "keywords": [

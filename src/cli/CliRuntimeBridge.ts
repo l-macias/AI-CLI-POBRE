@@ -30,6 +30,8 @@ import { ProjectMemoryStore } from '../memory/ProjectMemoryStore.js';
 import { SecurityRegressionSuite } from '../security/SecurityRegressionSuite.js';
 import { SecurityReviewReporter } from '../security/SecurityReviewReporter.js';
 import { AgentProviderConfigReader } from '../agent/AgentProviderConfigReader.js';
+import { ScaffoldReporter } from '../scaffold/ScaffoldReporter.js';
+import { ScaffoldRunner } from '../scaffold/ScaffoldRunner.js';
 import type {
   TargetProjectResolveResult,
   WorkspaceTargetProject,
@@ -46,6 +48,7 @@ import type {
   CliSecurityCommand,
   CliStatusCommand,
   CliValidateCommand,
+  CliScaffoldCommand,
 } from './CliTypes.js';
 
 export interface CliRuntimeBridgeOptions {
@@ -513,6 +516,65 @@ Agent loop state removed:
       action: command.action,
       state,
       text: await readFile(reportPath, 'utf8'),
+    };
+  }
+
+  public async scaffold(command: CliScaffoldCommand): Promise<unknown> {
+    const projectRoot = this.resolveWorkspaceRoot(command.projectRoot);
+    const reportPath = resolve(
+      command.outputPath ?? join(projectRoot, '.runtime/scaffold-report.json'),
+    );
+
+    const runner = new ScaffoldRunner({
+      reporter: new ScaffoldReporter({
+        outputPath: reportPath,
+      }),
+    });
+
+    const result = await runner.run({
+      projectRoot,
+      objective: command.objective,
+      intent: {
+        kind: 'module',
+        name: command.moduleName,
+        moduleKind: command.moduleKind,
+        targetPath: command.targetPath,
+        provider: command.provider,
+        providerModel: command.providerModel,
+        allowRealProvider: command.allowRealProvider,
+        allowPremium: command.allowPremium,
+        premiumApproved: command.premiumApproved,
+        includeProjectMemory: command.includeProjectMemory,
+        overwriteExisting: command.overwriteExisting,
+        dryRun: command.dryRun,
+      },
+    });
+
+    return {
+      action: command.action,
+      projectRoot,
+      reportPath,
+      status: result.status,
+      failures: result.failures,
+      proposalId: result.proposal?.id,
+      patchProposalId: result.patchProposal?.id,
+      operations:
+        result.patchProposal?.operations.map((operation) => {
+          return {
+            kind: operation.kind,
+            targetFile: operation.targetFile,
+            reason: operation.reason,
+          };
+        }) ?? [],
+      diffPreviews: result.diffPreviews.map((preview) => {
+        return {
+          targetFile: preview.targetFile,
+          changed: preview.changed,
+          changedLines: preview.changedLines,
+          markdown: preview.markdown,
+        };
+      }),
+      safety: result.safety,
     };
   }
   private async loadAgentState(

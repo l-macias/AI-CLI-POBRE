@@ -1,72 +1,64 @@
 {
-  "id": "patch-apply-2026-05-19T133740894Z",
+  "id": "patch-apply-2026-05-19T155017372Z",
   "status": "applied",
-  "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-protected-path-integration-test\\project",
-  "proposalId": "security-safe-proposal",
+  "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-tests\\patch-apply-project",
+  "proposalId": "cli-patch-apply-proposal",
   "gitBoundary": {
     "boundary": {
-      "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-protected-path-integration-test\\project",
-      "repositoryRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-protected-path-integration-test\\project",
+      "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-tests\\patch-apply-project",
+      "repositoryRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-tests\\patch-apply-project",
       "branch": "test-branch",
-      "workingTreeState": "dirty",
-      "clean": false,
+      "workingTreeState": "clean",
+      "clean": true,
       "modifiedFiles": [],
-      "untrackedFiles": [
-        "src/linked-outside/"
-      ],
+      "untrackedFiles": [],
       "deletedFiles": [],
-      "checkedAt": "2026-05-19T13:37:41.055Z",
+      "checkedAt": "2026-05-19T15:50:17.493Z",
       "issues": []
     },
     "guard": {
-      "decision": "warning",
+      "decision": "allowed",
       "allowed": true,
-      "reason": "Working tree is dirty, but policy allows continuing.",
-      "issues": [
-        {
-          "code": "GIT_WORKING_TREE_DIRTY_ALLOWED",
-          "message": "Working tree has existing changes and dirty state was explicitly allowed.",
-          "severity": "warning"
-        }
-      ],
-      "checkedAt": "2026-05-19T13:37:41.055Z"
+      "reason": "Working tree is clean.",
+      "issues": [],
+      "checkedAt": "2026-05-19T15:50:17.494Z"
     },
     "safeToWrite": true
   },
   "plan": {
-    "id": "patch-apply-plan-2026-05-19T133740894Z",
-    "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-protected-path-integration-test\\project",
+    "id": "patch-apply-plan-2026-05-19T155017372Z",
+    "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-tests\\patch-apply-project",
     "proposal": {
-      "id": "security-safe-proposal",
-      "summary": "Safe source edit.",
+      "id": "cli-patch-apply-proposal",
+      "summary": "Apply patch through CLI.",
       "riskLevel": "low",
       "operations": [
         {
+          "targetFile": "src/patch-target.ts",
+          "expectedCurrentContent": "export const patched = false;\n",
+          "reason": "Verify CLI controlled patch application.",
           "kind": "replace_file",
-          "targetFile": "src/index.ts",
-          "newContent": "export const value = 2;\n",
-          "expectedCurrentContent": "export const value = 1;\n",
-          "reason": "Safe controlled edit."
+          "newContent": "export const patched = true;\n"
         }
       ],
-      "explanation": "This should be allowed."
+      "explanation": "CLI integration test proposal."
     },
     "operations": [
       {
+        "targetFile": "src/patch-target.ts",
+        "expectedCurrentContent": "export const patched = false;\n",
+        "reason": "Verify CLI controlled patch application.",
         "kind": "replace_file",
-        "targetFile": "src/index.ts",
-        "newContent": "export const value = 2;\n",
-        "expectedCurrentContent": "export const value = 1;\n",
-        "reason": "Safe controlled edit."
+        "newContent": "export const patched = true;\n"
       }
     ],
     "backupEnabled": true,
-    "createdAt": "2026-05-19T13:37:40.894Z",
+    "createdAt": "2026-05-19T15:50:17.372Z",
     "issues": []
   },
   "contentChecks": [
     {
-      "targetFile": "src/index.ts",
+      "targetFile": "src/patch-target.ts",
       "expectedContentProvided": true,
       "matched": true,
       "message": "Current content matches expectedCurrentContent."
@@ -74,19 +66,19 @@
   ],
   "operationResults": [
     {
-      "targetFile": "src/index.ts",
+      "targetFile": "src/patch-target.ts",
       "kind": "replace_file",
       "status": "applied",
       "backup": {
-        "targetFile": "src/index.ts",
-        "backupPath": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-protected-path-integration-test\\project\\.runtime\\patch-backups\\patch-apply-2026-05-19T133740894Z\\src\\index.ts",
+        "targetFile": "src/patch-target.ts",
+        "backupPath": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-tests\\patch-apply-project\\.runtime\\patch-backups\\patch-apply-2026-05-19T155017372Z\\src\\patch-target.ts",
         "existed": true,
-        "createdAt": "2026-05-19T13:37:41.056Z"
+        "createdAt": "2026-05-19T15:50:17.494Z"
       },
       "message": "File written."
     }
   ],
   "issues": [],
-  "createdAt": "2026-05-19T13:37:40.894Z",
-  "completedAt": "2026-05-19T13:37:41.060Z"
+  "createdAt": "2026-05-19T15:50:17.372Z",
+  "completedAt": "2026-05-19T15:50:17.498Z"
 }

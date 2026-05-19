@@ -2033,3 +2033,73 @@ Auditar provider real, memory, repair, patch apply, agent loop, git y reports.
 
 Resultado:
 Security regression suite + security review report.
+SESIÓN 44 — Agent Real Provider Integration
+
+Esta sesión la agregaría antes de scaffolding.
+
+Objetivo:
+
+Permitir que el agent use OpenRouter real en request_repair_proposal,
+pero solo con opt-in persistido, policy, budget, fallback y auditoría.
+
+Comando esperado:
+
+zero agent start \
+ --project ./target \
+ --target src/file.ts \
+ --objective "Fix the issue safely" \
+ --provider openrouter \
+ --allow-real-provider \
+ --model provider/model \
+ --include-project-memory
+
+Metadata persistida:
+
+{
+"provider": "openrouter",
+"providerModel": "provider/model",
+"allowRealProvider": true,
+"includeProjectMemory": true,
+"allowPremium": false,
+"premiumApproved": false,
+"estimatedCompletionTokens": 1200
+}
+
+Implementar:
+
+src/agent/
+├── AgentProviderConfig.ts
+├── AgentProviderPolicy.ts
+├── AgentProviderConfigReader.ts
+└── AgentProviderAuditReporter.ts
+
+Modificar:
+
+CliAgentCommand
+CliCommandParser
+CliRuntimeBridge.agent(start)
+AgentRuntimeBridge.requestRepairProposal
+AgentLoopReporter
+CliOutputFormatter
+
+Tests:
+
+agent:provider-config:test
+agent:openrouter-opt-in:test
+agent:provider-policy:test
+agent:real-provider-smoke:test optional/skipped by default
+cli:agent-provider-flow:test
+
+Reglas:
+
+- agent provider real requiere --allow-real-provider
+- nunca usar provider real en tests normales
+- provider/model deben quedar persistidos en AgentLoopState.metadata
+- steps posteriores no pueden cambiar provider silenciosamente
+- provider real no implica premium
+- premium requiere allowPremium + premiumApproved
+- fallback debe quedar reportado
+- memory no autoriza provider real
+- provider real no autoriza patch apply
+
+Esta sesión es muy importante para que después scaffolding funcione como parte del agent y no como módulo suelto.

@@ -83,6 +83,7 @@ async function main(): Promise<void> {
     'patch',
     'agent',
     'security',
+    'scaffold',
   ] as const;
 
   for (const commandName of requiredCommands) {

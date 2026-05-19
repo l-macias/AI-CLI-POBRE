@@ -13,7 +13,8 @@ export type CliCommandName =
   | 'git'
   | 'patch'
   | 'agent'
-  | 'security';
+  | 'security'
+  | 'scaffold';
 
 export type CliProjectAction = 'add' | 'list' | 'use' | 'current' | 'remove';
 
@@ -34,6 +35,8 @@ export type CliAgentAction =
   | 'reset';
 
 export type CliSecurityAction = 'review';
+export type CliScaffoldAction = 'module';
+export type CliScaffoldModuleKind = 'backend' | 'frontend' | 'fullstack' | 'library' | 'generic';
 export type CliRepairProvider = 'fake-llm' | 'static' | 'openrouter';
 
 export type CliOutputFormat = 'text' | 'json';
@@ -147,6 +150,24 @@ export interface CliSecurityCommand extends CliBaseCommand {
   outputPath?: string | undefined;
 }
 
+export interface CliScaffoldCommand extends CliBaseCommand {
+  name: 'scaffold';
+  action: CliScaffoldAction;
+  moduleName: string;
+  moduleKind: CliScaffoldModuleKind;
+  targetPath: string;
+  provider: CliRepairProvider;
+  providerModel?: string | undefined;
+  allowRealProvider: boolean;
+  allowPremium: boolean;
+  premiumApproved: boolean;
+  includeProjectMemory: boolean;
+  overwriteExisting: boolean;
+  dryRun: boolean;
+  objective?: string | undefined;
+  outputPath?: string | undefined;
+}
+
 export type CliCommand =
   | CliHelpCommand
   | CliInitCommand
@@ -159,7 +180,8 @@ export type CliCommand =
   | CliGitCommand
   | CliPatchCommand
   | CliAgentCommand
-  | CliSecurityCommand;
+  | CliSecurityCommand
+  | CliScaffoldCommand;
 
 export interface CliParseIssue {
   code: string;

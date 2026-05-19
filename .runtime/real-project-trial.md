@@ -1,90 +1,71 @@
 # Real Project Trial
 
-## Objective tested
-
-Validate CLI agent provider flow without applying patches.
-
 ## Status
 
-- Attempt ID: repair-attempt-2026-05-19T143433861Z
-- Status: failed
-- Project root: C:\Users\LUCAS\Desktop\zero\.runtime\cli-agent-provider-step-flow-test\project
-- Created: 2026-05-19T14:34:33.861Z
-- Completed: 2026-05-19T14:34:36.675Z
+- ID: real-project-trial-cli-fixture-2026-05-19T155027256Z
+- Status: inspected
+- Project: CLI Fixture
+- Objective: Inspect target project in read-only mode.
+- Writes allowed by user: false
+- Command execution allowed by user: false
+- Created: 2026-05-19T15:50:27.256Z
+- Updated: 2026-05-19T15:50:27.258Z
 
-## Plan generated
+## Inspection
 
-The runtime generated a repair request and prompt. The repair proposal was provided by a repair proposal provider.
+- Project root: C:\Users\LUCAS\Desktop\zero\.runtime\cli-tests\sample-project
+- Package name: cli-fixture
+- Detected stack: typescript, node
+- Has package.json: true
+- Has tsconfig.json: true
+- Has ESLint config: false
+- Has Next config: false
+- Has Prisma schema: false
 
-## Steps executed
+## Target Files
 
-- [executed] context_built: Repair context built from target files.
-- [executed] request_built: Repair request built.
-- [executed] prompt_built: Repair prompt built.
+| File | Exists | Extension | Bytes |
+| --- | --- | --- | --- |
+| src/index.ts | yes | .ts | 24 |
+
+## Scripts
+
+| Script | Command |
+| --- | --- |
+| typecheck | `tsc --noEmit` |
+
+## Validation
+
+- Status: not_run
+- Validated at: not_run
+
+| Script | Status | Exit Code | Duration | Output bytes |
+| --- | --- | --- | --- | --- |
+
 
 ## Findings
 
 - none
 
-## Target files
+## Sensitive files ignored
+
+- .env
+- .env.local
+- .env.production
+- .env.development
+
+## Issues
 
 - none
 
-## Patch proposal
+## Next recommended actions
 
-- Summary: none
-- Risk level: none
-
-### Operations
-
-- none
-
-## Patch validation
-
-- Valid: false
-
-- [error] REPAIR_ATTEMPT_FAILED: OpenRouter repair proposal failed validation: Patch proposal schema validation failed at id: Required
-
-No diff previews generated.
-
-## Blockers
-
-- none
-
-## Failures
-
-- OpenRouter repair proposal failed validation: Patch proposal schema validation failed at id: Required
-
-## Cost estimate
-
-- Provider: none
-- Model: none
-- Prompt tokens: 0
-- Completion tokens: 0
-- Total tokens: 0
-- Estimated USD: 0
-## Model policy
-
-- Allowed: false
-- Status: none
-- Provider requested: none
-- Selected provider: none
-- Selected model: none
-- Requires premium approval: false
-- Fallback used: false
-- Fallback reason: none
-
-### Model policy issues
-
-- none
-## Improvements needed
-
-- Connect repair proposal provider to the real LLM provider policy.
-- Add patch proposal parser for model JSON output.
-- Add approval gate before controlled write.
-- Add post-write revalidation.
-- Add multi-file related context expansion.
+- Run controlled validation in Phase B using sandboxed npm scripts.
+- Capture TypeScript/ESLint/build output.
+- Map failures to target files.
+- Generate diff preview before any edit.
+- Require explicit confirmation before writing changes.
 
 ## Notes
 
-No files were written in this phase. The runtime only prepared and validated a repair proposal.
+Phase B validates using controlled npm scripts only. No files were edited.

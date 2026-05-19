@@ -6,11 +6,11 @@ Build repair request and diff preview without applying patches.
 
 ## Status
 
-- Attempt ID: repair-attempt-2026-05-18T194739353Z
+- Attempt ID: repair-attempt-2026-05-19T155015785Z
 - Status: diff_ready
 - Project root: C:\Users\LUCAS\Desktop\zero\.runtime\cli-tests\managed-target-project
-- Created: 2026-05-18T19:47:39.353Z
-- Completed: 2026-05-18T19:47:39.358Z
+- Created: 2026-05-19T15:50:15.785Z
+- Completed: 2026-05-19T15:50:15.788Z
 
 ## Plan generated
 
