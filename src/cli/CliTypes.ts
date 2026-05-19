@@ -166,6 +166,7 @@ export interface CliScaffoldCommand extends CliBaseCommand {
   dryRun: boolean;
   objective?: string | undefined;
   outputPath?: string | undefined;
+  proposalOutputPath?: string | undefined;
 }
 
 export type CliCommand =

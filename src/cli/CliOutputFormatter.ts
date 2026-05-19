@@ -249,6 +249,7 @@ interface ScaffoldCommandOutputLike {
   action?: string;
   projectRoot?: string;
   reportPath?: string;
+  proposalOutputPath?: string;
   status?: string;
   failures?: unknown[];
   operations?: {
@@ -903,6 +904,7 @@ Action: ${data.action ?? 'unknown'}
 Status: ${data.status ?? 'unknown'}
 Root: ${data.projectRoot ?? 'unknown'}
 Report: ${data.reportPath ?? 'unknown'}
+Patch proposal: ${data.proposalOutputPath ?? 'not saved'}
 
 Operations:
 ${this.formatScaffoldOperations(operations)}

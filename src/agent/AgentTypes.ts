@@ -21,7 +21,8 @@ export type AgentActionKind =
   | 'apply_patch'
   | 'revalidate_project'
   | 'report_result'
-  | 'cancel';
+  | 'cancel'
+  | 'scaffold_module';
 
 export type AgentDecisionStatus = 'pending' | 'selected' | 'executed' | 'skipped' | 'blocked';
 

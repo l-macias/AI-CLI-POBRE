@@ -1,7 +1,7 @@
 {
-  "id": "scaffold-run-2026-05-19T162444571Z",
+  "id": "scaffold-run-2026-05-19T162440603Z",
   "status": "patch_ready",
-  "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-scaffold-module-test\\project",
+  "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-scaffold-handoff-test\\project",
   "proposalValidation": {
     "valid": true,
     "issues": []
@@ -35,60 +35,60 @@
       "id": "parse_intent",
       "status": "executed",
       "description": "Scaffold intent parsed.",
-      "timestamp": "2026-05-19T16:24:44.572Z"
+      "timestamp": "2026-05-19T16:24:40.606Z"
     },
     {
       "id": "read_project_conventions",
       "status": "executed",
       "description": "Project conventions detected.",
-      "timestamp": "2026-05-19T16:24:44.574Z"
+      "timestamp": "2026-05-19T16:24:40.703Z"
     },
     {
       "id": "build_request",
       "status": "executed",
       "description": "Scaffold request built.",
-      "timestamp": "2026-05-19T16:24:44.574Z"
+      "timestamp": "2026-05-19T16:24:40.705Z"
     },
     {
       "id": "generate_proposal",
       "status": "executed",
       "description": "Scaffold provider returned raw proposal output.",
-      "timestamp": "2026-05-19T16:24:44.575Z"
+      "timestamp": "2026-05-19T16:24:40.707Z"
     },
     {
       "id": "parse_proposal",
       "status": "executed",
       "description": "Scaffold proposal parsed and schema-valid.",
-      "timestamp": "2026-05-19T16:24:44.576Z"
+      "timestamp": "2026-05-19T16:24:40.709Z"
     },
     {
       "id": "validate_safety",
       "status": "executed",
       "description": "Scaffold proposal passed runtime safety validation.",
-      "timestamp": "2026-05-19T16:24:44.590Z"
+      "timestamp": "2026-05-19T16:24:40.732Z"
     },
     {
       "id": "build_patch_proposal",
       "status": "executed",
       "description": "PatchProposal built from validated scaffold proposal.",
-      "timestamp": "2026-05-19T16:24:44.590Z"
+      "timestamp": "2026-05-19T16:24:40.732Z"
     },
     {
       "id": "build_diff_preview",
       "status": "executed",
       "description": "Diff previews built from scaffold patch proposal.",
-      "timestamp": "2026-05-19T16:24:44.591Z"
+      "timestamp": "2026-05-19T16:24:40.733Z"
     }
   ],
   "failures": [],
-  "createdAt": "2026-05-19T16:24:44.571Z",
-  "completedAt": "2026-05-19T16:24:44.591Z",
+  "createdAt": "2026-05-19T16:24:40.603Z",
+  "completedAt": "2026-05-19T16:24:40.733Z",
   "request": {
-    "id": "scaffold-request-2026-05-19T162444574Z",
-    "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-scaffold-module-test\\project",
+    "id": "scaffold-request-2026-05-19T162440704Z",
+    "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-scaffold-handoff-test\\project",
     "objective": "Scaffold backend module \"auth\" at src/modules/auth.",
     "intent": {
-      "id": "scaffold-intent-2026-05-19T162444571Z",
+      "id": "scaffold-intent-2026-05-19T162440605Z",
       "kind": "module",
       "name": "auth",
       "normalizedName": "auth",
@@ -100,13 +100,13 @@
       "allowRealProvider": false,
       "allowPremium": false,
       "premiumApproved": false,
-      "includeProjectMemory": true,
+      "includeProjectMemory": false,
       "overwriteExisting": false,
       "dryRun": true,
-      "createdAt": "2026-05-19T16:24:44.571Z"
+      "createdAt": "2026-05-19T16:24:40.605Z"
     },
     "convention": {
-      "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-scaffold-module-test\\project",
+      "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-scaffold-handoff-test\\project",
       "detectedStack": [
         "express",
         "node",
@@ -168,10 +168,10 @@
         "replace_file"
       ]
     },
-    "createdAt": "2026-05-19T16:24:44.574Z"
+    "createdAt": "2026-05-19T16:24:40.704Z"
   },
   "intent": {
-    "id": "scaffold-intent-2026-05-19T162444571Z",
+    "id": "scaffold-intent-2026-05-19T162440605Z",
     "kind": "module",
     "name": "auth",
     "normalizedName": "auth",
@@ -183,16 +183,16 @@
     "allowRealProvider": false,
     "allowPremium": false,
     "premiumApproved": false,
-    "includeProjectMemory": true,
+    "includeProjectMemory": false,
     "overwriteExisting": false,
     "dryRun": true,
-    "createdAt": "2026-05-19T16:24:44.571Z"
+    "createdAt": "2026-05-19T16:24:40.605Z"
   },
   "providerResult": {
     "rawOutput": "Here is the scaffold proposal:\n\n```json\n{\n  \"id\": \"scaffold-proposal-auth\",\n  \"summary\": \"Create backend module auth.\",\n  \"moduleName\": \"auth\",\n  \"moduleKind\": \"backend\",\n  \"targetRoot\": \"src/modules/auth\",\n  \"riskLevel\": \"low\",\n  \"files\": [\n    {\n      \"kind\": \"create_file\",\n      \"targetFile\": \"src/modules/auth/index.ts\",\n      \"content\": \"export * from './auth.service.js';\\nexport * from './auth.types.js';\\n\",\n      \"reason\": \"Create public module entrypoint.\"\n    },\n    {\n      \"kind\": \"create_file\",\n      \"targetFile\": \"src/modules/auth/auth.service.ts\",\n      \"content\": \"import type { AuthConfig } from './auth.types.js';\\n\\nexport class AuthService {\\n  public constructor(private readonly config: AuthConfig) {}\\n\\n  public getModuleName(): string {\\n    return 'auth';\\n  }\\n}\\n\",\n      \"reason\": \"Create minimal service implementation.\"\n    },\n    {\n      \"kind\": \"create_file\",\n      \"targetFile\": \"src/modules/auth/auth.types.ts\",\n      \"content\": \"export interface AuthConfig {\\n  enabled: boolean;\\n}\\n\",\n      \"reason\": \"Create module types.\"\n    }\n  ],\n  \"explanation\": \"Deterministic fake scaffold proposal generated for runtime validation and diff preview.\"\n}\n```",
     "provider": "fake-llm",
     "model": "fake-scaffold-model",
-    "createdAt": "2026-05-19T16:24:44.575Z"
+    "createdAt": "2026-05-19T16:24:40.707Z"
   },
   "proposal": {
     "id": "scaffold-proposal-auth",

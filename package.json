@@ -110,6 +110,9 @@
     "scaffold:runner:test": "tsx src/examples/scaffold-runner-test.ts",
     "scaffold:diff:test": "tsx src/examples/scaffold-diff-builder-test.ts",
     "cli:scaffold-module:test": "tsx src/examples/cli-scaffold-module-test.ts",
+    "cli:scaffold-handoff:test": "tsx src/examples/cli-scaffold-handoff-test.ts",
+    "cli:scaffold-apply-handoff:test": "tsx src/examples/cli-scaffold-apply-handoff-test.ts",
+    "agent:scaffold-module:test": "tsx src/examples/agent-scaffold-module-test.ts",
     "cli:test": "tsx src/examples/cli-test.ts"
   },
   "keywords": [

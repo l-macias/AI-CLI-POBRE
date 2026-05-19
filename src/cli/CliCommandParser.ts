@@ -550,6 +550,7 @@ export class CliCommandParser {
         dryRun: !this.hasBooleanFlag(flags, 'no-dry-run'),
         objective: this.getOptionalStringFlag(flags, 'objective'),
         outputPath: this.getOptionalStringFlag(flags, 'output'),
+        proposalOutputPath: this.getOptionalStringFlag(flags, 'save-proposal'),
       },
       flags,
     );

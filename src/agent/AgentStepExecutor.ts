@@ -218,7 +218,18 @@ export class AgentStepExecutor {
         createdAt,
       };
     }
+    if (action.kind === 'scaffold_module') {
+      const output = await this.runtimeBridge.scaffoldModule(state);
 
+      return {
+        actionId: action.id,
+        actionKind: action.kind,
+        status: 'executed',
+        message: 'Scaffold module proposal generated.',
+        summary: this.summarizeScaffold(output),
+        createdAt: new Date().toISOString(),
+      };
+    }
     if (action.kind === 'request_repair_proposal') {
       const output = await this.runtimeBridge.requestRepairProposal(state);
 
@@ -523,7 +534,24 @@ export class AgentStepExecutor {
       allowed: this.booleanValue(guard['allowed']),
     };
   }
+  private summarizeScaffold(output: unknown): JsonObject {
+    const record = this.asRecord(output);
+    const patchProposal = this.asRecord(record['patchProposal']);
+    const proposal = this.asRecord(record['proposal']);
+    const safety = this.asRecord(record['safety']);
+    const diffPreviews = this.asArray(record['diffPreviews']);
+    const operations = this.asArray(patchProposal['operations']);
 
+    return {
+      status: this.stringValue(record['status']),
+      reportPath: this.stringValue(record['reportPath']),
+      proposalId: this.stringValue(proposal['id']),
+      patchProposalId: this.stringValue(patchProposal['id']),
+      safetySafe: this.booleanValue(safety['safe']),
+      operationCount: operations.length,
+      diffPreviewCount: diffPreviews.length,
+    };
+  }
   private summarizeRepair(output: unknown): JsonObject {
     const record = this.asRecord(output);
     const proposal = this.asRecord(record['proposal']);

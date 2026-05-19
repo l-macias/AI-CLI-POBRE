@@ -5,6 +5,7 @@ dist
 .DS_Store
 *.log
 
+.runtime/
 .runtime/checkpoints/*.json
 .runtime/retrieval-cache.md
 .runtime/compressed-context.md

@@ -32,6 +32,7 @@ import { SecurityReviewReporter } from '../security/SecurityReviewReporter.js';
 import { AgentProviderConfigReader } from '../agent/AgentProviderConfigReader.js';
 import { ScaffoldReporter } from '../scaffold/ScaffoldReporter.js';
 import { ScaffoldRunner } from '../scaffold/ScaffoldRunner.js';
+import { ScaffoldPatchProposalWriter } from '../scaffold/ScaffoldPatchProposalWriter.js';
 import type {
   TargetProjectResolveResult,
   WorkspaceTargetProject,
@@ -549,11 +550,18 @@ Agent loop state removed:
         dryRun: command.dryRun,
       },
     });
-
+    const proposalOutputPath =
+      command.proposalOutputPath && result.patchProposal
+        ? await new ScaffoldPatchProposalWriter().write({
+            outputPath: resolve(projectRoot, command.proposalOutputPath),
+            proposal: result.patchProposal,
+          })
+        : undefined;
     return {
       action: command.action,
       projectRoot,
       reportPath,
+      proposalOutputPath,
       status: result.status,
       failures: result.failures,
       proposalId: result.proposal?.id,

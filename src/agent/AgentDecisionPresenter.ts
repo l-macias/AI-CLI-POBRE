@@ -34,6 +34,13 @@ export class AgentDecisionPresenter {
         createdAt,
       ),
       this.action(
+        'scaffold_module',
+        'Scaffold module',
+        'Generate a scaffold PatchProposal and diff previews through runtime validation without applying files.',
+        false,
+        createdAt,
+      ),
+      this.action(
         'request_repair_proposal',
         'Request repair proposal',
         'Ask configured provider for a patch proposal through runtime policy.',

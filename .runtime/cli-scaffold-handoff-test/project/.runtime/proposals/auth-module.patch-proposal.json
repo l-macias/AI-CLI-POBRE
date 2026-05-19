@@ -1,0 +1,26 @@
+{
+  "id": "patch-from-scaffold-proposal-auth",
+  "summary": "Create backend module auth.",
+  "riskLevel": "low",
+  "operations": [
+    {
+      "kind": "create_file",
+      "targetFile": "src/modules/auth/index.ts",
+      "newContent": "export * from './auth.service.js';\nexport * from './auth.types.js';",
+      "reason": "Create public module entrypoint."
+    },
+    {
+      "kind": "create_file",
+      "targetFile": "src/modules/auth/auth.service.ts",
+      "newContent": "import type { AuthConfig } from './auth.types.js';\n\nexport class AuthService {\n  public constructor(private readonly config: AuthConfig) {}\n\n  public getModuleName(): string {\n    return 'auth';\n  }\n}",
+      "reason": "Create minimal service implementation."
+    },
+    {
+      "kind": "create_file",
+      "targetFile": "src/modules/auth/auth.types.ts",
+      "newContent": "export interface AuthConfig {\n  enabled: boolean;\n}",
+      "reason": "Create module types."
+    }
+  ],
+  "explanation": "Deterministic fake scaffold proposal generated for runtime validation and diff preview.\n\nGenerated from a validated scaffold proposal.\nThis patch proposal must still pass runtime validation, diff preview, user approval, and PatchApplyRunner gates before writing."
+}

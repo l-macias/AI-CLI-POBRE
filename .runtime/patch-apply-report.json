@@ -1,84 +1,150 @@
 {
-  "id": "patch-apply-2026-05-19T155017372Z",
+  "id": "patch-apply-2026-05-19T162437768Z",
   "status": "applied",
-  "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-tests\\patch-apply-project",
-  "proposalId": "cli-patch-apply-proposal",
+  "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-scaffold-apply-handoff-test\\project",
+  "proposalId": "patch-from-scaffold-proposal-auth",
   "gitBoundary": {
     "boundary": {
-      "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-tests\\patch-apply-project",
-      "repositoryRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-tests\\patch-apply-project",
+      "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-scaffold-apply-handoff-test\\project",
+      "repositoryRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-scaffold-apply-handoff-test\\project",
       "branch": "test-branch",
-      "workingTreeState": "clean",
-      "clean": true,
+      "workingTreeState": "dirty",
+      "clean": false,
       "modifiedFiles": [],
-      "untrackedFiles": [],
+      "untrackedFiles": [
+        ".runtime/"
+      ],
       "deletedFiles": [],
-      "checkedAt": "2026-05-19T15:50:17.493Z",
+      "checkedAt": "2026-05-19T16:24:37.902Z",
       "issues": []
     },
     "guard": {
-      "decision": "allowed",
+      "decision": "warning",
       "allowed": true,
-      "reason": "Working tree is clean.",
-      "issues": [],
-      "checkedAt": "2026-05-19T15:50:17.494Z"
+      "reason": "Working tree is dirty, but policy allows continuing.",
+      "issues": [
+        {
+          "code": "GIT_WORKING_TREE_DIRTY_ALLOWED",
+          "message": "Working tree has existing changes and dirty state was explicitly allowed.",
+          "severity": "warning"
+        }
+      ],
+      "checkedAt": "2026-05-19T16:24:37.902Z"
     },
     "safeToWrite": true
   },
   "plan": {
-    "id": "patch-apply-plan-2026-05-19T155017372Z",
-    "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-tests\\patch-apply-project",
+    "id": "patch-apply-plan-2026-05-19T162437768Z",
+    "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-scaffold-apply-handoff-test\\project",
     "proposal": {
-      "id": "cli-patch-apply-proposal",
-      "summary": "Apply patch through CLI.",
+      "id": "patch-from-scaffold-proposal-auth",
+      "summary": "Create backend module auth.",
       "riskLevel": "low",
       "operations": [
         {
-          "targetFile": "src/patch-target.ts",
-          "expectedCurrentContent": "export const patched = false;\n",
-          "reason": "Verify CLI controlled patch application.",
-          "kind": "replace_file",
-          "newContent": "export const patched = true;\n"
+          "targetFile": "src/modules/auth/index.ts",
+          "reason": "Create public module entrypoint.",
+          "kind": "create_file",
+          "newContent": "export * from './auth.service.js';\nexport * from './auth.types.js';"
+        },
+        {
+          "targetFile": "src/modules/auth/auth.service.ts",
+          "reason": "Create minimal service implementation.",
+          "kind": "create_file",
+          "newContent": "import type { AuthConfig } from './auth.types.js';\n\nexport class AuthService {\n  public constructor(private readonly config: AuthConfig) {}\n\n  public getModuleName(): string {\n    return 'auth';\n  }\n}"
+        },
+        {
+          "targetFile": "src/modules/auth/auth.types.ts",
+          "reason": "Create module types.",
+          "kind": "create_file",
+          "newContent": "export interface AuthConfig {\n  enabled: boolean;\n}"
         }
       ],
-      "explanation": "CLI integration test proposal."
+      "explanation": "Deterministic fake scaffold proposal generated for runtime validation and diff preview.\n\nGenerated from a validated scaffold proposal.\nThis patch proposal must still pass runtime validation, diff preview, user approval, and PatchApplyRunner gates before writing."
     },
     "operations": [
       {
-        "targetFile": "src/patch-target.ts",
-        "expectedCurrentContent": "export const patched = false;\n",
-        "reason": "Verify CLI controlled patch application.",
-        "kind": "replace_file",
-        "newContent": "export const patched = true;\n"
+        "targetFile": "src/modules/auth/index.ts",
+        "reason": "Create public module entrypoint.",
+        "kind": "create_file",
+        "newContent": "export * from './auth.service.js';\nexport * from './auth.types.js';"
+      },
+      {
+        "targetFile": "src/modules/auth/auth.service.ts",
+        "reason": "Create minimal service implementation.",
+        "kind": "create_file",
+        "newContent": "import type { AuthConfig } from './auth.types.js';\n\nexport class AuthService {\n  public constructor(private readonly config: AuthConfig) {}\n\n  public getModuleName(): string {\n    return 'auth';\n  }\n}"
+      },
+      {
+        "targetFile": "src/modules/auth/auth.types.ts",
+        "reason": "Create module types.",
+        "kind": "create_file",
+        "newContent": "export interface AuthConfig {\n  enabled: boolean;\n}"
       }
     ],
     "backupEnabled": true,
-    "createdAt": "2026-05-19T15:50:17.372Z",
+    "createdAt": "2026-05-19T16:24:37.768Z",
     "issues": []
   },
   "contentChecks": [
     {
-      "targetFile": "src/patch-target.ts",
-      "expectedContentProvided": true,
+      "targetFile": "src/modules/auth/index.ts",
+      "expectedContentProvided": false,
       "matched": true,
-      "message": "Current content matches expectedCurrentContent."
+      "message": "No expectedCurrentContent provided."
+    },
+    {
+      "targetFile": "src/modules/auth/auth.service.ts",
+      "expectedContentProvided": false,
+      "matched": true,
+      "message": "No expectedCurrentContent provided."
+    },
+    {
+      "targetFile": "src/modules/auth/auth.types.ts",
+      "expectedContentProvided": false,
+      "matched": true,
+      "message": "No expectedCurrentContent provided."
     }
   ],
   "operationResults": [
     {
-      "targetFile": "src/patch-target.ts",
-      "kind": "replace_file",
+      "targetFile": "src/modules/auth/index.ts",
+      "kind": "create_file",
       "status": "applied",
       "backup": {
-        "targetFile": "src/patch-target.ts",
-        "backupPath": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-tests\\patch-apply-project\\.runtime\\patch-backups\\patch-apply-2026-05-19T155017372Z\\src\\patch-target.ts",
-        "existed": true,
-        "createdAt": "2026-05-19T15:50:17.494Z"
+        "targetFile": "src/modules/auth/index.ts",
+        "backupPath": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-scaffold-apply-handoff-test\\project\\.runtime\\patch-backups\\patch-apply-2026-05-19T162437768Z\\src\\modules\\auth\\index.ts.missing",
+        "existed": false,
+        "createdAt": "2026-05-19T16:24:37.903Z"
+      },
+      "message": "File written."
+    },
+    {
+      "targetFile": "src/modules/auth/auth.service.ts",
+      "kind": "create_file",
+      "status": "applied",
+      "backup": {
+        "targetFile": "src/modules/auth/auth.service.ts",
+        "backupPath": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-scaffold-apply-handoff-test\\project\\.runtime\\patch-backups\\patch-apply-2026-05-19T162437768Z\\src\\modules\\auth\\auth.service.ts.missing",
+        "existed": false,
+        "createdAt": "2026-05-19T16:24:37.907Z"
+      },
+      "message": "File written."
+    },
+    {
+      "targetFile": "src/modules/auth/auth.types.ts",
+      "kind": "create_file",
+      "status": "applied",
+      "backup": {
+        "targetFile": "src/modules/auth/auth.types.ts",
+        "backupPath": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-scaffold-apply-handoff-test\\project\\.runtime\\patch-backups\\patch-apply-2026-05-19T162437768Z\\src\\modules\\auth\\auth.types.ts.missing",
+        "existed": false,
+        "createdAt": "2026-05-19T16:24:37.912Z"
       },
       "message": "File written."
     }
   ],
   "issues": [],
-  "createdAt": "2026-05-19T15:50:17.372Z",
-  "completedAt": "2026-05-19T15:50:17.498Z"
+  "createdAt": "2026-05-19T16:24:37.768Z",
+  "completedAt": "2026-05-19T16:24:37.914Z"
 }

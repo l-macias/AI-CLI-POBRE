@@ -1,5 +1,5 @@
 {
-  "id": "scaffold-run-2026-05-19T155034277Z",
+  "id": "scaffold-run-2026-05-19T162447788Z",
   "status": "proposal_invalid",
   "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\scaffold-runner-test\\project",
   "proposalValidation": {
@@ -47,31 +47,31 @@
       "id": "parse_intent",
       "status": "executed",
       "description": "Scaffold intent parsed.",
-      "timestamp": "2026-05-19T15:50:34.277Z"
+      "timestamp": "2026-05-19T16:24:47.788Z"
     },
     {
       "id": "read_project_conventions",
       "status": "executed",
       "description": "Project conventions detected.",
-      "timestamp": "2026-05-19T15:50:34.279Z"
+      "timestamp": "2026-05-19T16:24:47.789Z"
     },
     {
       "id": "build_request",
       "status": "executed",
       "description": "Scaffold request built.",
-      "timestamp": "2026-05-19T15:50:34.279Z"
+      "timestamp": "2026-05-19T16:24:47.789Z"
     },
     {
       "id": "generate_proposal",
       "status": "executed",
       "description": "Scaffold provider returned raw proposal output.",
-      "timestamp": "2026-05-19T15:50:34.279Z"
+      "timestamp": "2026-05-19T16:24:47.789Z"
     },
     {
       "id": "parse_proposal",
       "status": "blocked",
       "description": "Scaffold proposal parsing or schema validation failed.",
-      "timestamp": "2026-05-19T15:50:34.279Z"
+      "timestamp": "2026-05-19T16:24:47.789Z"
     }
   ],
   "failures": [
@@ -82,14 +82,14 @@
     "SCAFFOLD_PROPOSAL_FIELD_REQUIRED: Scaffold proposal field is required: explanation",
     "SCAFFOLD_PROPOSAL_FILES_INVALID: Scaffold proposal files must be an array."
   ],
-  "createdAt": "2026-05-19T15:50:34.277Z",
-  "completedAt": "2026-05-19T15:50:34.279Z",
+  "createdAt": "2026-05-19T16:24:47.788Z",
+  "completedAt": "2026-05-19T16:24:47.789Z",
   "request": {
-    "id": "scaffold-request-2026-05-19T155034279Z",
+    "id": "scaffold-request-2026-05-19T162447789Z",
     "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\scaffold-runner-test\\project",
     "objective": "Scaffold backend module \"reports\" at src/modules/reports.",
     "intent": {
-      "id": "scaffold-intent-2026-05-19T155034277Z",
+      "id": "scaffold-intent-2026-05-19T162447788Z",
       "kind": "module",
       "name": "reports",
       "normalizedName": "reports",
@@ -104,7 +104,7 @@
       "includeProjectMemory": false,
       "overwriteExisting": false,
       "dryRun": true,
-      "createdAt": "2026-05-19T15:50:34.277Z"
+      "createdAt": "2026-05-19T16:24:47.788Z"
     },
     "convention": {
       "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\scaffold-runner-test\\project",
@@ -169,10 +169,10 @@
         "replace_file"
       ]
     },
-    "createdAt": "2026-05-19T15:50:34.279Z"
+    "createdAt": "2026-05-19T16:24:47.789Z"
   },
   "intent": {
-    "id": "scaffold-intent-2026-05-19T155034277Z",
+    "id": "scaffold-intent-2026-05-19T162447788Z",
     "kind": "module",
     "name": "reports",
     "normalizedName": "reports",
@@ -187,12 +187,12 @@
     "includeProjectMemory": false,
     "overwriteExisting": false,
     "dryRun": true,
-    "createdAt": "2026-05-19T15:50:34.277Z"
+    "createdAt": "2026-05-19T16:24:47.788Z"
   },
   "providerResult": {
     "rawOutput": "{\n  \"id\": \"scaffold-proposal-reports\",\n  \"summary\": \"Create backend module reports.\",\n  \"files\": \"not-an-array\"\n}",
     "provider": "fake-llm",
     "model": "fake-scaffold-model",
-    "createdAt": "2026-05-19T15:50:34.279Z"
+    "createdAt": "2026-05-19T16:24:47.789Z"
   }
 }

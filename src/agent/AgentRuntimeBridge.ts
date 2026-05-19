@@ -12,6 +12,10 @@ import type { AgentLoopState } from './AgentTypes.js';
 import { AgentProviderAuditReporter } from './AgentProviderAuditReporter.js';
 import { AgentProviderConfigReader } from './AgentProviderConfigReader.js';
 import { AgentProviderPolicy } from './AgentProviderPolicy.js';
+import { resolve } from 'node:path';
+import { ScaffoldReporter } from '../scaffold/ScaffoldReporter.js';
+import { ScaffoldRunner } from '../scaffold/ScaffoldRunner.js';
+import { AgentScaffoldIntentReader } from './AgentScaffoldIntentReader.js';
 
 export interface AgentCliRuntimeBridge {
   inspect(command: CliInspectCommand): Promise<unknown>;
@@ -26,6 +30,8 @@ export interface AgentRuntimeBridgeOptions {
   providerConfigReader?: AgentProviderConfigReader | undefined;
   providerPolicy?: AgentProviderPolicy | undefined;
   providerAuditReporter?: AgentProviderAuditReporter | undefined;
+  scaffoldRunner?: ScaffoldRunner | undefined;
+  scaffoldIntentReader?: AgentScaffoldIntentReader | undefined;
 }
 
 export class AgentRuntimeBridge {
@@ -34,6 +40,8 @@ export class AgentRuntimeBridge {
   private readonly providerConfigReader: AgentProviderConfigReader;
   private readonly providerPolicy: AgentProviderPolicy;
   private readonly providerAuditReporter: AgentProviderAuditReporter;
+  private readonly scaffoldRunner: ScaffoldRunner;
+  private readonly scaffoldIntentReader: AgentScaffoldIntentReader;
 
   public constructor(options: AgentRuntimeBridgeOptions = {}) {
     this.cliBridge = options.cliBridge ?? new CliRuntimeBridge();
@@ -41,6 +49,14 @@ export class AgentRuntimeBridge {
     this.providerConfigReader = options.providerConfigReader ?? new AgentProviderConfigReader();
     this.providerPolicy = options.providerPolicy ?? new AgentProviderPolicy();
     this.providerAuditReporter = options.providerAuditReporter ?? new AgentProviderAuditReporter();
+    this.scaffoldIntentReader = options.scaffoldIntentReader ?? new AgentScaffoldIntentReader();
+    this.scaffoldRunner =
+      options.scaffoldRunner ??
+      new ScaffoldRunner({
+        reporter: new ScaffoldReporter({
+          outputPath: '.runtime/agent-scaffold-report.json',
+        }),
+      });
   }
 
   public async inspectProject(state: AgentLoopState): Promise<unknown> {
@@ -157,6 +173,40 @@ export class AgentRuntimeBridge {
     return {
       ...input.repairOutput,
       agentProviderAudit: input.providerAudit,
+    };
+  }
+  public async scaffoldModule(state: AgentLoopState): Promise<unknown> {
+    const config = this.scaffoldIntentReader.fromMetadata(state.metadata);
+    const reportPath = resolve(state.projectRoot, '.runtime/agent-scaffold-report.json');
+
+    const runner = new ScaffoldRunner({
+      reporter: new ScaffoldReporter({
+        outputPath: reportPath,
+      }),
+    });
+
+    const result = await runner.run({
+      projectRoot: state.projectRoot,
+      objective: state.objective,
+      intent: {
+        kind: 'module',
+        name: config.name,
+        moduleKind: config.moduleKind,
+        targetPath: config.targetPath,
+        provider: config.provider,
+        providerModel: config.providerModel,
+        allowRealProvider: config.allowRealProvider,
+        allowPremium: config.allowPremium,
+        premiumApproved: config.premiumApproved,
+        includeProjectMemory: config.includeProjectMemory,
+        overwriteExisting: config.overwriteExisting,
+        dryRun: config.dryRun,
+      },
+    });
+
+    return {
+      ...result,
+      reportPath,
     };
   }
 }
