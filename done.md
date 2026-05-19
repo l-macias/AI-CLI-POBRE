@@ -931,3 +931,1105 @@ Bootstrap debe ser determinístico.
 No shell tools.
 No git tools.
 Test obligatorio al final.
+
+SESIÓN 27 — Provider Strategy v1
+Objetivo
+
+Preparar soporte multi-provider serio y separar modelos por rol.
+
+Zero Runtime debe poder usar modelos gratis/baratos para tareas simples y modelos premium solo cuando el runtime lo justifique.
+
+Implementar recomendado
+provider roles
+plannerModel
+retrieverModel
+coderModel
+reviewerModel
+repairModel
+fallback chain
+model capabilities extendido
+provider policy
+risk-based model selection
+costo estimado por ejecución
+Resultado esperado
+
+El runtime debe poder decidir:
+
+qué modelo usa para planning;
+qué modelo usa para revisar;
+qué modelo usa para reparar JSON;
+qué modelo usa para tareas baratas;
+cuándo escalar a premium;
+cuándo rechazar premium por costo/riesgo.
+Reglas
+El usuario puede usar modelos free, baratos o premium.
+Premium no debe usarse por defecto si no hace falta.
+La elección de modelo debe quedar auditada.
+No hardcodear un solo proveedor.
+No romper compatibilidad con OpenRouter.
+No usar any.
+Test obligatorio al final.
+SESIÓN 27.5 — Model Budget Controller
+Objetivo
+
+Controlar presupuesto de tokens/costo y evitar gasto innecesario en modelos premium.
+
+Implementar recomendado
+TokenBudget
+CostBudget
+ModelEscalationGuard
+FreeModelFirstPolicy
+PremiumApprovalGate
+ProviderUsageLedger
+estimación de costo por rol
+reporte de costo por runtime loop
+límites por sesión
+Resultado esperado
+
+El runtime debe poder decir:
+
+esta tarea puede usar modelo barato;
+esta tarea requiere modelo mejor;
+esta tarea excede presupuesto;
+esta ejecución necesita aprobación para premium;
+cuánto costó una ejecución;
+qué modelo se usó y por qué.
+Reglas
+No gastar premium sin política.
+No ocultar costo estimado.
+Toda escalada debe quedar auditada.
+Mantener fallback barato cuando sea posible.
+No network tools extra.
+Test obligatorio al final.
+SESIÓN 28 — Git + Checkpoint Integration
+Objetivo
+
+Agregar una capa de seguridad con git, sin reemplazar los backups internos.
+
+Implementar recomendado
+GitStatusTool
+GitDiffTool
+GitCheckpointTool
+GitRestoreTool
+GitBranchGuard
+DirtyTreeGuard
+PreChangeSnapshot
+checkpoint antes de cambios grandes
+relación entre backup interno y git checkpoint
+Resultado esperado
+
+Cada cambio importante debe poder auditarse y revertirse.
+
+El runtime debe poder saber:
+
+si el repo está limpio;
+qué archivos cambiaron;
+qué diff existe;
+si conviene crear checkpoint;
+si se puede restaurar.
+Reglas
+Git no reemplaza FileBackupManager.
+No ejecutar comandos git libres.
+Solo tools git explícitas y controladas.
+No hacer commit automático sin aprobación.
+No push.
+No network.
+Test obligatorio al final.
+
+SESIÓN 29 — Sandbox Policy
+Objetivo
+
+Preparar aislamiento fuerte antes de permitir comandos.
+
+Implementar recomendado
+SandboxPolicy
+FileIsolation
+CommandIsolation
+ResourceLimiter
+SandboxManager base
+AllowedCommandRegistry
+CommandRiskClassifier
+límites de tiempo
+límites de salida
+límites de directorio de trabajo
+Resultado esperado
+
+Antes de permitir shell tools, el runtime debe tener una política clara de aislamiento:
+
+qué comandos podrían permitirse;
+en qué directorio;
+con qué timeout;
+con qué variables;
+con qué acceso a archivos;
+con qué límites de output.
+Reglas
+No ejecutar comandos todavía.
+Diseñar policy primero.
+No shell libre.
+No git libre.
+No network.
+Test obligatorio al final.
+
+SESIÓN 30 — Runtime-Owned Shell Tools
+Objetivo
+
+Agregar ejecución de comandos controlada por runtime, sin permitir shell arbitrario.
+
+Implementar recomendado
+ShellCommandPlanner
+ShellExecutionGate
+AllowedCommandPolicy
+DryRunCommandTool
+NpmScriptTool
+TestCommandTool
+BuildCommandTool
+CommandOutputLimiter
+integración con SandboxPolicy
+integración con DangerousCommandGuard
+Resultado esperado
+
+El runtime debe poder ejecutar comandos seguros como:
+
+npm run typecheck
+npm run lint
+npm run build
+npm test
+
+Pero no debe permitir:
+
+rm -rf
+comandos arbitrarios del modelo;
+comandos con pipes peligrosos;
+comandos con acceso no controlado;
+comandos de red no autorizados.
+Reglas
+No existe “ejecutar cualquier comando”.
+Solo comandos registrados/autorizados.
+Timeout obligatorio.
+Output limitado.
+Audit log obligatorio.
+Guardrails obligatorios.
+Test obligatorio al final.
+SESIÓN 31 — Observability + Runtime Metrics
+Objetivo
+
+Hacer el runtime observable, medible y auditable.
+
+Implementar recomendado
+RuntimeTracer
+MetricsCollector
+ExecutionTimeline
+TokenUsageTracker
+CostTracker
+PerformanceProfiler
+ErrorReporter
+DecisionLogViewer
+métricas por sesión
+métricas por loop
+métricas por modelo
+Resultado esperado
+
+El usuario debe poder saber:
+
+qué hizo el runtime;
+por qué lo hizo;
+qué modelo usó;
+cuánto costó;
+cuántos tokens usó;
+qué tools ejecutó;
+qué fue bloqueado;
+qué falló;
+cuánto tardó.
+Reglas
+Métricas no deben exponer secretos.
+No loguear .env.
+No loguear API keys.
+No guardar contenido sensible innecesario.
+Mantener JSON logs estructurados.
+Test obligatorio al final.
+
+SESIÓN 32 — End-to-End Benchmark Projects
+Objetivo
+
+Probar el agente en escenarios reales y medir confiabilidad.
+
+Benchmarks recomendados
+TypeScript error fix
+ESLint fix
+React refactor
+Next.js build issue
+Jest failing test
+package migration pequeña
+multi-file import refactor
+runtime loop recovery scenario
+retrieval-guided edit scenario
+Implementar recomendado
+BenchmarkRunner
+BenchmarkCase
+BenchmarkReporter
+fixtures de proyectos pequeños
+métricas de éxito/fallo
+comparación de costo por modelo
+número de replans
+número de acciones bloqueadas
+número de approvals
+Resultado esperado
+
+Zero Runtime debe poder medirse con datos reales:
+
+success rate;
+pasos ejecutados;
+tokens usados;
+costo estimado;
+tiempo total;
+cantidad de fallos;
+cantidad de recuperaciones;
+cantidad de bloqueos correctos.
+Reglas
+Benchmarks deben ser reproducibles.
+No depender de servicios externos salvo provider LLM.
+No usar repos reales sensibles.
+No romper proyectos del usuario.
+Test obligatorio al final.
+SESIÓN 34 — Interactive CLI Foundation
+Objetivo
+
+Convertir Zero Runtime en una herramienta usable desde CLI, no solo scripts aislados.
+
+Implementar recomendado
+src/cli/
+├── CliApp.ts
+├── CliRouter.ts
+├── CliSession.ts
+├── CliPrompts.ts
+├── CliRenderer.ts
+├── CliCommandRegistry.ts
+├── CliErrorPresenter.ts
+└── commands/
+├── initCommand.ts
+├── inspectCommand.ts
+├── validateCommand.ts
+├── repairCommand.ts
+├── statusCommand.ts
+└── doctorCommand.ts
+Comandos MVP
+zero init
+zero inspect
+zero validate
+zero repair
+zero status
+zero doctor
+Flujo esperado
+
+1. Usuario ejecuta zero init.
+2. CLI pregunta o detecta ruta del proyecto.
+3. Guarda configuración en .runtime/project.json.
+4. Permite inspeccionar proyecto.
+5. Permite validar proyecto.
+6. Permite preparar reparación.
+7. Muestra reportes claros.
+   Resultado esperado
+
+Zero Runtime debe poder usarse así:
+
+zero init
+zero inspect
+zero validate
+zero repair
+
+Sin tener que ejecutar scripts internos tipo:
+
+tsx src/examples/...
+Reglas
+No ejecutar comandos peligrosos.
+No editar archivos todavía.
+No usar git todavía.
+No pedir API key si no se necesita.
+Todo debe quedar auditado.
+Test obligatorio.
+
+SESIÓN 35 — Target Project Manager + Workspace Config
+Objetivo
+
+Permitir elegir y recordar proyectos objetivo de forma profesional.
+
+Implementar recomendado
+src/workspace/
+├── TargetProjectManager.ts
+├── WorkspaceConfig.ts
+├── WorkspaceConfigStore.ts
+├── TargetProjectInspector.ts
+├── RuntimeWorkspaceResolver.ts
+└── ProjectPathGuard.ts
+Archivo esperado
+.runtime/project.json
+
+Ejemplo:
+
+{
+"projectName": "Betz Peinados",
+"targetProjectRoot": "C:/Users/LUCAS/Desktop/BTZ/betz-hairstyles",
+"createdAt": "...",
+"updatedAt": "...",
+"allowedValidationScripts": ["build", "typecheck", "lint"],
+"protectedFiles": [".env", ".env.local"],
+"writesRequireApproval": true
+}
+Resultado esperado
+
+La CLI debe permitir:
+
+- elegir ruta del proyecto;
+- validar que existe;
+- recordar proyecto activo;
+- cambiar proyecto activo;
+- mostrar proyecto activo;
+- evitar rutas peligrosas;
+- bloquear paths fuera del proyecto.
+  Reglas
+  No guardar secrets.
+  No guardar contenido de .env.
+  No asumir cwd como targetProjectRoot.
+  No permitir escritura fuera del target.
+  Test obligatorio.
+  SESIÓN 36 — Git Awareness + Safe Change Boundaries
+  Objetivo
+
+Conectar git para operar con seguridad, similar a herramientas modernas de coding agent.
+
+Implementar recomendado
+src/git/
+├── GitInspector.ts
+├── GitStatusReader.ts
+├── GitDiffReader.ts
+├── GitBranchGuard.ts
+├── GitChangeSet.ts
+├── GitSafetyPolicy.ts
+└── GitReporter.ts
+Capacidades
+
+- detectar si el proyecto usa git;
+- leer branch actual;
+- leer estado dirty/clean;
+- mostrar archivos modificados;
+- bloquear si hay cambios no guardados, salvo aprobación;
+- generar diff antes/después;
+- nunca hacer commit automático;
+- nunca hacer push automático.
+  Resultado esperado
+
+Antes de escribir, Zero Runtime sabe:
+
+qué archivos ya estaban modificados;
+qué archivos tocaría;
+qué diff propone;
+si el working tree está limpio o no.
+Reglas
+No git commit automático.
+No git push.
+No git reset.
+No git checkout destructivo.
+No borrar cambios del usuario.
+Test obligatorio.
+
+SESIÓN 37 — Real Repair Proposal with LLM Provider
+Objetivo
+
+Conectar la capa RepairProposalProvider con un modelo real, manteniendo control del runtime.
+
+Implementar recomendado
+src/repair/
+├── LlmRepairProposalProvider.ts
+├── PatchProposalParser.ts
+├── PatchProposalSchema.ts
+├── RepairModelPolicy.ts
+├── RepairCostEstimator.ts
+└── RepairProviderFallback.ts
+Flujo
+
+1. Runtime detecta findings.
+2. Runtime construye RepairRequest.
+3. Runtime genera prompt.
+4. LLM propone PatchProposal JSON.
+5. Runtime parsea.
+6. Runtime valida patch.
+7. Runtime genera diff.
+8. Usuario aprueba o rechaza.
+   Resultado esperado
+
+El modelo puede proponer arreglos para:
+
+TypeScript
+React
+Next
+ESLint
+imports
+tests
+config
+package scripts
+
+Pero el runtime controla:
+
+archivos permitidos;
+operaciones permitidas;
+secrets;
+diff;
+costos;
+riesgo;
+aprobación.
+Reglas
+LLM no escribe.
+LLM no ejecuta tools.
+LLM no decide permisos.
+Runtime valida todo.
+Test obligatorio con provider fake + parser real.
+SESIÓN 38 — Real Repair Proposal with LLM Provider
+Objetivo
+
+Conectar el flujo de reparación con una capa de proveedor LLM, empezando por un fake provider y un parser/schema real. La IA todavía no escribe ni aplica nada: solo devuelve un PatchProposal validado por runtime.
+
+Implementar recomendado
+src/repair/
+├── PatchProposalSchema.ts
+├── PatchProposalParser.ts
+├── FakeLlmRepairProposalProvider.ts
+├── LlmRepairProposalProvider.ts
+├── RepairModelPolicy.ts
+├── RepairCostEstimator.ts
+├── RepairProviderFallback.ts
+└── RepairProposalReporter.ts
+Fases
+38.A — PatchProposalParser + PatchProposalSchema
+38.B — FakeLlmRepairProposalProvider
+38.C — Integrar provider en RepairAttemptRunner
+38.D — RepairModelPolicy + CostEstimator
+38.E — CLI repair usando provider configurable
+Flujo esperado
+
+1. Runtime detecta findings.
+2. Runtime construye RepairRequest.
+3. Runtime genera prompt.
+4. Provider fake/LLM devuelve texto o JSON.
+5. Runtime parsea PatchProposal.
+6. Runtime valida schema.
+7. Runtime valida safety.
+8. Runtime genera diff preview.
+9. Usuario decide aplicar con zero patch apply.
+   Reglas
+   LLM no escribe.
+   LLM no ejecuta tools.
+   LLM no decide permisos.
+   Runtime valida todo.
+   Runtime controla archivos permitidos.
+   Runtime controla operaciones permitidas.
+   Runtime controla secrets.
+   Runtime controla diff.
+   Runtime controla costo/riesgo.
+   Runtime exige aprobación antes de aplicar.
+   Fake provider primero.
+   Provider real después de pasar tests.
+   Resultado esperado
+
+repair deja de ser estático y puede generar una propuesta realista de patch, primero mediante provider fake.
+
+Tests obligatorios
+npm run repair:proposal:test
+npm run repair:attempt:test
+npm run patch:apply:test
+npm run cli:test
+npm run typecheck
+npm run lint
+SESIÓN 39 — Interactive Agent Loop
+Objetivo
+
+Unir todo en un loop interactivo real para que Zero Runtime empiece a sentirse como herramienta usable, no como conjunto de scripts.
+
+Implementar recomendado
+src/agent/
+├── AgentTypes.ts
+├── InteractiveAgentLoop.ts
+├── AgentTurn.ts
+├── AgentActionMenu.ts
+├── AgentDecisionPresenter.ts
+├── AgentRuntimeBridge.ts
+├── AgentStepExecutor.ts
+├── AgentLoopReporter.ts
+└── AgentLoopStateStore.ts
+Comandos objetivo
+zero repair
+zero task
+Experiencia esperada
+zero repair
+
+¿Qué querés arreglar?
+
+> El error de build en TheArtist.tsx
+
+Proyecto activo:
+C:/Users/LUCAS/Desktop/BTZ/betz-hairstyles
+
+Acciones:
+
+1. Inspeccionar proyecto
+2. Validar errores
+3. Revisar git status
+4. Construir contexto
+5. Pedir propuesta a IA
+6. Ver diff
+7. Aplicar patch
+8. Revalidar
+9. Reportar
+   Flujo esperado
+10. Usuario ingresa objetivo.
+11. Runtime resuelve proyecto activo.
+12. Runtime inspecciona.
+13. Runtime valida.
+14. Runtime captura git boundary.
+15. Runtime construye RepairRequest.
+16. Runtime pide propuesta a provider.
+17. Runtime valida proposal.
+18. Runtime genera diff preview.
+19. Runtime muestra diff.
+20. Usuario aprueba o cancela.
+21. Runtime aplica con PatchApplyRunner.
+22. Runtime revalida.
+23. Runtime reporta.
+    Reglas
+    Cada decisión debe quedar auditada.
+    El usuario puede cancelar.
+    El usuario puede ver diff antes de escribir.
+    No aplicar sin aprobación.
+    No comandos destructivos.
+    No shell libre.
+    No tools fuera de allowlist.
+    No saltarse GitWorkingTreeGuard.
+    No saltarse PatchApplyRunner.
+    Resultado esperado
+
+Zero Runtime ya puede ejecutar una demo real:
+
+“Arreglá este error”
+→ inspecciona
+→ valida
+→ propone
+→ muestra diff
+→ pide aprobación
+→ aplica
+→ revalida
+Tests obligatorios
+npm run agent:loop:test
+npm run cli:test
+npm run repair:attempt:test
+npm run patch:apply:test
+npm run git:awareness:test
+npm run typecheck
+npm run lint
+SESIÓN 40 — Project Memory + Knowledge Integration
+Objetivo
+
+Crear memoria local del proyecto para que Zero Runtime recuerde contexto útil sin guardar secretos.
+
+Implementar recomendado
+src/memory/
+├── ProjectMemoryTypes.ts
+├── ProjectMemoryStore.ts
+├── ProjectFactExtractor.ts
+├── RepairHistoryMemory.ts
+├── ValidationHistoryMemory.ts
+├── MemoryRedactor.ts
+├── MemoryReporter.ts
+├── ProjectConventionStore.ts
+└── SessionSummaryStore.ts
+Archivos .runtime posibles
+.runtime/
+├── project-memory.json
+├── decisions.jsonl
+├── conventions.json
+├── repair-history.jsonl
+├── validation-history.jsonl
+├── session-summaries/
+│ ├── session-038.md
+│ ├── session-039.md
+│ └── session-040.md
+└── architecture-notes.md
+Memoria útil
+stack detectado;
+scripts seguros;
+errores frecuentes;
+archivos tocados;
+decisiones previas;
+fixes aplicados;
+validaciones exitosas/fallidas;
+preferencias operativas del usuario;
+límites del proyecto;
+convenciones de estructura;
+frameworks usados;
+comandos que funcionan;
+comandos que fallan;
+rutas importantes.
+Reglas
+No guardar secrets.
+No guardar .env.
+No guardar API keys.
+No guardar contenido sensible innecesario.
+Memoria auditable.
+Memoria editable.
+Memoria local por proyecto.
+Redacción antes de persistir.
+Resultado esperado
+
+Zero Runtime puede decir cosas como:
+
+Este proyecto usa Next/Cloudflare/OpenNext.
+El build incluye Prisma antes de Next.
+La validación TypeScript directa evita ese blocker.
+El usuario prefiere no ejecutar deploy desde el agente.
+Este módulo usa barrel exports.
+Tests obligatorios
+npm run memory:test
+npm run agent:loop:test
+npm run cli:test
+npm run typecheck
+npm run lint
+SESIÓN 41 — Real Provider Adapter / OpenRouter Repair Provider
+
+Objetivo: conectar un proveedor real, pero sin romper el principio de runtime authority.
+
+Implementar recomendado:
+
+src/providers/
+├── OpenRouterClient.ts
+├── OpenRouterTypes.ts
+├── OpenRouterConfigLoader.ts
+├── ProviderResponseNormalizer.ts
+├── ProviderTimeoutPolicy.ts
+└── ProviderErrorMapper.ts
+
+src/repair/
+├── OpenRouterRepairProposalProvider.ts
+└── RealProviderRepairProposalProvider.test/smoke example
+
+Reglas:
+
+No confiar en output del proveedor.
+No loguear API keys.
+No guardar .env en reports.
+No llamar proveedor real salvo opt-in explícito.
+Todo output debe pasar por PatchProposalParser.
+Todo PatchProposal debe pasar por schema + safety validator.
+Todo provider/model debe pasar por RepairModelPolicy.
+Timeouts controlados.
+Errores normalizados.
+Fallback si provider falla.
+
+Tests:
+
+npm run repair:provider-real-smoke:test
+npm run repair:policy-aware-provider:test
+npm run cli:agent-flow:test
+npm run typecheck
+npm run lint
+
+Idealmente el smoke real debería correr solo con una env tipo:
+
+ZERO_RUN_REAL_PROVIDER_TEST=1
+OPENROUTER_API_KEY=...
+
+Y tu modelo gratuito poolside/laguna-xs.2:free puede usarse como candidato configurable, pero no hardcodeado como única opción.
+
+SESIÓN 42 — Project Memory + Knowledge Integration
+
+Objetivo: que Zero Runtime recuerde y use conocimiento estructurado del proyecto.
+
+Implementar recomendado:
+
+src/project-memory/
+├── ProjectMemoryTypes.ts
+├── ProjectMemoryStore.ts
+├── ProjectMemoryIndexer.ts
+├── ProjectConventionScanner.ts
+├── ProjectKnowledgeBuilder.ts
+├── ProjectDecisionLog.ts
+├── RuntimeKnowledgeResolver.ts
+├── AgentMemoryContextBuilder.ts
+└── ProjectMemoryReporter.ts
+
+Debe recordar:
+
+stack detectado
+package manager
+scripts permitidos
+estructura de carpetas
+convenciones de imports
+convenciones de componentes
+rutas protegidas
+decisiones de arquitectura
+últimos repairs
+últimos patches
+archivos frecuentes
+errores recurrentes
+comandos válidos
+
+Resultado esperado:
+
+zero agent / zero repair
+-> lee memoria del proyecto
+-> entiende convenciones
+-> arma mejor contexto
+-> propone cambios más coherentes
+
+Tests:
+
+npm run project-memory:test
+npm run agent:full-loop:test
+npm run cli:agent-flow:test
+npm run typecheck
+npm run lint
+SESIÓN 43 — Hardening + Security Review
+
+Esta sesión la mantendría como la pusiste. Ahora tiene mucho más sentido porque ya existen piezas reales que auditar:
+
+- OpenRouter real opcional
+- ProjectMemory
+- repair con memoria
+- agent con memoria persistida
+- patch apply approval-gated
+- CLI con project manager
+- git awareness
+
+Estructura recomendada:
+
+src/security/
+├── SecurityReviewTypes.ts
+├── RuntimePolicyTestSuite.ts
+├── SecurityRegressionTests.ts
+├── SecurityReviewReporter.ts
+├── ProtectedPathPolicy.ts
+├── SecretLeakDetector.ts
+├── PromptInjectionScanner.ts
+├── PatchThreatAnalyzer.ts
+├── RuntimePermissionAuditor.ts
+├── ToolMisuseTests.ts
+├── RetrievalPoisoningTests.ts
+├── PatchSafetyRegressionTests.ts
+├── GitSafetyRegressionTests.ts
+├── ProviderOutputThreatTests.ts
+├── ApprovalBypassRegressionTests.ts
+├── AgentLoopAbuseTests.ts
+├── MemoryPoisoningTests.ts
+└── RuntimeReportLeakTests.ts
+
+Riesgos a cubrir:
+
+.env leakage
+API key leakage
+provider prompt injection
+malicious provider output
+approval bypass
+patch apply replay
+apply_patch double execution
+path traversal
+symlink traversal
+protected file overwrite
+delete without confirmation
+dirty git bypass
+memory poisoning
+report leaking secrets
+cost runaway
+provider timeout
+invalid model output
+provider fallback abuse
+project-memory prompt injection
+agent metadata tampering
+approval id spoofing
+state file tampering
+
+Agregaría también una subfase:
+
+43.F — Security Review Report
+
+Resultado esperado:
+
+.runtime/security-review-report.md
+.runtime/security-regression-report.json
+
+Porque si queremos algo serio, el hardening no solo debe pasar tests: debe dejar reporte auditable.
+
+SESIÓN 44 — Agent Real Provider Integration
+
+Esta sesión la agregaría antes de scaffolding.
+
+Objetivo:
+
+Permitir que el agent use OpenRouter real en request_repair_proposal,
+pero solo con opt-in persistido, policy, budget, fallback y auditoría.
+
+Comando esperado:
+
+zero agent start \
+ --project ./target \
+ --target src/file.ts \
+ --objective "Fix the issue safely" \
+ --provider openrouter \
+ --allow-real-provider \
+ --model provider/model \
+ --include-project-memory
+
+Metadata persistida:
+
+{
+"provider": "openrouter",
+"providerModel": "provider/model",
+"allowRealProvider": true,
+"includeProjectMemory": true,
+"allowPremium": false,
+"premiumApproved": false,
+"estimatedCompletionTokens": 1200
+}
+
+Implementar:
+
+src/agent/
+├── AgentProviderConfig.ts
+├── AgentProviderPolicy.ts
+├── AgentProviderConfigReader.ts
+└── AgentProviderAuditReporter.ts
+
+Modificar:
+
+CliAgentCommand
+CliCommandParser
+CliRuntimeBridge.agent(start)
+AgentRuntimeBridge.requestRepairProposal
+AgentLoopReporter
+CliOutputFormatter
+
+Tests:
+
+agent:provider-config:test
+agent:openrouter-opt-in:test
+agent:provider-policy:test
+agent:real-provider-smoke:test optional/skipped by default
+cli:agent-provider-flow:test
+
+Reglas:
+
+- agent provider real requiere --allow-real-provider
+- nunca usar provider real en tests normales
+- provider/model deben quedar persistidos en AgentLoopState.metadata
+- steps posteriores no pueden cambiar provider silenciosamente
+- provider real no implica premium
+- premium requiere allowPremium + premiumApproved
+- fallback debe quedar reportado
+- memory no autoriza provider real
+- provider real no autoriza patch apply
+
+Esta sesión es muy importante para que después scaffolding funcione como parte del agent y no como módulo suelto.
+
+SESIÓN 45 — Module/Project Scaffolding
+
+Tu propuesta está muy bien. Solo la movería después de Agent Real Provider Integration.
+
+Estructura recomendada:
+
+src/scaffold/
+├── ScaffoldTypes.ts
+├── ScaffoldIntentParser.ts
+├── ScaffoldRequestBuilder.ts
+├── ScaffoldPlanner.ts
+├── ScaffoldPlanValidator.ts
+├── FileTreeProposalBuilder.ts
+├── ModuleGeneratorProvider.ts
+├── ScaffoldProposalParser.ts
+├── ScaffoldProposalSchema.ts
+├── ScaffoldSafetyValidator.ts
+├── ScaffoldDiffBuilder.ts
+├── ScaffoldRunner.ts
+└── ScaffoldReporter.ts
+
+Flujo obligatorio:
+
+ScaffoldIntent
+-> ScaffoldRequest
+-> provider proposes scaffold proposal
+-> runtime parses
+-> runtime validates schema
+-> runtime validates paths
+-> runtime validates overwrite policy
+-> runtime validates protected paths
+-> runtime builds patch proposal
+-> runtime shows tree + diff
+-> approval gate
+-> PatchApplyRunner
+-> revalidate
+-> report
+
+Regla central:
+
+Nada de scaffolding directo.
+Todo pasa por proposal/diff/approval.
+
+Comandos iniciales:
+
+zero scaffold module \
+ --project ./target \
+ --name auth \
+ --kind backend \
+ --target src/modules/auth \
+ --provider fake-llm
+
+Después:
+
+zero scaffold module \
+ --project ./target \
+ --name auth \
+ --kind backend \
+ --target src/modules/auth \
+ --provider openrouter \
+ --allow-real-provider \
+ --model provider/model
+
+También agregaría:
+
+ScaffoldOverwritePolicy
+ScaffoldProtectedPathPolicy
+ScaffoldTemplateHints
+ScaffoldProjectConventionReader
+
+Porque el scaffolding bueno no solo crea archivos: respeta convenciones existentes.
+
+SESIÓN 46 — Documentation + Developer Guide
+
+La mantendría, pero con más énfasis en “por qué este proyecto es distinto”.
+
+Docs recomendados:
+
+docs/
+├── architecture.md
+├── runtime-flow.md
+├── agent-philosophy.md
+├── cli.md
+├── cli-agent.md
+├── workspace.md
+├── git-safety.md
+├── repair-flow.md
+├── patch-application.md
+├── security-model.md
+├── provider-strategy.md
+├── project-memory.md
+├── agent-real-provider.md
+├── scaffolding.md
+├── troubleshooting.md
+├── known-limitations.md
+└── release-checklist.md
+
+Agregaría explícitamente:
+
+docs/why-runtime-authority.md
+
+Ese doc puede ser clave para explicar la diferencia competitiva:
+
+- LLM propone, runtime decide.
+- Memoria local no es memoria del modelo.
+- Provider no ejecuta.
+- Patches no se aplican sin aprobación.
+- Todo queda auditable.
+  SESIÓN 47 — MVP Polish
+
+Tu sesión está bien. La mantendría con algunos agregados.
+
+Objetivos:
+
+limpiar examples viejos
+ordenar scripts
+normalizar nombres
+mejorar README
+quickstart
+demo flow
+troubleshooting
+known limitations
+mejorar errores
+ordenar .runtime
+normalizar output CLI
+mejorar prompts interactivos
+agregar --dry-run
+agregar fixtures demo
+
+Agregaría:
+
+src/cli/CliErrorCatalog.ts
+src/cli/CliSuggestionBuilder.ts
+src/cli/CliDoctorReporter.ts
+src/demo/DemoProjectFactory.ts
+src/demo/DemoScenarioRunner.ts
+
+Comandos útiles:
+
+zero doctor
+zero project current
+zero repair --dry-run
+zero patch apply --dry-run
+zero agent next
+zero agent run --until approval
+zero agent run --until report
+
+Coincido con tu advertencia: agent run --until report solo si no compromete seguridad.
+
+Mi recomendación:
+
+zero agent run --until approval ✅
+zero agent run --until report ⚠️ solo si apply_patch sigue requiriendo approval ya existente
+zero agent run --auto-approve ❌ no para MVP
+SESIÓN 48 — Release Candidate v0.1.0
+
+Checklist final:
+
+CLI funciona
+Project manager funciona
+Git awareness funciona
+Repair proposal funciona
+Real provider opcional funciona
+Agent real provider opcional funciona
+Patch apply funciona
+Agent loop funciona
+Project memory funciona
+Scaffolding básico funciona
+Security tests pasan
+Docs existen
+Demo final pasa
+No secrets en repo
+No .env leído o guardado
+No comandos git destructivos
+No auto-apply sin aprobación
+No provider real sin opt-in
+No premium sin aprobación
+No memory poisoning sin advertencia/bloqueo
+No report leaking secrets
+
+Agregaría un comando de validación final:
+
+npm run rc:test
+
+Que internamente corra un set curado:
+
+typecheck
+lint
+security regression
+memory tests
+provider tests fake
+repair tests
+patch apply tests
+agent full loop
+cli agent flow
+scaffold tests
+docs check
+
+No necesariamente todos los tests pesados, pero sí los críticos.
+
+Roadmap final compacto
+SESIÓN 43 — Hardening + Security Review
+Objetivo:
+Auditar provider real, memory, repair, patch apply, agent loop, git y reports.
+
+Resultado:
+Security regression suite + security review report.

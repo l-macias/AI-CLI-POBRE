@@ -1,36 +1,16 @@
 # Active Module
 
-## Módulo activo
+## Module
 
-Provider Strategy + Budget Integration
+Session Persistence
 
-## Sesión actual
+## Purpose
 
-SESIÓN 28 — Provider Strategy + Budget Integration
+Maintain local operational context across model sessions.
 
-## Estado
+## Current Files
 
-Pendiente.
-
-## Objetivo
-
-Integrar Provider Strategy y Model Budget Controller al runtime real.
-
-## Contexto
-
-Provider Strategy y Model Budget Controller ya existen y pasan tests aislados.
-
-Importante:
-
-- El catálogo de precios/modelos todavía está hardcodeado.
-- `openai/gpt-5-premium` es ficticio y solo sirve para tests.
-- Antes de producción, mover configuración a `.runtime`.
-
-## Restricciones
-
-- No premium sin aprobación.
-- Toda selección debe auditarse.
-- Todo costo debe estimarse o declararse desconocido.
-- No network tools extra.
-- No usar `any`.
-- Test obligatorio.
+- src/session/SessionTypes.ts
+- src/session/SessionPersistence.ts
+- src/session/CurrentStateGenerator.ts
+- src/session/OperationalStateManager.ts

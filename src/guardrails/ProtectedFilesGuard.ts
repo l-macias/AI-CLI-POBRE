@@ -1,3 +1,4 @@
+import { ProtectedPathPolicy } from '../security/ProtectedPathPolicy.js';
 import type {
   GuardrailInput,
   GuardrailIssue,
@@ -5,42 +6,49 @@ import type {
   RuntimeGuardrail,
 } from '../types/GuardrailTypes.js';
 
-const protectedPathSegments = [
-  '.env',
-  '.git',
-  'node_modules',
-  'dist',
-  'build',
-  '.next',
-  '.wrangler',
-  '.open-next',
-];
+export interface ProtectedFilesGuardOptions {
+  pathPolicy?: ProtectedPathPolicy | undefined;
+  projectRoot?: string | undefined;
+}
 
 export class ProtectedFilesGuard implements RuntimeGuardrail {
   public readonly kind = 'protected_files' as const;
 
+  private readonly pathPolicy: ProtectedPathPolicy;
+  private readonly projectRoot: string;
+
+  public constructor(options: ProtectedFilesGuardOptions = {}) {
+    this.pathPolicy = options.pathPolicy ?? new ProtectedPathPolicy();
+    this.projectRoot = options.projectRoot ?? process.cwd();
+  }
+
   public validate(input: GuardrailInput): GuardrailResult {
-    const issues: GuardrailIssue[] = [];
     const target = this.extractTarget(input.request.input);
 
     if (!target) {
       return {
         guardrail: this.kind,
         status: 'passed',
-        issues,
+        issues: [],
       };
     }
 
-    const normalizedTarget = this.normalizePath(target);
+    const result = this.pathPolicy.validateTarget({
+      projectRoot: this.projectRoot,
+      targetPath: target,
+      operation: 'write',
+      source: input.request.toolName,
+    });
 
-    if (this.isProtectedPath(normalizedTarget)) {
-      issues.push({
-        code: 'PROTECTED_FILE_BLOCKED',
-        message: `Protected path blocked: ${target}`,
-        severity: 'error',
+    const issues = result.findings.map((finding): GuardrailIssue => {
+      return {
+        code: this.mapFindingCode(finding.code),
+        message: finding.message,
+        severity:
+          finding.severity === 'critical' || finding.severity === 'error' ? 'error' : 'warning',
         guardrail: this.kind,
-      });
-    }
+      };
+    });
 
     return {
       guardrail: this.kind,
@@ -63,26 +71,12 @@ export class ProtectedFilesGuard implements RuntimeGuardrail {
     return target;
   }
 
-  private normalizePath(target: string): string {
-    return target
-      .trim()
-      .replaceAll('\\', '/')
-      .replace(/^\.\/+/, '')
-      .toLowerCase();
-  }
+  private mapFindingCode(code: string): string {
+    if (code === 'PROTECTED_PATH_TARGET_BLOCKED') {
+      return 'PROTECTED_FILE_BLOCKED';
+    }
 
-  private isProtectedPath(target: string): boolean {
-    const segments = target.split('/');
-
-    return protectedPathSegments.some((protectedSegment) => {
-      const loweredProtectedSegment = protectedSegment.toLowerCase();
-
-      return (
-        target === loweredProtectedSegment ||
-        target.startsWith(`${loweredProtectedSegment}/`) ||
-        segments.includes(loweredProtectedSegment)
-      );
-    });
+    return code;
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {

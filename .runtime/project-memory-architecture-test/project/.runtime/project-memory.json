@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "projectName": "Project Memory Architecture Test",
+  "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\project-memory-architecture-test\\project",
+  "entries": [
+    {
+      "id": "project-memory-decision-2026-05-18T192731445Z",
+      "kind": "decision",
+      "title": "Runtime authority over provider output",
+      "content": "Decision: Provider output is always treated as untrusted input.\n\nRationale: Zero Runtime must remain deterministic and auditable. The model proposes, but runtime validates and decides.\n\nAlternatives:\n- Let provider directly emit executable actions.\n- Trust provider JSON after superficial parsing.\n\nConsequences:\n- All provider output must pass normalization, parser, schema validation, and safety checks.\n- Repair and agent flows stay slower but safer and more auditable.",
+      "importance": "critical",
+      "tags": [
+        "decision",
+        "runtime-authority",
+        "provider"
+      ],
+      "createdAt": "2026-05-18T19:27:31.445Z",
+      "updatedAt": "2026-05-18T19:27:31.445Z",
+      "metadata": {
+        "openRouterApiKey": "[REDACTED]"
+      }
+    },
+    {
+      "id": "project-memory-fact-2026-05-18T192731448Z",
+      "kind": "fact",
+      "title": "Provider adapter boundary",
+      "content": "Summary: OpenRouter is one adapter, not the long-term provider policy owner.\n\nDetails:\n- Model selection should come from CLI, workspace config, provider strategy, or policy.\n- Adapters should be replaceable with similar providers.",
+      "importance": "high",
+      "tags": [
+        "architecture",
+        "fact",
+        "provider",
+        "adapter"
+      ],
+      "createdAt": "2026-05-18T19:27:31.448Z",
+      "updatedAt": "2026-05-18T19:27:31.448Z",
+      "source": "src/providers/OpenRouterClient.ts"
+    },
+    {
+      "id": "project-memory-constraint-2026-05-18T192731450Z",
+      "kind": "constraint",
+      "title": "No accidental paid provider calls",
+      "content": "Rule: Real provider calls require explicit CLI opt-in and environment opt-in before any network call is possible.\n\nReason: A runtime-centered coding agent must prevent hidden costs, accidental API use, and unreviewed model calls.\n\nEnforcement:\n- --allow-real-provider is required for CLI repair OpenRouter usage.\n- ZERO_OPENROUTER_ENABLED=1 is required by config loader.\n- Normal tests must use fake clients and never call network.",
+      "importance": "critical",
+      "tags": [
+        "architecture",
+        "constraint",
+        "provider",
+        "security",
+        "cost"
+      ],
+      "createdAt": "2026-05-18T19:27:31.450Z",
+      "updatedAt": "2026-05-18T19:27:31.450Z"
+    }
+  ],
+  "knownFiles": [
+    {
+      "path": "src/repair/OpenRouterRepairProposalProvider.ts",
+      "summary": "Repair proposal provider that calls OpenRouter client, normalizes response, parses PatchProposal, and returns a validated proposal result.",
+      "importance": "high",
+      "tags": [
+        "architecture",
+        "known-file",
+        "repair",
+        "provider"
+      ],
+      "lastSeenAt": "2026-05-18T19:27:31.452Z"
+    }
+  ],
+  "createdAt": "2026-05-18T19:27:31.443Z",
+  "updatedAt": "2026-05-18T19:27:31.452Z"
+}

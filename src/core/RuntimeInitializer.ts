@@ -1,10 +1,15 @@
 import type { RuntimeContext, RuntimeContextSource } from '../types/ContextTypes.js';
 import { ContextAssembler } from './ContextAssembler.js';
 import { SessionPersistence } from '../session/SessionPersistence.js';
+import { ProjectMemoryReader } from '../memory/ProjectMemoryReader.js';
+import { ProjectMemoryStore } from '../memory/ProjectMemoryStore.js';
 
 export interface RuntimeInitializerOptions {
   maxEstimatedContextTokens?: number;
   preferCompressedContext?: boolean | undefined;
+  includeProjectMemory?: boolean | undefined;
+  projectRoot?: string | undefined;
+  projectName?: string | undefined;
 }
 
 export class RuntimeInitializer {
@@ -17,8 +22,11 @@ export class RuntimeInitializer {
 
     const compressedSources = preferCompressedContext ? await this.loadCompressedSources() : [];
 
-    const sources =
+    const baseSources =
       compressedSources.length > 0 ? compressedSources : await this.loadRawRuntimeSources();
+
+    const projectMemorySources = await this.loadProjectMemorySources(options);
+    const sources = [...baseSources, ...projectMemorySources];
 
     return this.assembler.assemble(sources, {
       maxEstimatedTokens,
@@ -83,5 +91,26 @@ export class RuntimeInitializer {
     }
 
     return sources;
+  }
+
+  private async loadProjectMemorySources(
+    options: RuntimeInitializerOptions,
+  ): Promise<RuntimeContextSource[]> {
+    if (options.includeProjectMemory !== true) {
+      return [];
+    }
+
+    const projectRoot = options.projectRoot ?? process.cwd();
+
+    const reader = new ProjectMemoryReader({
+      store: new ProjectMemoryStore({
+        projectRoot,
+        projectName: options.projectName ?? 'target-project',
+      }),
+    });
+
+    const source = await reader.readContextSource();
+
+    return source ? [source] : [];
   }
 }

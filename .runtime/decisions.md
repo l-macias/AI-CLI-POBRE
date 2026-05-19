@@ -608,3 +608,375 @@ Mover configuración a archivos externos antes de uso real:
 
 Estado:
 Aceptado temporalmente.
+
+## Decisión — Provider runtime config externa
+
+Fecha: 2026-05-14
+
+Decisión:
+La estrategia provider, budgets y pricing deben poder cargarse desde configuración externa.
+
+Archivo objetivo:
+
+- `.runtime/provider-runtime-config.json`
+
+Reglas:
+
+- Config inválida usa fallback seguro.
+- Config inexistente usa fallback seguro.
+- No leer `.env`.
+- Premium no se habilita por defecto.
+- Toda selección debe auditarse.
+
+Estado:
+Aplicado.
+
+## Decisión — Git controlado sin reemplazar backups internos
+
+Fecha: 2026-05-14
+
+Decisión:
+Git se integra como capa adicional de auditoría/reversión, no como reemplazo de `FileBackupManager`.
+
+Reglas:
+
+- Solo tools Git explícitas.
+- No git libre.
+- No commit automático sin confirmación.
+- No push/pull/fetch.
+- No network.
+- Restore solo confirmado.
+
+Estado:
+Aplicado.
+
+## Decisión — Sandbox policy antes de shell tools
+
+Fecha: 2026-05-14
+
+Decisión:
+Antes de permitir ejecución de comandos, el runtime debe evaluar política sandbox.
+
+Reglas:
+
+- Solo comandos registrados.
+- No shell libre.
+- No git libre.
+- No network no autorizado.
+- Timeout y output limit obligatorios.
+- cwd controlado.
+
+Estado:
+Aplicado.
+
+## Decisión — Shell tools controladas por runtime
+
+Fecha: 2026-05-15
+
+Decisión:
+Zero Runtime puede ejecutar comandos solo si están registrados, autorizados y aprobados por SandboxPolicy.
+
+Reglas:
+
+- No existe ejecución de comando arbitrario.
+- No `shell: true`.
+- No pipes.
+- No redirecciones.
+- No comandos peligrosos.
+- No network.
+- No git desde shell.
+- Timeout obligatorio.
+- Output limitado.
+- CWD controlado.
+- `executeConfirmed: true` obligatorio.
+
+Implementación:
+
+- `dry_run_command` solo evalúa.
+- `npm_script` ejecuta scripts npm permitidos.
+- `build_command` y `test_command` son wrappers específicos.
+- En Windows, npm se ejecuta vía `node + npm-cli.js` para evitar `spawn EINVAL`.
+
+Estado:
+Aplicado.
+
+---
+
+# `.runtime/decisions.md`
+
+```md
+# Decisions
+
+## Sesión 31 — Observability + Runtime Metrics
+
+### Decisión: observability primero aislada
+
+Se implementó primero una capa aislada antes de integrarla al runtime.
+
+Motivo:
+
+- evitar acoplamiento prematuro;
+- validar sanitización de datos;
+- permitir tests sin provider externo;
+- mantener runtime-first.
+
+### Decisión: RuntimeTracer opcional por inyección
+
+Las integraciones aceptan `RuntimeTracer` opcional.
+
+Motivo:
+
+- no romper tests existentes;
+- no hacer obligatoria la observabilidad en todos los contextos;
+- facilitar migración gradual.
+
+### Decisión: no persistir métricas todavía
+
+Las métricas quedan en memoria.
+
+Motivo:
+
+- primero validar estructura y seguridad;
+- evitar generar ruido en `.runtime`;
+- postergar persistencia hasta que el formato sea estable.
+
+### Decisión: tokens son métrica segura
+
+`promptTokens`, `completionTokens`, `totalTokens` y equivalentes no deben redactarse.
+
+Motivo:
+
+- son parte central de la auditoría;
+- no son secretos;
+- permiten medir costo y uso real.
+
+### Decisión: secretos siempre redactados antes de logs/reportes
+
+Se agregó `SensitiveDataRedactor` y se conectó a `Logger`, `RuntimeTracer`, timeline, profiler, errors y decision logs.
+
+Motivo:
+
+- observability no debe convertirse en fuga de secretos.
+```
+
+---
+
+# `.runtime/decisions.md`
+
+```md
+# Decisions
+
+## Sesión 32 — End-to-End Benchmark Projects
+
+### Decisión: benchmarks primero aislados
+
+Se implementó infraestructura de benchmarks sin provider externo.
+
+Motivo:
+
+- validar medición antes de usar LLM real;
+- evitar costos innecesarios;
+- evitar red;
+- mantener reproducibilidad;
+- no tocar proyectos reales.
+
+### Decisión: fixtures locales bajo `.runtime`
+
+Los benchmarks crean fixtures controlados dentro de `.runtime`.
+
+Motivo:
+
+- no romper el repo real;
+- permitir casos reproducibles;
+- evitar efectos secundarios fuera del área controlada.
+
+### Decisión: validation segura en modo diferido
+
+Los benchmarks usan `ValidationOrchestrator`, pero los validators actuales siguen en modo `skipped`.
+
+Motivo:
+
+- la ejecución real de comandos debe seguir pasando por sandbox/shell tools;
+- no habilitar ejecución libre;
+- mantener seguridad hasta integrar validación ejecutable controlada.
+
+### Decisión: reportes persistidos por writer dedicado
+
+Se agregó `BenchmarkReportWriter` separado de `BenchmarkReporter`.
+
+Motivo:
+
+- separar generación de reporte y escritura;
+- controlar rutas;
+- bloquear overwrite accidental;
+- sanitizar antes de persistir.
+
+### Decisión: suite multi-caso sin LLM
+
+La Fase B agregó escenarios simulados/controlados.
+
+Motivo:
+
+- medir estructura de benchmark;
+- comparar categorías;
+- probar métricas agregadas;
+- preparar base para benchmarks reales posteriores.
+```
+
+---
+
+# `.runtime/decisions.md`
+
+````md
+# Decisions
+
+## Sesión 33 — Real Project Trial
+
+### Decisión: no construir fixers hardcodeados
+
+Se descartó el enfoque de crear lógica específica para arreglar errores puntuales de `TheArtist.tsx`.
+
+Motivo:
+
+- Zero Runtime debe servir para muchos lenguajes, errores y proyectos;
+- un fixer por error puntual no escala;
+- el runtime no debe “saber arreglar Betz”;
+- la IA debe proponer y el runtime debe validar/orquestar.
+
+### Decisión: separar validación real de reparación
+
+La validación controlada queda en `real-project-trial`.
+
+La reparación genérica queda en `repair`.
+
+Motivo:
+
+- detectar errores no es lo mismo que proponer cambios;
+- la validación puede ejecutarse sin tocar archivos;
+- la reparación necesita contexto, propuesta, safety validation, diff y aprobación.
+
+### Decisión: validación controlada sin shell libre
+
+El runtime puede ejecutar validaciones solo mediante comandos permitidos.
+
+Permitido:
+
+- npm scripts permitidos: build, typecheck, lint;
+- TypeScript local directo si existe `node_modules/typescript/bin/tsc`.
+
+No permitido:
+
+- comandos destructivos;
+- shell arbitrario;
+- npm install automático;
+- git commit/push automático.
+
+### Decisión: usar TypeScript directo para evitar blockers de build
+
+Si existe TypeScript local, el trial puede ejecutar:
+
+```txt
+node node_modules/typescript/bin/tsc --noEmit --pretty false
+```
+````
+
+## Decision — Session 38: Repair proposal flow is parser/schema/policy controlled
+
+**Date:** 2026-05-18  
+**Status:** Accepted
+
+### Context
+
+The repair flow evolved from a static placeholder into a runtime-controlled provider pipeline. LLM-like outputs are treated as untrusted text and must pass through runtime parsing, schema validation, safety validation, policy checks, budget estimation, and fallback logic before any patch can be previewed or applied.
+
+### Decision
+
+Repair proposals must always flow through:
+
+```txt
+Provider output
+  -> PatchProposalParser
+  -> PatchProposalSchema
+  -> RepairModelPolicy / RepairCostEstimator
+  -> RepairProviderFallback when needed
+  -> PatchSafetyValidator
+  -> diff preview
+```
+
+````md
+## Decision — Session 39: Agent loop must be approval-gated before writes
+
+**Date:** 2026-05-18  
+**Status:** Accepted
+
+### Context
+
+The project now supports an interactive agent loop that can inspect, validate, request repair proposals, show diff previews, request user approval, apply patches, revalidate, and report completion.
+
+The key risk is uncontrolled autonomous writing.
+
+### Decision
+
+The agent loop may execute read-only and preview actions without write approval, but any patch application must require a persisted approval request with status `approved`.
+
+The controlled lifecycle is:
+
+```txt
+objective
+  -> inspect_project
+  -> validate_project
+  -> check_git
+  -> request_repair_proposal
+  -> show_diff_preview
+  -> request_approval
+  -> approve/reject
+  -> apply_patch only if approved
+  -> revalidate_project
+  -> report_result
+  -> completed
+```
+````
+
+---
+
+# 2. Agregar a `decisions.md`
+
+````md
+## Decision — Session 40: CLI agent command is the primary user-facing loop interface
+
+**Date:** 2026-05-18  
+**Status:** Accepted
+
+### Context
+
+Session 39 produced a working internal approval-gated agent loop. It could inspect, validate, request a repair proposal, show a diff preview, request approval, apply a patch, revalidate, and report completion.
+
+However, without a CLI interface, the loop was only directly usable through tests/internal classes.
+
+### Decision
+
+Expose the agent loop through the CLI using the `zero agent` command namespace.
+
+Supported actions:
+
+```txt
+start
+status
+actions
+approvals
+next
+step
+approve
+reject
+report
+reset
+```
+````
+
+## 008 - Runtime state is persisted as markdown first
+
+The first persistence layer uses human-readable markdown files before introducing JSON checkpoints or database-backed memory.
+
+## 008 - Runtime state is persisted as markdown first
+
+The first persistence layer uses human-readable markdown files before introducing JSON checkpoints or database-backed memory.

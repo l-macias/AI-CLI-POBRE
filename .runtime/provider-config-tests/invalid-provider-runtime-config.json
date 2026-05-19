@@ -1,0 +1,7 @@
+{
+  "providerStrategy": {
+    "defaultProvider": "openrouter",
+    "roles": []
+  },
+  "modelBudget": {}
+}

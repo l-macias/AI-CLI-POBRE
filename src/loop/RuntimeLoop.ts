@@ -1,4 +1,5 @@
 import type { Logger } from '../observability/Logger.js';
+import type { RuntimeTracer } from '../observability/RuntimeTracer.js';
 import type { AgentRuntime } from '../core/AgentRuntime.js';
 import { FailureRecovery } from '../failure/FailureRecovery.js';
 import type { ExecutionEngineStepResult } from '../types/ExecutionTypes.js';
@@ -13,6 +14,7 @@ import { RuntimeLoopReporter } from './RuntimeLoopReporter.js';
 export interface RuntimeLoopOptions {
   runtime: AgentRuntime;
   logger: Logger;
+  tracer?: RuntimeTracer | undefined;
   reporter?: RuntimeLoopReporter | undefined;
   failureRecovery?: FailureRecovery | undefined;
 }
@@ -20,12 +22,14 @@ export interface RuntimeLoopOptions {
 export class RuntimeLoop {
   private readonly runtime: AgentRuntime;
   private readonly logger: Logger;
+  private readonly tracer: RuntimeTracer | undefined;
   private readonly reporter: RuntimeLoopReporter;
   private readonly failureRecovery: FailureRecovery;
 
   public constructor(options: RuntimeLoopOptions) {
     this.runtime = options.runtime;
     this.logger = options.logger;
+    this.tracer = options.tracer;
     this.reporter = options.reporter ?? new RuntimeLoopReporter();
     this.failureRecovery =
       options.failureRecovery ??
@@ -36,6 +40,8 @@ export class RuntimeLoop {
 
   public async runOnce(input: RuntimeLoopRunInput): Promise<RuntimeLoopRunResult> {
     let state = this.createState(input);
+
+    this.tracer?.startLoop(state.id);
 
     try {
       await this.runtime.acceptObjective(input.objective);
@@ -52,6 +58,15 @@ export class RuntimeLoop {
         });
 
         await this.reporter.append(state);
+
+        this.tracer?.completeLoop({
+          loopId: state.id,
+          status: state.status,
+          executedSteps: 0,
+          blockedSteps: 1,
+          failedSteps: 0,
+          recoveryCount: 0,
+        });
 
         return {
           state,
@@ -79,6 +94,15 @@ export class RuntimeLoop {
           });
 
           await this.reporter.append(state);
+
+          this.tracer?.completeLoop({
+            loopId: state.id,
+            status: state.status,
+            executedSteps: 0,
+            blockedSteps: 1,
+            failedSteps: 0,
+            recoveryCount: 0,
+          });
 
           return {
             state,
@@ -113,6 +137,15 @@ export class RuntimeLoop {
 
       await this.reporter.append(state);
 
+      this.tracer?.completeLoop({
+        loopId: state.id,
+        status: state.status,
+        executedSteps: this.countExecutedSteps(state),
+        blockedSteps: this.countBlockedSteps(state),
+        failedSteps: this.countFailedSteps(state),
+        recoveryCount: state.recoveryResult ? 1 : 0,
+      });
+
       this.logger.info('Runtime loop completed', {
         loopId: state.id,
         status: state.status,
@@ -137,6 +170,26 @@ export class RuntimeLoop {
       });
 
       await this.reporter.append(state);
+
+      this.tracer?.getErrorReporter().report({
+        source: 'RuntimeLoop',
+        code: 'RUNTIME_LOOP_FAILED',
+        error,
+        metadata: {
+          loopId: state.id,
+          status: state.status,
+          recoveryAction: recoveryResult.action,
+        },
+      });
+
+      this.tracer?.completeLoop({
+        loopId: state.id,
+        status: state.status,
+        executedSteps: this.countExecutedSteps(state),
+        blockedSteps: this.countBlockedSteps(state),
+        failedSteps: this.countFailedSteps(state),
+        recoveryCount: 1,
+      });
 
       this.logger.error('Runtime loop failed', {
         loopId: state.id,
@@ -197,5 +250,32 @@ export class RuntimeLoop {
       updatedAt: new Date().toISOString(),
       issues: patch.issues ?? state.issues,
     };
+  }
+
+  private countExecutedSteps(state: RuntimeLoopState): number {
+    if (state.sequentialResult) {
+      return state.sequentialResult.results.filter((result) => result.step.status === 'executed')
+        .length;
+    }
+
+    return state.stepResult?.step.status === 'executed' ? 1 : 0;
+  }
+
+  private countBlockedSteps(state: RuntimeLoopState): number {
+    if (state.sequentialResult) {
+      return state.sequentialResult.results.filter((result) => result.step.status === 'blocked')
+        .length;
+    }
+
+    return state.stepResult?.step.status === 'blocked' ? 1 : 0;
+  }
+
+  private countFailedSteps(state: RuntimeLoopState): number {
+    if (state.sequentialResult) {
+      return state.sequentialResult.results.filter((result) => result.step.status === 'failed')
+        .length;
+    }
+
+    return state.stepResult?.step.status === 'failed' ? 1 : 0;
   }
 }

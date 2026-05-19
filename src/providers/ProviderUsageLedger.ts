@@ -1,3 +1,4 @@
+import type { RuntimeTracer } from '../observability/RuntimeTracer.js';
 import type {
   ProviderUsageLedgerEntry,
   ProviderUsageLedgerSummary,
@@ -8,14 +9,17 @@ import { ModelPricingCatalog } from './ModelPricingCatalog.js';
 
 export interface ProviderUsageLedgerOptions {
   pricingCatalog?: ModelPricingCatalog | undefined;
+  tracer?: RuntimeTracer | undefined;
 }
 
 export class ProviderUsageLedger {
   private readonly entries: ProviderUsageLedgerEntry[] = [];
   private readonly pricingCatalog: ModelPricingCatalog;
+  private readonly tracer: RuntimeTracer | undefined;
 
   public constructor(options: ProviderUsageLedgerOptions = {}) {
     this.pricingCatalog = options.pricingCatalog ?? new ModelPricingCatalog();
+    this.tracer = options.tracer;
   }
 
   public record(input: {
@@ -25,6 +29,8 @@ export class ProviderUsageLedger {
   }): ProviderUsageLedgerEntry {
     const promptTokens = input.usage.promptTokens ?? 0;
     const completionTokens = input.usage.completionTokens ?? 0;
+    const totalTokens = input.usage.totalTokens ?? promptTokens + completionTokens;
+
     const estimate = this.pricingCatalog.estimate({
       provider: input.selection.provider,
       model: input.selection.model,
@@ -44,6 +50,19 @@ export class ProviderUsageLedger {
     };
 
     this.entries.push(entry);
+
+    this.tracer?.recordModelUsage({
+      provider: entry.provider,
+      model: entry.model,
+      role: entry.role,
+      tier: entry.tier,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      estimatedUsd: entry.estimatedUsd,
+      reason: entry.reason,
+      recordedAt: entry.recordedAt,
+    });
 
     return entry;
   }

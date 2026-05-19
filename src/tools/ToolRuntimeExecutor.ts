@@ -1,3 +1,4 @@
+import type { RuntimeTracer } from '../observability/RuntimeTracer.js';
 import type {
   RuntimeTool,
   ToolDefinition,
@@ -11,31 +12,52 @@ import type { ToolExecutionValidator } from './ToolExecutionValidator.js';
 export interface ToolRuntimeExecutorOptions {
   validator: ToolExecutionValidator;
   permissionManager: ToolPermissionManager;
+  tracer?: RuntimeTracer | undefined;
 }
 
 export class ToolRuntimeExecutor {
   private readonly validator: ToolExecutionValidator;
   private readonly permissionManager: ToolPermissionManager;
+  private readonly tracer: RuntimeTracer | undefined;
 
   public constructor(options: ToolRuntimeExecutorOptions) {
     this.validator = options.validator;
     this.permissionManager = options.permissionManager;
+    this.tracer = options.tracer;
   }
 
   public async execute(request: ToolExecutionRequest): Promise<ToolExecutionResult> {
     const startedAt = new Date();
+
+    this.tracer?.trace({
+      type: 'tool_requested',
+      scope: 'tool',
+      source: 'ToolRuntimeExecutor',
+      message: `Tool "${request.toolName}" requested.`,
+      metadata: {
+        requestId: request.id,
+        toolName: request.toolName,
+        proposedBy: request.proposedBy,
+        requestedAt: request.requestedAt,
+      },
+    });
+
     const validation = this.validator.validate(request);
 
     if (!validation.valid || !validation.tool) {
-      return this.createNotExecutedResult({
+      const result = this.createNotExecutedResult({
         request,
         startedAt,
         issues: validation.issues,
       });
+
+      this.tracer?.recordToolResult(result);
+
+      return result;
     }
 
     if (!this.isRuntimeTool(validation.tool)) {
-      return this.createNotExecutedResult({
+      const result = this.createNotExecutedResult({
         request,
         startedAt,
         issues: [
@@ -46,6 +68,10 @@ export class ToolRuntimeExecutor {
           },
         ],
       });
+
+      this.tracer?.recordToolResult(result);
+
+      return result;
     }
 
     const permissionCheck = this.permissionManager.check({
@@ -54,7 +80,7 @@ export class ToolRuntimeExecutor {
     });
 
     if (!permissionCheck.allowed) {
-      return this.createNotExecutedResult({
+      const result = this.createNotExecutedResult({
         request,
         startedAt,
         issues: permissionCheck.issues.map((issue) => ({
@@ -63,18 +89,26 @@ export class ToolRuntimeExecutor {
           severity: issue.severity,
         })),
       });
+
+      this.tracer?.recordToolResult(result);
+
+      return result;
     }
 
     try {
-      return await validation.tool.execute(validation.validatedInput, {
+      const result = await validation.tool.execute(validation.validatedInput, {
         requestId: request.id,
         toolName: request.toolName,
         startedAt: startedAt.toISOString(),
       });
+
+      this.tracer?.recordToolResult(result);
+
+      return result;
     } catch (error) {
       const finishedAt = new Date();
 
-      return {
+      const result: ToolExecutionResult = {
         requestId: request.id,
         toolName: request.toolName,
         status: 'failed',
@@ -88,6 +122,10 @@ export class ToolRuntimeExecutor {
         executedAt: finishedAt.toISOString(),
         durationMs: finishedAt.getTime() - startedAt.getTime(),
       };
+
+      this.tracer?.recordToolResult(result);
+
+      return result;
     }
   }
 

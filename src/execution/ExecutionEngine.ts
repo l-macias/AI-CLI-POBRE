@@ -12,10 +12,12 @@ import type { RuntimeToolController } from '../tools/RuntimeToolController.js';
 import { ExecutionHistory } from './ExecutionHistory.js';
 import { StepExecutionStateMachine } from './StepExecutionStateMachine.js';
 import { TaskQueue } from './TaskQueue.js';
+import type { RuntimeTracer } from '../observability/RuntimeTracer.js';
 
 export interface ExecutionEngineOptions {
   controller: RuntimeToolController;
   logger: Logger;
+  tracer?: RuntimeTracer | undefined;
   history?: ExecutionHistory | undefined;
   stateMachine?: StepExecutionStateMachine | undefined;
 }
@@ -36,12 +38,13 @@ export class ExecutionEngine {
   private readonly history: ExecutionHistory;
   private readonly stateMachine: StepExecutionStateMachine;
   private readonly queues = new Map<string, TaskQueue>();
-
+  private readonly tracer: RuntimeTracer | undefined;
   public constructor(options: ExecutionEngineOptions) {
     this.controller = options.controller;
     this.logger = options.logger;
     this.history = options.history ?? new ExecutionHistory();
     this.stateMachine = options.stateMachine ?? new StepExecutionStateMachine();
+    this.tracer = options.tracer;
   }
 
   public async executeStep(
@@ -58,25 +61,60 @@ export class ExecutionEngine {
       });
     }
 
+    const timelineEntry = this.tracer?.getTimeline().start({
+      label: `Execute step ${input.stepId}`,
+      source: 'ExecutionEngine',
+      metadata: {
+        planId: review.plan.id,
+        stepId: input.stepId,
+      },
+    });
+
     const queue = this.getOrCreateQueue(review);
     const item = queue.getItem(input.stepId);
 
     if (!item) {
-      return this.createBlockedStepResult({
+      const result = await this.createBlockedStepResult({
         planId: review.plan.id,
         stepId: input.stepId,
         code: 'PLAN_STEP_NOT_FOUND',
         message: `Step "${input.stepId}" was not found in the active plan.`,
       });
+
+      if (timelineEntry) {
+        this.tracer?.getTimeline().complete({
+          id: timelineEntry.id,
+          status: 'blocked',
+          metadata: {
+            toolStatus: result.toolResult.status,
+            issues: result.toolResult.issues,
+          },
+        });
+      }
+
+      return result;
     }
 
     if (item.state.status === 'executed') {
-      return this.createBlockedStepResult({
+      const result = await this.createBlockedStepResult({
         planId: review.plan.id,
         stepId: input.stepId,
         code: 'STEP_ALREADY_EXECUTED',
         message: `Step "${input.stepId}" was already executed.`,
       });
+
+      if (timelineEntry) {
+        this.tracer?.getTimeline().complete({
+          id: timelineEntry.id,
+          status: 'blocked',
+          metadata: {
+            toolStatus: result.toolResult.status,
+            issues: result.toolResult.issues,
+          },
+        });
+      }
+
+      return result;
     }
 
     const runningState = this.stateMachine.markRunning(item.state);
@@ -110,6 +148,25 @@ export class ExecutionEngine {
       stepStatus: completedState.status,
       toolStatus: toolResult.status,
     });
+
+    if (timelineEntry) {
+      this.tracer?.getTimeline().complete({
+        id: timelineEntry.id,
+        status:
+          completedState.status === 'executed'
+            ? 'completed'
+            : completedState.status === 'failed'
+              ? 'failed'
+              : 'blocked',
+        metadata: {
+          runId: run.id,
+          stepStatus: completedState.status,
+          toolName: toolResult.toolName,
+          toolStatus: toolResult.status,
+          issues: toolResult.issues,
+        },
+      });
+    }
 
     return {
       run,

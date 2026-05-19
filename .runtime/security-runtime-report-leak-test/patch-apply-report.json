@@ -1,0 +1,112 @@
+{
+  "id": "patch-apply-2026-05-19T133710568Z",
+  "status": "blocked",
+  "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-runtime-report-leak-test\\patch-project",
+  "proposalId": "proposal-leak-test",
+  "gitBoundary": {
+    "boundary": {
+      "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-runtime-report-leak-test\\patch-project",
+      "repositoryRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-runtime-report-leak-test\\patch-project",
+      "branch": "test-branch",
+      "workingTreeState": "clean",
+      "clean": true,
+      "modifiedFiles": [],
+      "untrackedFiles": [],
+      "deletedFiles": [],
+      "checkedAt": "2026-05-19T13:37:10.709Z",
+      "issues": []
+    },
+    "guard": {
+      "decision": "allowed",
+      "allowed": true,
+      "reason": "Working tree is clean.",
+      "issues": [],
+      "checkedAt": "2026-05-19T13:37:10.709Z"
+    },
+    "safeToWrite": true
+  },
+  "plan": {
+    "id": "patch-apply-plan-2026-05-19T133710568Z",
+    "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-runtime-report-leak-test\\patch-project",
+    "proposal": {
+      "id": "proposal-leak-test",
+      "summary": "Secret leak fixture.",
+      "riskLevel": "high",
+      "operations": [
+        {
+          "kind": "replace_file",
+          "targetFile": "src/index.ts",
+          "expectedCurrentContent": "export const value = 1;\n",
+          "newContent": "export const key = \"[REDACTED]\";\n",
+          "reason": "Test secret [REDACTED]"
+        }
+      ],
+      "explanation": "Must redact [REDACTED]"
+    },
+    "operations": [
+      {
+        "kind": "replace_file",
+        "targetFile": "src/index.ts",
+        "expectedCurrentContent": "export const value = 1;\n",
+        "newContent": "export const key = \"[REDACTED]\";\n",
+        "reason": "Test secret [REDACTED]"
+      }
+    ],
+    "backupEnabled": true,
+    "createdAt": "2026-05-19T13:37:10.568Z",
+    "issues": []
+  },
+  "contentChecks": [
+    {
+      "targetFile": "src/index.ts",
+      "expectedContentProvided": true,
+      "matched": true,
+      "message": "Current content matches expectedCurrentContent."
+    }
+  ],
+  "operationResults": [],
+  "issues": [
+    {
+      "code": "PATCH_APPLY_THREAT_PROMPT_INJECTION_SECRET_EXFILTRATION",
+      "message": "Provider output requests access to or disclosure of secrets.",
+      "severity": "error"
+    },
+    {
+      "code": "PATCH_APPLY_THREAT_SECRET_OPENROUTER_API_KEY",
+      "message": "Potential OpenRouter API key detected.",
+      "severity": "error"
+    },
+    {
+      "code": "PATCH_APPLY_THREAT_SECRET_GENERIC_SK_KEY",
+      "message": "Potential generic sk-* API key detected.",
+      "severity": "error"
+    },
+    {
+      "code": "PATCH_APPLY_THREAT_SECRET_OPENROUTER_API_KEY",
+      "message": "Potential OpenRouter API key detected.",
+      "severity": "error"
+    },
+    {
+      "code": "PATCH_APPLY_THREAT_SECRET_GENERIC_SK_KEY",
+      "message": "Potential generic sk-* API key detected.",
+      "severity": "error"
+    },
+    {
+      "code": "PATCH_APPLY_THREAT_SECRET_OPENROUTER_API_KEY",
+      "message": "Potential OpenRouter API key detected.",
+      "severity": "error"
+    },
+    {
+      "code": "PATCH_APPLY_THREAT_SECRET_GENERIC_SK_KEY",
+      "message": "Potential generic sk-* API key detected.",
+      "severity": "error"
+    },
+    {
+      "code": "PATCH_APPLY_THREAT_SECRET_SENSITIVE_KEY_VALUE",
+      "message": "Potential sensitive key/value pair detected.",
+      "severity": "error"
+    }
+  ],
+  "createdAt": "2026-05-19T13:37:10.568Z",
+  "completedAt": "2026-05-19T13:37:10.709Z"
+}

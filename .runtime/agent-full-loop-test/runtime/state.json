@@ -1,0 +1,483 @@
+{
+  "id": "agent-loop-2026-05-18T195851328Z",
+  "status": "completed",
+  "objective": "Run full approval-gated agent loop for src/index.ts",
+  "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\agent-full-loop-test\\project",
+  "projectName": "Agent Full Loop Fixture",
+  "targetFiles": [
+    "src/index.ts"
+  ],
+  "turns": [
+    {
+      "id": "agent-turn-2026-05-18T195851329Z",
+      "role": "user",
+      "message": "Run full approval-gated agent loop for src/index.ts",
+      "createdAt": "2026-05-18T19:58:51.329Z"
+    },
+    {
+      "id": "agent-turn-2026-05-18T195851329Z",
+      "role": "runtime",
+      "message": "Agent loop initialized. Runtime will inspect, validate, propose, preview, request approval, apply, and revalidate in controlled phases.",
+      "createdAt": "2026-05-18T19:58:51.329Z"
+    },
+    {
+      "id": "agent-turn-2026-05-18T195851338Z",
+      "role": "runtime",
+      "message": "Project inspection completed.",
+      "createdAt": "2026-05-18T19:58:51.338Z",
+      "metadata": {
+        "status": "inspected",
+        "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\agent-full-loop-test\\project",
+        "detectedStack": [
+          "typescript",
+          "node"
+        ],
+        "targetFileCount": 1
+      }
+    },
+    {
+      "id": "agent-turn-2026-05-18T195853855Z",
+      "role": "runtime",
+      "message": "Project validation completed.",
+      "createdAt": "2026-05-18T19:58:53.855Z",
+      "metadata": {
+        "status": "passed",
+        "commandCount": 1,
+        "findingCount": 0
+      }
+    },
+    {
+      "id": "agent-turn-2026-05-18T195853975Z",
+      "role": "runtime",
+      "message": "Git boundary check completed.",
+      "createdAt": "2026-05-18T19:58:53.975Z",
+      "metadata": {
+        "action": "doctor",
+        "branch": "test-branch",
+        "workingTreeState": "clean",
+        "guardDecision": "allowed",
+        "allowed": true
+      }
+    },
+    {
+      "id": "agent-turn-2026-05-18T195856816Z",
+      "role": "runtime",
+      "message": "Repair proposal requested through runtime-controlled provider flow.",
+      "createdAt": "2026-05-18T19:58:56.816Z",
+      "metadata": {
+        "status": "diff_ready",
+        "proposalId": "fake-llm-repair-proposal",
+        "proposal": {
+          "id": "fake-llm-repair-proposal",
+          "summary": "Fake repair proposal for src/index.ts.",
+          "riskLevel": "low",
+          "operations": [
+            {
+              "targetFile": "src/index.ts",
+              "expectedCurrentContent": "export const value = 1;\n",
+              "reason": "Fake provider echoes the current content to exercise parser, schema, safety validation, and diff generation.",
+              "kind": "replace_file",
+              "newContent": "export const value = 1;\n"
+            }
+          ],
+          "explanation": "This fake proposal is intentionally deterministic and does not call a real paid provider."
+        },
+        "patchValid": true,
+        "diffPreviewCount": 1,
+        "modelPolicyStatus": "allowed",
+        "selectedModel": "fake-repair-proposal-provider",
+        "fallbackUsed": false
+      }
+    },
+    {
+      "id": "agent-turn-2026-05-18T195856818Z",
+      "role": "runtime",
+      "message": "Diff preview summary prepared from latest repair attempt.",
+      "createdAt": "2026-05-18T19:58:56.818Z",
+      "metadata": {
+        "source": "latest_repair_attempt_summary",
+        "repairStatus": "diff_ready",
+        "proposalId": "fake-llm-repair-proposal",
+        "diffPreviewCount": 1,
+        "patchValid": true
+      }
+    },
+    {
+      "id": "agent-turn-2026-05-18T195856819Z",
+      "role": "runtime",
+      "message": "Approval requested for patch application.",
+      "createdAt": "2026-05-18T19:58:56.819Z",
+      "metadata": {
+        "actionId": "agent-action-request_approval",
+        "approvalScope": "patch_apply",
+        "targetActionId": "agent-action-apply_patch",
+        "repairStatus": "diff_ready",
+        "proposalId": "fake-llm-repair-proposal",
+        "diffPreviewCount": 1,
+        "patchValid": true,
+        "warning": "Patch will not be applied until approval is explicitly granted."
+      }
+    },
+    {
+      "id": "agent-turn-2026-05-18T195856821Z",
+      "role": "user",
+      "message": "Approved agent-approval-2026-05-18T195856819Z: Approve full-loop controlled patch application.",
+      "createdAt": "2026-05-18T19:58:56.821Z"
+    },
+    {
+      "id": "agent-turn-2026-05-18T195856946Z",
+      "role": "runtime",
+      "message": "Patch applied through approval-gated PatchApplyRunner.",
+      "createdAt": "2026-05-18T19:58:56.946Z",
+      "metadata": {
+        "status": "applied",
+        "proposalId": "fake-llm-repair-proposal",
+        "operationCount": 1,
+        "issueCount": 0,
+        "guardDecision": "allowed"
+      }
+    },
+    {
+      "id": "agent-turn-2026-05-18T195859363Z",
+      "role": "runtime",
+      "message": "Project revalidation completed.",
+      "createdAt": "2026-05-18T19:58:59.363Z",
+      "metadata": {
+        "status": "passed",
+        "commandCount": 1,
+        "findingCount": 0
+      }
+    },
+    {
+      "id": "agent-turn-2026-05-18T195859364Z",
+      "role": "runtime",
+      "message": "Agent loop completed and final report updated.",
+      "createdAt": "2026-05-18T19:58:59.364Z",
+      "metadata": {
+        "completed": true,
+        "repairStatus": "diff_ready",
+        "proposalId": "fake-llm-repair-proposal",
+        "patchApplyStatus": "applied",
+        "patchApplyProposalId": "fake-llm-repair-proposal",
+        "revalidationStatus": "passed",
+        "approvals": 1,
+        "issues": 0
+      }
+    }
+  ],
+  "actions": [
+    {
+      "id": "agent-action-inspect_project",
+      "kind": "inspect_project",
+      "label": "Inspect project",
+      "description": "Inspect target project in read-only mode.",
+      "status": "executed",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:58:51.329Z",
+      "completedAt": "2026-05-18T19:58:51.338Z",
+      "metadata": {
+        "status": "inspected",
+        "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\agent-full-loop-test\\project",
+        "detectedStack": [
+          "typescript",
+          "node"
+        ],
+        "targetFileCount": 1
+      }
+    },
+    {
+      "id": "agent-action-validate_project",
+      "kind": "validate_project",
+      "label": "Validate project",
+      "description": "Run controlled validation to collect findings.",
+      "status": "executed",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:58:51.329Z",
+      "completedAt": "2026-05-18T19:58:53.855Z",
+      "metadata": {
+        "status": "passed",
+        "commandCount": 1,
+        "findingCount": 0
+      }
+    },
+    {
+      "id": "agent-action-check_git",
+      "kind": "check_git",
+      "label": "Check git status",
+      "description": "Capture git boundary and working tree safety.",
+      "status": "executed",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:58:51.329Z",
+      "completedAt": "2026-05-18T19:58:53.975Z",
+      "metadata": {
+        "action": "doctor",
+        "branch": "test-branch",
+        "workingTreeState": "clean",
+        "guardDecision": "allowed",
+        "allowed": true
+      }
+    },
+    {
+      "id": "agent-action-build_repair_context",
+      "kind": "build_repair_context",
+      "label": "Build repair context",
+      "description": "Build repair request from findings and target files.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:58:51.329Z"
+    },
+    {
+      "id": "agent-action-request_repair_proposal",
+      "kind": "request_repair_proposal",
+      "label": "Request repair proposal",
+      "description": "Ask configured provider for a patch proposal through runtime policy.",
+      "status": "executed",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:58:51.329Z",
+      "completedAt": "2026-05-18T19:58:56.816Z",
+      "metadata": {
+        "status": "diff_ready",
+        "proposalId": "fake-llm-repair-proposal",
+        "proposal": {
+          "id": "fake-llm-repair-proposal",
+          "summary": "Fake repair proposal for src/index.ts.",
+          "riskLevel": "low",
+          "operations": [
+            {
+              "targetFile": "src/index.ts",
+              "expectedCurrentContent": "export const value = 1;\n",
+              "reason": "Fake provider echoes the current content to exercise parser, schema, safety validation, and diff generation.",
+              "kind": "replace_file",
+              "newContent": "export const value = 1;\n"
+            }
+          ],
+          "explanation": "This fake proposal is intentionally deterministic and does not call a real paid provider."
+        },
+        "patchValid": true,
+        "diffPreviewCount": 1,
+        "modelPolicyStatus": "allowed",
+        "selectedModel": "fake-repair-proposal-provider",
+        "fallbackUsed": false
+      }
+    },
+    {
+      "id": "agent-action-show_diff_preview",
+      "kind": "show_diff_preview",
+      "label": "Show diff preview",
+      "description": "Generate and present diff preview.",
+      "status": "executed",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:58:51.329Z",
+      "completedAt": "2026-05-18T19:58:56.818Z",
+      "metadata": {
+        "source": "latest_repair_attempt_summary",
+        "repairStatus": "diff_ready",
+        "proposalId": "fake-llm-repair-proposal",
+        "diffPreviewCount": 1,
+        "patchValid": true
+      }
+    },
+    {
+      "id": "agent-action-request_approval",
+      "kind": "request_approval",
+      "label": "Request approval",
+      "description": "Ask user approval before any controlled write.",
+      "status": "executed",
+      "requiresApproval": true,
+      "createdAt": "2026-05-18T19:58:51.329Z",
+      "completedAt": "2026-05-18T19:58:56.819Z",
+      "metadata": {
+        "actionId": "agent-action-request_approval",
+        "approvalScope": "patch_apply",
+        "targetActionId": "agent-action-apply_patch",
+        "repairStatus": "diff_ready",
+        "proposalId": "fake-llm-repair-proposal",
+        "diffPreviewCount": 1,
+        "patchValid": true,
+        "warning": "Patch will not be applied until approval is explicitly granted."
+      }
+    },
+    {
+      "id": "agent-action-apply_patch",
+      "kind": "apply_patch",
+      "label": "Apply patch",
+      "description": "Apply patch only after explicit approval.",
+      "status": "executed",
+      "requiresApproval": true,
+      "createdAt": "2026-05-18T19:58:51.329Z",
+      "completedAt": "2026-05-18T19:58:56.946Z",
+      "metadata": {
+        "status": "applied",
+        "proposalId": "fake-llm-repair-proposal",
+        "operationCount": 1,
+        "issueCount": 0,
+        "guardDecision": "allowed"
+      }
+    },
+    {
+      "id": "agent-action-revalidate_project",
+      "kind": "revalidate_project",
+      "label": "Revalidate project",
+      "description": "Run validation again after patch.",
+      "status": "executed",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:58:51.329Z",
+      "completedAt": "2026-05-18T19:58:59.363Z",
+      "metadata": {
+        "status": "passed",
+        "commandCount": 1,
+        "findingCount": 0
+      }
+    },
+    {
+      "id": "agent-action-report_result",
+      "kind": "report_result",
+      "label": "Report result",
+      "description": "Write final loop report.",
+      "status": "executed",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:58:51.329Z",
+      "completedAt": "2026-05-18T19:58:59.364Z",
+      "metadata": {
+        "completed": true,
+        "repairStatus": "diff_ready",
+        "proposalId": "fake-llm-repair-proposal",
+        "patchApplyStatus": "applied",
+        "patchApplyProposalId": "fake-llm-repair-proposal",
+        "revalidationStatus": "passed",
+        "approvals": 1,
+        "issues": 0
+      }
+    }
+  ],
+  "decisions": [],
+  "approvals": [
+    {
+      "id": "agent-approval-2026-05-18T195856819Z",
+      "scope": "patch_apply",
+      "status": "approved",
+      "actionId": "agent-action-apply_patch",
+      "reason": "User approval required before applying runtime-generated patch proposal.",
+      "requestedAt": "2026-05-18T19:58:56.819Z",
+      "metadata": {
+        "actionId": "agent-action-request_approval",
+        "approvalScope": "patch_apply",
+        "targetActionId": "agent-action-apply_patch",
+        "repairStatus": "diff_ready",
+        "proposalId": "fake-llm-repair-proposal",
+        "diffPreviewCount": 1,
+        "patchValid": true,
+        "warning": "Patch will not be applied until approval is explicitly granted."
+      },
+      "decidedAt": "2026-05-18T19:58:56.821Z",
+      "decisionReason": "Approve full-loop controlled patch application."
+    }
+  ],
+  "issues": [],
+  "createdAt": "2026-05-18T19:58:51.328Z",
+  "updatedAt": "2026-05-18T19:58:59.364Z",
+  "metadata": {
+    "lastExecution": {
+      "actionId": "agent-action-report_result",
+      "actionKind": "report_result",
+      "status": "executed",
+      "message": "Agent loop completed and final report updated.",
+      "summary": {
+        "completed": true,
+        "repairStatus": "diff_ready",
+        "proposalId": "fake-llm-repair-proposal",
+        "patchApplyStatus": "applied",
+        "patchApplyProposalId": "fake-llm-repair-proposal",
+        "revalidationStatus": "passed",
+        "approvals": 1,
+        "issues": 0
+      },
+      "createdAt": "2026-05-18T19:58:59.364Z"
+    },
+    "execution_inspect_project": {
+      "status": "inspected",
+      "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\agent-full-loop-test\\project",
+      "detectedStack": [
+        "typescript",
+        "node"
+      ],
+      "targetFileCount": 1
+    },
+    "execution_validate_project": {
+      "status": "passed",
+      "commandCount": 1,
+      "findingCount": 0
+    },
+    "execution_check_git": {
+      "action": "doctor",
+      "branch": "test-branch",
+      "workingTreeState": "clean",
+      "guardDecision": "allowed",
+      "allowed": true
+    },
+    "execution_request_repair_proposal": {
+      "status": "diff_ready",
+      "proposalId": "fake-llm-repair-proposal",
+      "proposal": {
+        "id": "fake-llm-repair-proposal",
+        "summary": "Fake repair proposal for src/index.ts.",
+        "riskLevel": "low",
+        "operations": [
+          {
+            "targetFile": "src/index.ts",
+            "expectedCurrentContent": "export const value = 1;\n",
+            "reason": "Fake provider echoes the current content to exercise parser, schema, safety validation, and diff generation.",
+            "kind": "replace_file",
+            "newContent": "export const value = 1;\n"
+          }
+        ],
+        "explanation": "This fake proposal is intentionally deterministic and does not call a real paid provider."
+      },
+      "patchValid": true,
+      "diffPreviewCount": 1,
+      "modelPolicyStatus": "allowed",
+      "selectedModel": "fake-repair-proposal-provider",
+      "fallbackUsed": false
+    },
+    "execution_show_diff_preview": {
+      "source": "latest_repair_attempt_summary",
+      "repairStatus": "diff_ready",
+      "proposalId": "fake-llm-repair-proposal",
+      "diffPreviewCount": 1,
+      "patchValid": true
+    },
+    "execution_request_approval": {
+      "actionId": "agent-action-request_approval",
+      "approvalScope": "patch_apply",
+      "targetActionId": "agent-action-apply_patch",
+      "repairStatus": "diff_ready",
+      "proposalId": "fake-llm-repair-proposal",
+      "diffPreviewCount": 1,
+      "patchValid": true,
+      "warning": "Patch will not be applied until approval is explicitly granted."
+    },
+    "execution_apply_patch": {
+      "status": "applied",
+      "proposalId": "fake-llm-repair-proposal",
+      "operationCount": 1,
+      "issueCount": 0,
+      "guardDecision": "allowed"
+    },
+    "execution_revalidate_project": {
+      "status": "passed",
+      "commandCount": 1,
+      "findingCount": 0
+    },
+    "execution_report_result": {
+      "completed": true,
+      "repairStatus": "diff_ready",
+      "proposalId": "fake-llm-repair-proposal",
+      "patchApplyStatus": "applied",
+      "patchApplyProposalId": "fake-llm-repair-proposal",
+      "revalidationStatus": "passed",
+      "approvals": 1,
+      "issues": 0
+    }
+  },
+  "completedAt": "2026-05-18T19:58:59.364Z"
+}

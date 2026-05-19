@@ -1,33 +1,33 @@
 # Runtime Summary
 
-Created at: 2026-05-14T15:58:05.636Z
+Created at: 2026-05-18T19:27:34.970Z
 
 Project: Zero Runtime
 
-Status: Completed
+Status: unknown
 
-Active module: Context compression and memory compaction
+Active module: Session Persistence
 
-Next step: Session 22 — Context Compressor + Memory Compactor
+Next step: - Validate session state files are written correctly.
 
 ## Key decisions
 
-- failed
-- skipped
-- rolled_back
-- `ExecutionEngine`
-- `RuntimeToolController`
-- `RuntimeToolExecutionGate`
-- `ToolExecutionValidator`
-- `ToolPermissionManager`
+- la validación puede ejecutarse sin tocar archivos;
+- la reparación necesita contexto, propuesta, safety validation, diff y aprobación.
+- npm scripts permitidos: build, typecheck, lint;
+- TypeScript local directo si existe `node_modules/typescript/bin/tsc`.
+- comandos destructivos;
+- shell arbitrario;
+- npm install automático;
+- git commit/push automático.
 
 ## Recent progress
 
-- `src/failure/Replanner.ts`
-- `src/examples/failure-recovery-test.ts`
-- `src/examples/runtime-loop-failure-recovery-test.ts`
-- protected path failure classified correctly
-- repeated same failure triggers loop detection
-- recursive failure depth is blocked
-- `.env` remains blocked
-- ExecutionEngine emits blocked results for recovery classification
+- `agent step`
+- `agent approve`
+- `agent reject`
+- `agent report`
+- formatter support for agent state, actions, approvals and issues
+- `AgentCommand`
+- `agent` registration in CLI command registry
+- `CliRuntimeBridge.agent()`

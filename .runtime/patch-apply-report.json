@@ -1,0 +1,92 @@
+{
+  "id": "patch-apply-2026-05-19T133740894Z",
+  "status": "applied",
+  "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-protected-path-integration-test\\project",
+  "proposalId": "security-safe-proposal",
+  "gitBoundary": {
+    "boundary": {
+      "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-protected-path-integration-test\\project",
+      "repositoryRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-protected-path-integration-test\\project",
+      "branch": "test-branch",
+      "workingTreeState": "dirty",
+      "clean": false,
+      "modifiedFiles": [],
+      "untrackedFiles": [
+        "src/linked-outside/"
+      ],
+      "deletedFiles": [],
+      "checkedAt": "2026-05-19T13:37:41.055Z",
+      "issues": []
+    },
+    "guard": {
+      "decision": "warning",
+      "allowed": true,
+      "reason": "Working tree is dirty, but policy allows continuing.",
+      "issues": [
+        {
+          "code": "GIT_WORKING_TREE_DIRTY_ALLOWED",
+          "message": "Working tree has existing changes and dirty state was explicitly allowed.",
+          "severity": "warning"
+        }
+      ],
+      "checkedAt": "2026-05-19T13:37:41.055Z"
+    },
+    "safeToWrite": true
+  },
+  "plan": {
+    "id": "patch-apply-plan-2026-05-19T133740894Z",
+    "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-protected-path-integration-test\\project",
+    "proposal": {
+      "id": "security-safe-proposal",
+      "summary": "Safe source edit.",
+      "riskLevel": "low",
+      "operations": [
+        {
+          "kind": "replace_file",
+          "targetFile": "src/index.ts",
+          "newContent": "export const value = 2;\n",
+          "expectedCurrentContent": "export const value = 1;\n",
+          "reason": "Safe controlled edit."
+        }
+      ],
+      "explanation": "This should be allowed."
+    },
+    "operations": [
+      {
+        "kind": "replace_file",
+        "targetFile": "src/index.ts",
+        "newContent": "export const value = 2;\n",
+        "expectedCurrentContent": "export const value = 1;\n",
+        "reason": "Safe controlled edit."
+      }
+    ],
+    "backupEnabled": true,
+    "createdAt": "2026-05-19T13:37:40.894Z",
+    "issues": []
+  },
+  "contentChecks": [
+    {
+      "targetFile": "src/index.ts",
+      "expectedContentProvided": true,
+      "matched": true,
+      "message": "Current content matches expectedCurrentContent."
+    }
+  ],
+  "operationResults": [
+    {
+      "targetFile": "src/index.ts",
+      "kind": "replace_file",
+      "status": "applied",
+      "backup": {
+        "targetFile": "src/index.ts",
+        "backupPath": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\security-protected-path-integration-test\\project\\.runtime\\patch-backups\\patch-apply-2026-05-19T133740894Z\\src\\index.ts",
+        "existed": true,
+        "createdAt": "2026-05-19T13:37:41.056Z"
+      },
+      "message": "File written."
+    }
+  ],
+  "issues": [],
+  "createdAt": "2026-05-19T13:37:40.894Z",
+  "completedAt": "2026-05-19T13:37:41.060Z"
+}

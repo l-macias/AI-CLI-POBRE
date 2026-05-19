@@ -90,6 +90,36 @@ export const restoreCheckpointToolInputSchema = z
 
 export const emptyToolInputSchema = z.object({}).strict();
 
+export const dryRunCommandToolInputSchema = z
+  .object({
+    command: z.string().min(1).max(80),
+    args: z.array(z.string().min(1).max(120)).max(20),
+    cwd: z.string().min(1).max(300).default('.'),
+    pathArgs: z.array(z.string().min(1).max(300)).max(20).optional(),
+    timeoutMs: z.number().int().positive().max(300_000).optional(),
+    maxOutputBytes: z.number().int().positive().max(1_000_000).optional(),
+    networkAccess: z.boolean().default(false),
+  })
+  .strict();
+
+export const npmScriptToolInputSchema = z
+  .object({
+    script: z.enum(['typecheck', 'lint', 'build', 'test']),
+    cwd: z.string().min(1).max(300).default('.'),
+    timeoutMs: z.number().int().positive().max(300_000).optional(),
+    maxOutputBytes: z.number().int().positive().max(1_000_000).optional(),
+    executeConfirmed: z.literal(true),
+  })
+  .strict();
+export const fixedNpmScriptToolInputSchema = z
+  .object({
+    cwd: z.string().min(1).max(300).default('.'),
+    timeoutMs: z.number().int().positive().max(300_000).optional(),
+    maxOutputBytes: z.number().int().positive().max(1_000_000).optional(),
+    executeConfirmed: z.literal(true),
+  })
+  .strict();
+
 export type ToolExecutionRequestModel = z.infer<typeof toolExecutionRequestSchema>;
 export type ToolIntentModel = z.infer<typeof toolIntentSchema>;
 export type ReadFileToolInput = z.infer<typeof readFileToolInputSchema>;
@@ -100,3 +130,6 @@ export type CreateFileToolInput = z.infer<typeof createFileToolInputSchema>;
 export type EditFileToolInput = z.infer<typeof editFileToolInputSchema>;
 export type BackupFileToolInput = z.infer<typeof backupFileToolInputSchema>;
 export type RestoreCheckpointToolInput = z.infer<typeof restoreCheckpointToolInputSchema>;
+export type DryRunCommandToolInput = z.infer<typeof dryRunCommandToolInputSchema>;
+export type NpmScriptToolInput = z.infer<typeof npmScriptToolInputSchema>;
+export type FixedNpmScriptToolInput = z.infer<typeof fixedNpmScriptToolInputSchema>;

@@ -2,23 +2,22 @@
 
 # Lista de archivos a incluir
 files=(
-  "src/providers/Provider.ts"
-  "src/providers/ProviderTypes.ts"
-  "src/types/ProviderTypes.ts"
-  "src/providers/ProviderManager.ts"
-  "src/providers/OpenRouterProvider.ts"
-  "src/providers/ModelSelector.ts"
-  "src/providers/ModelCapabilities.ts"
-  "src/providers/ProviderFallback.ts"
-  "src/providers/TokenEstimator.ts"
-  "src/providers/JsonRepair.ts"
-  "src/providers/StructuredOutputParser.ts"
-  "src/planning/PlanGenerator.ts"
-  "src/core/RuntimeConfig.ts"
-  "src/config/env.ts"
-  src/examples/provider-smoke-test.ts
-  src/examples/plan-generation-test.ts
-  "package.json"
+  "src/cli/CliTypes.ts"
+  "src/cli/CliCommandHandler.ts"
+  "src/cli/CliCommandRegistry.ts"
+  "src/cli/CliApp.ts"
+  "src/cli/CliOutputFormatter.ts"
+  "src/cli/commands/helpCommand.ts"
+  "src/cli/commands/patchCommand.ts"
+  "src/cli/index.ts"
+  "src/cli/main.ts"
+  "src/index.ts"
+  "src/examples/cli-test.ts"
+  "src/examples/cli-agent-flow-test.ts"
+  "src/cli/commands/securityCommand.ts"
+  "src/cli/CliCommandParser.ts"
+  "src/cli/CliRuntimeBridge.ts"
+  "src/examples/cli-security-review-test.ts"
 )
 
 echo "A continuación te presento el código fuente de los archivos solicitados para contexto:"

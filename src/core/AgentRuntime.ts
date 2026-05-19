@@ -9,6 +9,8 @@ import { PlanValidator } from '../planning/PlanValidator.js';
 import { ModelSelector } from '../providers/ModelSelector.js';
 import { OpenRouterProvider } from '../providers/OpenRouterProvider.js';
 import { ProviderManager } from '../providers/ProviderManager.js';
+import { ProviderRuntimePolicy } from '../providers/ProviderRuntimePolicy.js';
+import { TokenEstimator } from '../providers/TokenEstimator.js';
 import { OperationalStateManager } from '../session/OperationalStateManager.js';
 import { createReadOnlyFilesystemTools } from '../tools/filesystem/createReadOnlyFilesystemTools.js';
 import { createWriteControlledFilesystemTools } from '../tools/filesystem/createWriteControlledFilesystemTools.js';
@@ -26,6 +28,7 @@ import { RuntimeConfigFactory, type RuntimeConfig } from './RuntimeConfig.js';
 import { RuntimeInitializer } from './RuntimeInitializer.js';
 import { RuntimeState } from './RuntimeState.js';
 import { ExecutionEngine } from '../execution/ExecutionEngine.js';
+import { RuntimeTracer } from '../observability/RuntimeTracer.js';
 import type {
   ExecutionEngineSequentialResult,
   ExecutionEngineStepResult,
@@ -35,6 +38,7 @@ import type { RuntimeLoopRunInput, RuntimeLoopRunResult } from '../types/Runtime
 import { PlanningContextRetriever } from '../retrieval/PlanningContextRetriever.js';
 export interface AgentRuntimeDependencies {
   logger?: Logger;
+  providerRuntimePolicy?: ProviderRuntimePolicy | undefined;
 }
 
 export class AgentRuntime {
@@ -57,6 +61,9 @@ export class AgentRuntime {
   private readonly goalTracker = new GoalTracker();
   private readonly planPersistence = new PlanPersistence();
   private readonly planReviewStateMachine = new PlanReviewStateMachine();
+  private readonly providerRuntimePolicy: ProviderRuntimePolicy;
+  private readonly tokenEstimator = new TokenEstimator();
+  private readonly runtimeTracer: RuntimeTracer;
 
   private latestRuntimeContext = '';
 
@@ -69,7 +76,13 @@ export class AgentRuntime {
         namespace: 'zero-runtime:agent-runtime',
         level: 'debug',
       });
-
+    this.runtimeTracer = new RuntimeTracer({
+      logger: new Logger({
+        namespace: 'zero-runtime:observability',
+        level: 'info',
+      }),
+    });
+    this.providerRuntimePolicy = dependencies.providerRuntimePolicy ?? new ProviderRuntimePolicy();
     this.toolRegistry = new ToolRegistry();
 
     this.registerRuntimeTools();
@@ -90,25 +103,30 @@ export class AgentRuntime {
     this.toolRuntimeExecutor = new ToolRuntimeExecutor({
       validator: this.toolExecutionValidator,
       permissionManager: this.toolPermissionManager,
+      tracer: this.runtimeTracer,
     });
 
     this.runtimeToolController = new RuntimeToolController({
       executor: this.toolRuntimeExecutor,
       logger: this.logger,
+      tracer: this.runtimeTracer,
     });
     this.executionEngine = new ExecutionEngine({
       controller: this.runtimeToolController,
       logger: this.logger,
+      tracer: this.runtimeTracer,
     });
     this.runtimeLoop = new RuntimeLoop({
       runtime: this,
       logger: this.logger,
+      tracer: this.runtimeTracer,
     });
   }
 
   public async initialize(): Promise<void> {
     try {
       this.state.setPhase('initializing');
+      this.runtimeTracer.startSession('agent-runtime-session');
 
       const env = loadEnv();
       const config = RuntimeConfigFactory.fromEnv(env);
@@ -152,12 +170,34 @@ export class AgentRuntime {
         config,
         state: this.state.snapshot(),
       });
+
+      this.runtimeTracer.trace({
+        type: 'decision_recorded',
+        scope: 'session',
+        source: 'AgentRuntime',
+        message: 'AgentRuntime initialized successfully.',
+        metadata: {
+          provider: config.defaultProvider,
+          model,
+          contextTokenEstimate: context.tokenEstimate,
+          loadedContextSources: context.sources.map((source) => source.name),
+        },
+      });
     } catch (error) {
       this.state.markFailed(error);
 
       this.logger.error('AgentRuntime initialization failed', {
         state: this.state.snapshot(),
         error: error instanceof Error ? error.message : String(error),
+      });
+
+      this.runtimeTracer.getErrorReporter().report({
+        source: 'AgentRuntime',
+        code: 'AGENT_RUNTIME_INITIALIZATION_FAILED',
+        error,
+        metadata: {
+          state: this.state.snapshot(),
+        },
       });
 
       throw error;
@@ -251,24 +291,74 @@ export class AgentRuntime {
 
     const config = this.getConfig();
 
+    const planningRuntimeContext = await this.buildPlanningRuntimeContext({
+      objective: snapshot.activeObjective.normalizedObjective,
+      module: snapshot.activeObjective.module,
+    });
+
+    const estimatedPromptTokens = this.tokenEstimator.estimateTextTokens(planningRuntimeContext);
+    const estimatedCompletionTokens = 1200;
+
+    const providerDecision = this.providerRuntimePolicy.evaluate({
+      role: 'planner',
+      riskLevel: 'medium',
+      requestedModel: snapshot.activeModel ?? config.defaultModel,
+      allowPremium: false,
+      premiumApproved: false,
+      estimatedPromptTokens,
+      estimatedCompletionTokens,
+    });
+
+    this.logger.info('Runtime planner provider decision evaluated', {
+      allowed: providerDecision.allowed,
+      provider: providerDecision.selection.provider,
+      model: providerDecision.selection.model,
+      tier: providerDecision.selection.tier,
+      role: providerDecision.selection.role,
+      premiumSelected: providerDecision.selection.premiumSelected,
+      estimatedCost: providerDecision.budget.estimatedCost,
+      issues: providerDecision.budget.issues,
+      reason: providerDecision.selection.reason,
+    });
+    this.runtimeTracer.getDecisionLogViewer().record({
+      source: 'AgentRuntime',
+      decision: providerDecision.allowed ? 'planner_model_allowed' : 'planner_model_blocked',
+      reason: providerDecision.selection.reason,
+      metadata: {
+        role: providerDecision.selection.role,
+        provider: providerDecision.selection.provider,
+        model: providerDecision.selection.model,
+        tier: providerDecision.selection.tier,
+        premiumSelected: providerDecision.selection.premiumSelected,
+        estimatedCost: providerDecision.budget.estimatedCost,
+        issues: providerDecision.budget.issues,
+      },
+    });
+
+    if (!providerDecision.allowed) {
+      throw new Error(
+        `Planner model selection blocked by budget policy: ${providerDecision.budget.issues
+          .filter((issue) => issue.severity === 'error')
+          .map((issue) => `${issue.code}: ${issue.message}`)
+          .join('; ')}`,
+      );
+    }
+
     this.logger.info('Runtime plan generation started', {
       objectiveId: snapshot.activeObjective.id,
       objective: snapshot.activeObjective.normalizedObjective,
       module: snapshot.activeObjective.module,
-      provider: config.defaultProvider,
-      model: snapshot.activeModel ?? config.defaultModel,
+      provider: providerDecision.selection.provider,
+      model: providerDecision.selection.model,
       contextTokenEstimate: snapshot.contextTokenEstimate,
+      estimatedPromptTokens,
+      estimatedCompletionTokens,
     });
 
     const generator = new PlanGenerator({
       providerManager: this.providerManager,
-      providerName: config.defaultProvider,
-      model: snapshot.activeModel ?? config.defaultModel,
-    });
-
-    const planningRuntimeContext = await this.buildPlanningRuntimeContext({
-      objective: snapshot.activeObjective.normalizedObjective,
-      module: snapshot.activeObjective.module,
+      providerName: providerDecision.selection.provider,
+      model: providerDecision.selection.model,
     });
 
     const generatedPlan = await generator.generate({
@@ -472,6 +562,10 @@ export class AgentRuntime {
       recoveryDepth: input.recoveryDepth ?? 0,
     });
   }
+
+  public getProviderRuntimePolicySnapshot() {
+    return this.providerRuntimePolicy.snapshot();
+  }
   public getStateSnapshot() {
     return this.state.snapshot();
   }
@@ -483,7 +577,17 @@ export class AgentRuntime {
 
     return this.config;
   }
+  public getObservabilitySummary() {
+    return this.runtimeTracer.summarizeMetrics();
+  }
 
+  public getObservabilityEvents() {
+    return this.runtimeTracer.listEvents();
+  }
+
+  public getRuntimeTracer(): RuntimeTracer {
+    return this.runtimeTracer;
+  }
   private ensureInitialized(): void {
     const snapshot = this.state.snapshot();
 

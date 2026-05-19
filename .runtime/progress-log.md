@@ -1433,3 +1433,602 @@ Tests:
 - `npm run model:budget:test` pasó.
 - `npm run typecheck` pasó.
 - `npm run lint` pasó.
+
+## SESIÓN 27.9 — Provider Strategy + Budget Integration
+
+Estado: Completada.
+
+Objetivo:
+Integrar ProviderStrategy + ModelBudgetController en una política runtime unificada.
+
+Implementado:
+
+- `src/types/ProviderRuntimePolicyTypes.ts`
+- `src/providers/ProviderRuntimePolicy.ts`
+- `src/examples/provider-runtime-policy-test.ts`
+- Integración inicial en `AgentRuntime`
+
+Resultado:
+
+- Selección de modelo por rol.
+- Evaluación de budget antes de uso.
+- Bloqueo por exceso de tokens.
+- Bloqueo de premium sin aprobación.
+- Premium permitido solo con aprobación explícita.
+- Audit log y usage ledger disponibles.
+
+Tests:
+
+- `npm run provider:runtime:test` pasó.
+- `npm run typecheck` pasó.
+- `npm run lint` pasó.
+
+---
+
+## SESIÓN 27.95 — Provider Config Externalization
+
+Estado: Completada.
+
+Objetivo:
+Mover estrategia provider, budgets y pricing a configuración externa.
+
+Implementado:
+
+- `src/types/ProviderRuntimeConfigTypes.ts`
+- `src/providers/ProviderRuntimeConfigSchemas.ts`
+- `src/providers/ProviderRuntimeConfigLoader.ts`
+- `src/providers/ProviderRuntimeFactory.ts`
+- `src/examples/provider-runtime-config-test.ts`
+- `ModelPricingCatalog` ahora acepta pricing externo.
+
+Resultado:
+
+- Carga config externa desde `.runtime/provider-runtime-config.json`.
+- Config inválida cae en fallback seguro.
+- Config inexistente cae en fallback seguro.
+- Strategy, budget y pricing pueden construirse desde config.
+- No lee `.env`.
+- No network.
+
+Tests:
+
+- `npm run provider:config:test` pasó.
+- `npm run provider:runtime:test` pasó.
+- `npm run model:budget:test` pasó.
+- `npm run provider:strategy:test` pasó.
+- `npm run typecheck` pasó.
+- `npm run lint` pasó.
+
+## SESIÓN 28 — Git + Checkpoint Integration
+
+Estado: Completada.
+
+Objetivo:
+Agregar seguridad con Git sin reemplazar backups internos.
+
+Implementado:
+
+- `src/types/GitTypes.ts`
+- `src/git/GitClient.ts`
+- `src/git/GitStatusParser.ts`
+- `src/git/GitBranchGuard.ts`
+- `src/git/DirtyTreeGuard.ts`
+- `src/git/PreChangeSnapshot.ts`
+- `src/tools/git/GitStatusTool.ts`
+- `src/tools/git/GitDiffTool.ts`
+- `src/tools/git/GitCheckpointTool.ts`
+- `src/tools/git/GitRestoreTool.ts`
+- `src/tools/git/createGitTools.ts`
+- `src/examples/git-checkpoint-test.ts`
+
+Resultado:
+
+- Git status controlado.
+- Git diff controlado.
+- Checkpoint local confirmado.
+- Restore de archivos confirmado.
+- Branch guard.
+- Dirty tree guard.
+- Pre-change snapshot.
+- Repo de test determinístico con LF.
+
+Reglas:
+
+- Git no reemplaza `FileBackupManager`.
+- No git libre.
+- No push.
+- No pull.
+- No fetch.
+- No network.
+
+Tests:
+
+- `npm run git:test` pasó.
+- `npm run typecheck` pasó.
+- `npm run lint` pasó.
+
+## SESIÓN 29 — Sandbox Policy
+
+Estado: Completada.
+
+Objetivo:
+Diseñar política de aislamiento antes de permitir comandos.
+
+Implementado:
+
+- `src/types/SandboxTypes.ts`
+- `src/sandbox/AllowedCommandRegistry.ts`
+- `src/sandbox/CommandRiskClassifier.ts`
+- `src/sandbox/FileIsolation.ts`
+- `src/sandbox/CommandIsolation.ts`
+- `src/sandbox/ResourceLimiter.ts`
+- `src/sandbox/SandboxPolicy.ts`
+- `src/sandbox/SandboxManager.ts`
+- `src/examples/sandbox-policy-test.ts`
+
+Resultado:
+
+- Evalúa comandos sin ejecutarlos.
+- Permite solo scripts seguros registrados.
+- Bloquea comandos no registrados.
+- Bloquea comandos peligrosos.
+- Bloquea network no autorizado.
+- Bloquea cwd protegido.
+- Define timeout y output limits.
+
+Tests:
+
+- `npm run sandbox:test` pasó.
+- `npm run typecheck` pasó.
+- `npm run lint` pasó.
+
+## SESIÓN 30 — Runtime-Owned Shell Tools
+
+Estado: Completada.
+
+Objetivo:
+Agregar ejecución controlada de comandos seguros sin permitir shell arbitrario.
+
+Implementado:
+
+- `src/shell/CommandOutputLimiter.ts`
+- `src/shell/ShellExecutionGate.ts`
+- `src/shell/ShellCommandResolver.ts`
+- `src/shell/ShellCommandExecutor.ts`
+- `src/shell/ShellCommandPlanner.ts`
+- `src/shell/ControlledNpmScriptRunner.ts`
+- `src/tools/shell/DryRunCommandTool.ts`
+- `src/tools/shell/NpmScriptTool.ts`
+- `src/tools/shell/BuildCommandTool.ts`
+- `src/tools/shell/TestCommandTool.ts`
+- `src/tools/shell/createShellTools.ts`
+- `src/examples/runtime-owned-shell-tools-test.ts`
+
+Resultado:
+
+- `dry_run_command` evalúa comandos sin ejecutarlos.
+- `npm_script` ejecuta scripts npm permitidos.
+- `build_command` ejecuta build controlado.
+- `test_command` ejecuta test controlado.
+- `executeConfirmed: true` obligatorio.
+- `SandboxPolicy` decide antes de ejecutar.
+- `execFile` usa `shell: false`.
+- Timeout obligatorio.
+- Output limitado.
+- CWD controlado.
+- Network bloqueado.
+- Comandos peligrosos bloqueados.
+- Git sigue fuera de shell y usa tools propias.
+
+Correcciones importantes:
+
+- Se evitó `shell: true`.
+- En Windows, `npm` se resuelve vía `node + npm-cli.js` para evitar `spawn EINVAL`.
+- `FileIsolation` ahora valida `pathArgs` explícitos, no todos los argumentos como si fueran rutas.
+- `build` ya no se confunde con una ruta protegida.
+- El test usa un proyecto npm aislado bajo `.runtime/sandbox-tests`.
+
+Tests:
+
+- `npm run shell:test` pasó.
+- `npm run typecheck` pasó.
+- `npm run lint` pasó.
+
+---
+
+# `.runtime/progress-log.md`
+
+````md
+# Progress Log
+
+## Sesión 31 — Observability + Runtime Metrics
+
+Estado: completada.
+
+Se implementó la capa inicial de observabilidad del runtime.
+
+### Agregado
+
+- RuntimeTracer
+- MetricsCollector
+- ExecutionTimeline
+- TokenUsageTracker
+- CostTracker
+- PerformanceProfiler
+- ErrorReporter
+- DecisionLogViewer
+- SensitiveDataRedactor
+
+### Integrado
+
+- ToolRuntimeExecutor
+- RuntimeToolController
+- ProviderUsageLedger
+- ExecutionEngine
+- RuntimeLoop
+- AgentRuntime
+
+### Validado
+
+```bash
+npm run observability:test
+npm run observability:integration:test
+npm run observability:loop:test
+npm run typecheck
+npm run lint
+```
+````
+
+---
+
+# `.runtime/progress-log.md`
+
+````md
+# Progress Log
+
+## Sesión 32 — End-to-End Benchmark Projects
+
+Estado: completada.
+
+Se implementó infraestructura para medir Zero Runtime con benchmarks reproducibles.
+
+### Agregado
+
+- BenchmarkTypes
+- BenchmarkCase
+- BenchmarkRunner
+- BenchmarkReporter
+- BenchmarkMetricsCollector
+- BenchmarkFixtureManager
+- BenchmarkCaseFactory
+- BenchmarkReportWriter
+
+### Benchmarks implementados
+
+- TypeScript error fix
+- ESLint fix
+- React refactor
+- package migration pequeña
+- multi-file import refactor
+- runtime loop recovery
+- retrieval-guided edit
+
+### Persistencia
+
+Se agregó escritura controlada de reportes:
+
+```txt
+.runtime/benchmarks/<runId>/report.md
+.runtime/benchmarks/<runId>/report.json
+```
+````
+
+---
+
+# `.runtime/progress-log.md`
+
+````md
+# Progress Log
+
+## Sesión 33 — Real Project Trial
+
+Estado: completada.
+
+Se probó Zero Runtime sobre un proyecto real chico y se corrigió la arquitectura para evitar fixes hardcodeados.
+
+## Implementado
+
+### Real Project Trial
+
+- RealProjectTrialRunner
+- RealProjectTrialSafetyPolicy
+- RealProjectTrialTargetInspector
+- RealProjectTrialValidationPlanner
+- RealProjectTrialCommandRunner
+- RealProjectTrialErrorCollector
+- RealProjectTrialValidator
+- RealProjectTrialReporter
+- RealProjectTrialFileReader
+- RealProjectTrialDiffPreviewer
+- RealProjectTrialDiffPlanner
+
+### Repair Context Layer
+
+- RepairTypes
+- RepairContextBuilder
+- RepairRequestBuilder
+- RepairPromptBuilder
+- RepairProposalProvider
+- StaticRepairProposalProvider
+- PatchSafetyValidator
+- RepairAttemptRunner
+- RepairAttemptReporter
+
+## Proyecto real probado
+
+Proyecto: Betz Peinados  
+Stack: Next / React / TypeScript / Node  
+Archivo objetivo:
+
+```txt
+src/components/sections/TheArtist.tsx
+```
+````
+
+## SESIÓN 34 — Interactive CLI Foundation
+
+Se implementó la base inicial de CLI profesional para Zero Runtime.
+
+Comandos MVP disponibles:
+
+- `zero help`
+- `zero init`
+- `zero inspect`
+- `zero validate`
+- `zero repair`
+- `zero status`
+- `zero doctor`
+
+Cambios principales:
+
+- Se migró el entrypoint CLI a `src/cli.ts`.
+- `src/index.ts` quedó como export público sin side effects.
+- `package.json` ahora usa `tsx src/cli.ts` para `dev` y `cli`.
+- Se agregó arquitectura CLI extensible:
+  - `CliApp`
+  - `CliRouter`
+  - `CliCommandRegistry`
+  - command handlers aislados
+  - `createCliCommandRegistry`
+  - `CliRenderer`
+  - `CliErrorPresenter`
+  - `CliSession`
+- Se conectó la CLI con:
+  - bootstrap `.runtime`
+  - Real Project Trial
+  - validación controlada
+  - repair attempt con provider estático
+  - status/doctor runtime
+- Se agregó salida humana para modo `text`.
+- Se conserva JSON completo con `--format json`.
+
+Seguridad mantenida:
+
+- No se aplican patches.
+- No se escribe en proyectos externos salvo `zero init`.
+- No se lee `.env`.
+- No hay git todavía.
+- No hay provider LLM real todavía.
+- No hay comandos destructivos.
+
+Tests ejecutados:
+
+```bash
+npm run cli:test
+npm run typecheck
+npm run lint
+```
+
+## SESIÓN 36 — Git Awareness + Safe Change Boundaries
+
+Se implementó Git Awareness read-only y límites seguros de cambio.
+
+Cambios principales:
+
+- Se agregó capa git read-only separada:
+  - `GitReadOnlyClient`
+  - `GitRepositoryDetector`
+  - `GitStatusReader`
+  - `GitDiffReader`
+  - `GitChangeBoundary`
+  - `GitWorkingTreeGuard`
+  - `GitReporter`
+
+- Se agregaron comandos CLI:
+  - `zero git status`
+  - `zero git diff`
+  - `zero git doctor`
+
+- Se integró Git boundary dentro de `repair`:
+  - branch actual
+  - estado clean/dirty
+  - archivos modificados
+  - archivos untracked
+  - archivos deleted
+  - decisión del guard
+  - `safeToWriteLater`
+
+Reglas mantenidas:
+
+- Git CLI es read-only.
+- No commit automático.
+- No push.
+- No reset.
+- No checkout.
+- No stash.
+- No add.
+- No restore.
+- `repair` sigue sin aplicar patches.
+- `repair` sigue usando provider estático.
+
+Tests ejecutados:
+
+```bash
+npm run cli:test
+npm run repair:attempt:test
+npm run git:awareness:test
+npm run git:test
+npm run typecheck
+npm run lint
+```
+
+## SESIÓN 37 — Approval Flow + Controlled Patch Application
+
+Se implementó aplicación controlada de patches con aprobación explícita.
+
+Cambios principales:
+
+- Se agregó `src/patch-apply/`:
+  - `PatchApplyTypes`
+  - `PatchApprovalPolicy`
+  - `PatchApplyPlanner`
+  - `PatchApplyValidator`
+  - `PatchBackupWriter`
+  - `PatchCurrentContentVerifier`
+  - `PatchApplyRunner`
+  - `PatchApplyReporter`
+
+- Se agregó comando CLI:
+  - `zero patch apply`
+
+- Se reforzó seguridad:
+  - `--confirm-apply` obligatorio.
+  - backup antes de escribir.
+  - dirty tree bloqueado por defecto.
+  - `--allow-dirty` explícito.
+  - delete bloqueado sin `--confirm-delete`.
+  - `.env` bloqueado.
+  - path traversal bloqueado.
+  - `expectedCurrentContent` verificado.
+  - stale writes bloqueados.
+  - proposal JSON validado.
+  - operaciones inválidas bloqueadas.
+
+Reglas mantenidas:
+
+- No LLM real todavía.
+- No auto-apply.
+- No commit automático.
+- No push.
+- No reset.
+- No checkout.
+- No stash.
+- No aplicar sin confirmación explícita.
+- Runtime sigue siendo autoridad.
+
+Tests ejecutados:
+
+```bash
+npm run cli:test
+npm run patch:apply:test
+npm run repair:attempt:test
+npm run git:awareness:test
+npm run git:test
+npm run workspace:test
+npm run typecheck
+npm run lint
+```
+
+---
+
+## 2. Agregar a `progress-log.md`
+
+Pegá esto al final:
+
+````md
+# Progress Log Update — Sessions 38 and 39
+
+## Session 38 — Real Repair Proposal with Runtime-Controlled Provider Flow
+
+**Status:** Completed
+
+### Completed phases
+
+#### 38.A — PatchProposalParser + PatchProposalSchema
+
+Implemented:
+
+- `PatchProposalSchema`
+- `PatchProposalParser`
+- strict JSON parsing by default
+- explicit tolerant extraction mode for markdown/text-wrapped JSON
+- stable CLI/schema error messages
+- parser tests
+
+Result:
+
+```txt
+Raw provider text
+  -> parser
+  -> schema
+  -> typed PatchProposal
+```
+````
+
+# Progress Log Update — Session 40
+
+## Session 40 — CLI Interactive Agent Command
+
+**Status:** Completed
+
+### Goal
+
+Expose the approval-gated agent loop through the CLI.
+
+The project already had a working internal agent loop from Session 39. Session 40 made it usable through real CLI commands.
+
+---
+
+## Completed phases
+
+### 40.A — CLI command types/parser/formatter for agent
+
+Implemented:
+
+- `CliAgentCommand`
+- `CliAgentAction`
+- `agent` added to `CliCommandName`
+- parser support for:
+  - `agent start`
+  - `agent status`
+  - `agent step`
+  - `agent approve`
+  - `agent reject`
+  - `agent report`
+- formatter support for agent state, actions, approvals and issues
+- `AgentCommand`
+- `agent` registration in CLI command registry
+- `CliRuntimeBridge.agent()`
+
+Result:
+
+```txt
+zero agent start
+  -> CliCommandParser
+  -> CliRouter
+  -> AgentCommand
+  -> CliRuntimeBridge.agent()
+  -> InteractiveAgentLoop.start()
+```
+
+## Session 004
+
+2026-05-18T19:19:16.973Z
+
+Implemented local runtime state persistence primitives.
+
+## Session 004
+
+2026-05-18T19:19:22.812Z
+
+Implemented local runtime state persistence primitives.

@@ -1,5 +1,6 @@
 import type { AgentRuntimeStateSnapshot } from '../core/RuntimeState.js';
 import type { Logger } from '../observability/Logger.js';
+import type { RuntimeTracer } from '../observability/RuntimeTracer.js';
 import type { ToolExecutionResult, ToolExecutionValidationIssue } from '../types/ToolTypes.js';
 import { PlanStepToolMapper } from './PlanStepToolMapper.js';
 import { RuntimeToolExecutionGate } from './RuntimeToolExecutionGate.js';
@@ -8,6 +9,7 @@ import type { ToolRuntimeExecutor } from './ToolRuntimeExecutor.js';
 export interface RuntimeToolControllerOptions {
   executor: ToolRuntimeExecutor;
   logger: Logger;
+  tracer?: RuntimeTracer | undefined;
   gate?: RuntimeToolExecutionGate | undefined;
   mapper?: PlanStepToolMapper | undefined;
 }
@@ -20,12 +22,14 @@ export interface RuntimeToolControllerExecuteStepInput {
 export class RuntimeToolController {
   private readonly executor: ToolRuntimeExecutor;
   private readonly logger: Logger;
+  private readonly tracer: RuntimeTracer | undefined;
   private readonly gate: RuntimeToolExecutionGate;
   private readonly mapper: PlanStepToolMapper;
 
   public constructor(options: RuntimeToolControllerOptions) {
     this.executor = options.executor;
     this.logger = options.logger;
+    this.tracer = options.tracer;
     this.gate = options.gate ?? new RuntimeToolExecutionGate();
     this.mapper = options.mapper ?? new PlanStepToolMapper();
   }
@@ -50,8 +54,31 @@ export class RuntimeToolController {
 
       this.audit('gate_blocked', input.stepId, result);
 
+      this.tracer?.getDecisionLogViewer().record({
+        source: 'RuntimeToolController',
+        decision: 'gate_blocked',
+        reason: gateResult.issues.map((issue) => `${issue.code}: ${issue.message}`).join('; '),
+        metadata: {
+          stepId: input.stepId,
+          result,
+        },
+      });
+
+      this.tracer?.recordToolResult(result);
+
       return result;
     }
+
+    this.tracer?.getDecisionLogViewer().record({
+      source: 'RuntimeToolController',
+      decision: 'gate_allowed',
+      reason: `Step "${input.stepId}" is allowed for tool mapping.`,
+      metadata: {
+        stepId: input.stepId,
+        planId: gateResult.review.plan.id,
+        toolName: gateResult.step.toolIntent?.toolName ?? null,
+      },
+    });
 
     const mapping = this.mapper.map({
       planId: gateResult.review.plan.id,
@@ -68,8 +95,31 @@ export class RuntimeToolController {
 
       this.audit('mapping_failed', input.stepId, result);
 
+      this.tracer?.getDecisionLogViewer().record({
+        source: 'RuntimeToolController',
+        decision: 'mapping_failed',
+        reason: mapping.issues.map((issue) => `${issue.code}: ${issue.message}`).join('; '),
+        metadata: {
+          stepId: input.stepId,
+          result,
+        },
+      });
+
+      this.tracer?.recordToolResult(result);
+
       return result;
     }
+
+    this.tracer?.getDecisionLogViewer().record({
+      source: 'RuntimeToolController',
+      decision: 'mapping_succeeded',
+      reason: `Step "${input.stepId}" mapped to tool "${mapping.request.toolName}".`,
+      metadata: {
+        stepId: input.stepId,
+        requestId: mapping.request.id,
+        toolName: mapping.request.toolName,
+      },
+    });
 
     const result = await this.executor.execute(mapping.request);
 

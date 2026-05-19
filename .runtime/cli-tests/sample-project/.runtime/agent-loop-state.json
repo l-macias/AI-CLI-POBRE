@@ -1,0 +1,121 @@
+{
+  "id": "agent-loop-2026-05-18T194734113Z",
+  "status": "waiting_for_user",
+  "objective": "Run CLI agent start smoke test.",
+  "projectRoot": "C:\\Users\\LUCAS\\Desktop\\zero\\.runtime\\cli-tests\\sample-project",
+  "projectName": "CLI Agent Fixture",
+  "targetFiles": [
+    "src/index.ts"
+  ],
+  "turns": [
+    {
+      "id": "agent-turn-2026-05-18T194734113Z",
+      "role": "user",
+      "message": "Run CLI agent start smoke test.",
+      "createdAt": "2026-05-18T19:47:34.113Z"
+    },
+    {
+      "id": "agent-turn-2026-05-18T194734113Z",
+      "role": "runtime",
+      "message": "Agent loop initialized. Runtime will inspect, validate, propose, preview, request approval, apply, and revalidate in controlled phases.",
+      "createdAt": "2026-05-18T19:47:34.113Z"
+    }
+  ],
+  "actions": [
+    {
+      "id": "agent-action-inspect_project",
+      "kind": "inspect_project",
+      "label": "Inspect project",
+      "description": "Inspect target project in read-only mode.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:47:34.113Z"
+    },
+    {
+      "id": "agent-action-validate_project",
+      "kind": "validate_project",
+      "label": "Validate project",
+      "description": "Run controlled validation to collect findings.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:47:34.113Z"
+    },
+    {
+      "id": "agent-action-check_git",
+      "kind": "check_git",
+      "label": "Check git status",
+      "description": "Capture git boundary and working tree safety.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:47:34.113Z"
+    },
+    {
+      "id": "agent-action-build_repair_context",
+      "kind": "build_repair_context",
+      "label": "Build repair context",
+      "description": "Build repair request from findings and target files.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:47:34.113Z"
+    },
+    {
+      "id": "agent-action-request_repair_proposal",
+      "kind": "request_repair_proposal",
+      "label": "Request repair proposal",
+      "description": "Ask configured provider for a patch proposal through runtime policy.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:47:34.113Z"
+    },
+    {
+      "id": "agent-action-show_diff_preview",
+      "kind": "show_diff_preview",
+      "label": "Show diff preview",
+      "description": "Generate and present diff preview.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:47:34.113Z"
+    },
+    {
+      "id": "agent-action-request_approval",
+      "kind": "request_approval",
+      "label": "Request approval",
+      "description": "Ask user approval before any controlled write.",
+      "status": "pending",
+      "requiresApproval": true,
+      "createdAt": "2026-05-18T19:47:34.113Z"
+    },
+    {
+      "id": "agent-action-apply_patch",
+      "kind": "apply_patch",
+      "label": "Apply patch",
+      "description": "Apply patch only after explicit approval.",
+      "status": "pending",
+      "requiresApproval": true,
+      "createdAt": "2026-05-18T19:47:34.113Z"
+    },
+    {
+      "id": "agent-action-revalidate_project",
+      "kind": "revalidate_project",
+      "label": "Revalidate project",
+      "description": "Run validation again after patch.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:47:34.113Z"
+    },
+    {
+      "id": "agent-action-report_result",
+      "kind": "report_result",
+      "label": "Report result",
+      "description": "Write final loop report.",
+      "status": "pending",
+      "requiresApproval": false,
+      "createdAt": "2026-05-18T19:47:34.113Z"
+    }
+  ],
+  "decisions": [],
+  "approvals": [],
+  "issues": [],
+  "createdAt": "2026-05-18T19:47:34.113Z",
+  "updatedAt": "2026-05-18T19:47:34.113Z"
+}
