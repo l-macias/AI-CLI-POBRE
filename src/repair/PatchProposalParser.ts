@@ -1,4 +1,5 @@
 import type { ZodError } from 'zod';
+import { JsonRepair } from '../providers/JsonRepair.js';
 import { safeJsonParse } from '../utils/safeJson.js';
 import type { Result } from '../types/SharedTypes.js';
 import type { PatchProposal } from '../types/RepairTypes.js';
@@ -8,12 +9,23 @@ export interface PatchProposalParserOptions {
   allowJsonExtraction?: boolean | undefined;
 }
 
+export interface PatchProposalParserDependencies {
+  jsonRepair?: JsonRepair | undefined;
+}
+
 export class PatchProposalParser {
+  private readonly jsonRepair: JsonRepair;
+
+  public constructor(dependencies: PatchProposalParserDependencies = {}) {
+    this.jsonRepair = dependencies.jsonRepair ?? new JsonRepair();
+  }
+
   public parse(input: string, options: PatchProposalParserOptions = {}): Result<PatchProposal> {
     const jsonText =
       options.allowJsonExtraction === true ? this.extractJsonLikeContent(input) : input.trim();
 
-    const parsed = safeJsonParse(jsonText);
+    const directParse = safeJsonParse(jsonText);
+    const parsed = directParse.ok ? directParse : safeJsonParse(this.jsonRepair.repair(jsonText));
 
     if (!parsed.ok) {
       return {
@@ -102,76 +114,6 @@ export class PatchProposalParser {
   }
 
   private extractJsonLikeContent(input: string): string {
-    const stripped = this.stripMarkdownFence(input.trim());
-    const extracted = this.extractFirstJsonObject(stripped);
-
-    return extracted ?? stripped;
-  }
-
-  private stripMarkdownFence(input: string): string {
-    if (input.startsWith('```json')) {
-      return input
-        .replace(/^```json\s*/i, '')
-        .replace(/\s*```$/i, '')
-        .trim();
-    }
-
-    if (input.startsWith('```')) {
-      return input
-        .replace(/^```\s*/i, '')
-        .replace(/\s*```$/i, '')
-        .trim();
-    }
-
-    return input;
-  }
-
-  private extractFirstJsonObject(input: string): string | null {
-    const start = input.indexOf('{');
-
-    if (start === -1) {
-      return null;
-    }
-
-    let depth = 0;
-    let inString = false;
-    let escaped = false;
-
-    for (let index = start; index < input.length; index += 1) {
-      const char = input[index];
-
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-
-      if (char === '\\') {
-        escaped = true;
-        continue;
-      }
-
-      if (char === '"') {
-        inString = !inString;
-        continue;
-      }
-
-      if (inString) {
-        continue;
-      }
-
-      if (char === '{') {
-        depth += 1;
-      }
-
-      if (char === '}') {
-        depth -= 1;
-      }
-
-      if (depth === 0) {
-        return input.slice(start, index + 1);
-      }
-    }
-
-    return null;
+    return this.jsonRepair.repair(input);
   }
 }

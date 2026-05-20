@@ -43,13 +43,16 @@ export class OpenRouterConfigLoader {
       input.defaultBaseUrl ??
       defaultOpenRouterBaseUrl;
 
-    const model = this.normalizeOptionalString(env['ZERO_OPENROUTER_MODEL']) ?? input.defaultModel;
+    const model =
+      this.normalizeOptionalString(env['ZERO_OPENROUTER_MODEL']) ??
+      this.normalizeOptionalString(env['OPENROUTER_DEFAULT_MODEL']) ??
+      input.defaultModel;
 
     if (!model) {
       return {
         ok: false,
         error: new Error(
-          'OpenRouter model is required. Provide ZERO_OPENROUTER_MODEL or inject defaultModel from provider strategy.',
+          'OpenRouter model is required. Provide ZERO_OPENROUTER_MODEL, OPENROUTER_DEFAULT_MODEL, or inject defaultModel from provider strategy.',
         ),
       };
     }

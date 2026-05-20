@@ -33,41 +33,74 @@ ${file.content}
 
 The LLM proposes. The runtime validates, decides, executes, audits, and revalidates.
 
+Provider output is untrusted. Your only job is to return a strict JSON PatchProposal object.
+The runtime will reject anything that is not valid JSON or does not match the schema.
+
 OBJECTIVE:
 ${request.objective}
 
 FINDINGS:
-${findings}
+${findings || '- none'}
 
 CONSTRAINTS:
-${constraints}
+${constraints || '- none'}
 
 TARGET FILES:
-${files}
+${files || '- none'}
 
 REQUIRED OUTPUT:
-Return a JSON object only, with this shape:
+Return exactly one JSON object and nothing else.
+
+The object must match this exact schema:
 
 {
-  "summary": "short summary",
-  "riskLevel": "low | medium | high",
+  "id": "repair-proposal-short-stable-id",
+  "summary": "short summary of the proposed fix",
+  "riskLevel": "low",
   "operations": [
     {
       "kind": "replace_file",
       "targetFile": "relative/path.tsx",
-      "newContent": "full new file content",
+      "newContent": "full new file content with escaped newlines",
       "reason": "why this change fixes the finding"
     }
   ],
-  "explanation": "brief explanation"
+  "explanation": "brief explanation of why the patch is safe and minimal"
 }
 
-Rules:
+Required top-level fields:
+- id: non-empty string.
+- summary: non-empty string.
+- riskLevel: exactly one of: "low", "medium", "high".
+- operations: array.
+- explanation: non-empty string.
+
+Allowed operation kinds:
+- replace_file
+- edit_file
+- create_file
+- delete_file
+
+Operation rules:
+- targetFile must be a relative path from the project root.
+- For replace_file, edit_file, and create_file, newContent must be a string.
+- newContent must contain the complete proposed file content, not a partial snippet.
+- Do not use markdown fences inside JSON.
+- Escape all newlines inside JSON strings as \\n.
+- Escape quotes inside JSON strings as \\".
+- Do not include raw control characters inside strings.
+- Do not include comments in JSON.
+- Do not include trailing commas.
+
+Repair rules:
 - Do not modify unrelated files.
+- Only target files related to the findings.
 - Do not invent dependencies.
 - Do not access secrets.
-- Prefer minimal fixes.
+- Prefer the smallest safe fix.
 - Preserve existing style.
-- Return JSON only.`;
+- If no safe repair is possible, return a valid PatchProposal with operations: [] and explain why.
+
+Return JSON only. No markdown. No prose before or after the JSON object.`;
   }
 }

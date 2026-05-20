@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { pathToFileURL } from 'node:url';
 import { CliRunner } from './cli/CliRunner.js';
 import type { CliOutputFormat } from './cli/CliTypes.js';

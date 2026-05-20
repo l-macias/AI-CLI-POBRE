@@ -542,6 +542,9 @@ Root: ${data.inspection?.projectRoot ?? 'unknown'}
 Commands:
 ${this.formatValidationCommands(validation?.commands)}
 
+Target relation:
+${this.formatValidationTargetRelation(data)}
+
 Findings:
 ${this.formatFindings(validation?.findings)}
 
@@ -562,6 +565,9 @@ Project root: ${data.projectRoot ?? 'unknown'}
 Objective: ${data.objective ?? 'unknown'}
 
 Patch valid: ${this.yesNo(data.patchValidation?.valid)}
+
+Diff summary:
+${this.formatDiffSummary(data.diffPreviews)}
 
 Diff previews:
 ${this.formatDiffPreviews(data.diffPreviews)}
@@ -822,7 +828,89 @@ Summary:
       })
       .join('\n');
   }
+  private formatValidationTargetRelation(data: RealProjectTrialReportLike): string {
+    const requestedTargets = this.normalizeTargetPaths(
+      data.inspection?.targetFiles
+        ?.map((file) => file.relativePath)
+        .filter((value): value is string => this.isNonEmptyString(value)),
+    );
 
+    const findingFiles = this.normalizeTargetPaths(
+      data.validation?.findings
+        ?.map((finding) => finding.relatedFile)
+        .filter((value): value is string => this.isNonEmptyString(value)),
+    );
+
+    if (requestedTargets.length === 0) {
+      return `- Requested targets: none
+- Findings in requested targets: unknown
+- Findings outside requested targets: unknown
+- Outside target files:
+- none`;
+    }
+
+    if (findingFiles.length === 0) {
+      return `- Requested targets:
+${this.formatList(requestedTargets)}
+- Findings in requested targets: no
+- Findings outside requested targets: no
+- Outside target files:
+- none`;
+    }
+
+    const requestedTargetSet = new Set(requestedTargets);
+    const findingsInRequestedTargets = findingFiles.filter((file) => requestedTargetSet.has(file));
+    const findingsOutsideRequestedTargets = findingFiles.filter(
+      (file) => !requestedTargetSet.has(file),
+    );
+
+    return `- Requested targets:
+${this.formatList(requestedTargets)}
+- Findings in requested targets: ${findingsInRequestedTargets.length > 0 ? 'yes' : 'no'}
+- Findings outside requested targets: ${findingsOutsideRequestedTargets.length > 0 ? 'yes' : 'no'}
+- Outside target files:
+${this.formatList(findingsOutsideRequestedTargets)}`;
+  }
+
+  private normalizeTargetPaths(paths: readonly string[] | undefined): string[] {
+    if (!paths || paths.length === 0) {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        paths.map((path) => path.replaceAll('\\', '/').trim()).filter((path) => path.length > 0),
+      ),
+    ];
+  }
+
+  private isNonEmptyString(value: string | undefined): value is string {
+    return typeof value === 'string' && value.trim().length > 0;
+  }
+  private formatDiffSummary(
+    previews:
+      | {
+          targetFile?: string;
+          changed?: boolean;
+          changedLines?: number;
+        }[]
+      | undefined,
+  ): string {
+    if (!previews || previews.length === 0) {
+      return `- Status: no_preview
+- Changed files: 0
+- Changed lines: 0`;
+    }
+
+    const changedFiles = previews.filter((preview) => preview.changed === true);
+    const changedLines = changedFiles.reduce((total, preview) => {
+      return total + (preview.changedLines ?? 0);
+    }, 0);
+
+    return `- Status: ${changedFiles.length > 0 ? 'changes_proposed' : 'no_changes'}
+- Changed files: ${String(changedFiles.length)}
+- Changed lines: ${String(changedLines)}`;
+  }
   private formatDiffPreviews(
     previews:
       | {

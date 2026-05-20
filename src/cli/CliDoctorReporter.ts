@@ -140,8 +140,8 @@ export class CliDoctorReporter {
       }),
     ];
 
-    const issues = this.buildIssues(input);
     const summary = this.summarize(checkDetails);
+    const issues = this.buildIssues(input, checkDetails);
     const checks = Object.fromEntries(
       checkDetails.map((check) => [check.name, check.status]),
     ) as Record<string, CliDoctorCheckStatus>;
@@ -186,8 +186,23 @@ export class CliDoctorReporter {
     };
   }
 
-  private buildIssues(input: CliDoctorReporterInput): RuntimeBootstrapPlanIssue[] {
-    const issues = [...input.bootstrapPlan.issues];
+  private buildIssues(
+    input: CliDoctorReporterInput,
+    checks: readonly CliDoctorCheck[],
+  ): RuntimeBootstrapPlanIssue[] {
+    const issues: RuntimeBootstrapPlanIssue[] = [...input.bootstrapPlan.issues];
+
+    for (const check of checks) {
+      if (check.status !== 'failed') {
+        continue;
+      }
+
+      issues.push({
+        code: `CLI_DOCTOR_CHECK_FAILED_${check.name.toUpperCase()}`,
+        message: `${check.label}: ${check.message}`,
+        severity: 'error',
+      });
+    }
 
     if (input.workspaceConfigError) {
       issues.push({
