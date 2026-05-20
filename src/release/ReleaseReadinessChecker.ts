@@ -23,6 +23,12 @@ export interface ReleaseReadinessReport {
 }
 
 interface PackageJsonLike {
+  readonly name?: string | undefined;
+  readonly version?: string | undefined;
+  readonly description?: string | undefined;
+  readonly type?: string | undefined;
+  readonly private?: boolean | undefined;
+  readonly license?: string | undefined;
   readonly scripts?: Record<string, string> | undefined;
 }
 
@@ -38,6 +44,13 @@ export class ReleaseReadinessChecker {
       await this.fileExistsCheck(projectRoot, '.env.example', '.env.example exists.'),
       await this.fileExistsCheck(projectRoot, 'README.md', 'README.md exists.'),
       await this.directoryExistsCheck(projectRoot, 'docs', 'docs directory exists.'),
+
+      this.packageStringEqualsCheck(packageJson, 'name', 'zero-runtime'),
+      this.packageStringEqualsCheck(packageJson, 'version', '0.1.0'),
+      this.packageStringEqualsCheck(packageJson, 'type', 'module'),
+      this.packageStringEqualsCheck(packageJson, 'license', 'MIT'),
+      this.packageBooleanEqualsCheck(packageJson, 'private', true),
+      this.packageStringIncludesCheck(packageJson, 'description', 'runtime-centered'),
 
       await this.fileExistsCheck(projectRoot, 'docs/index.md', 'docs/index.md exists.'),
       await this.fileExistsCheck(projectRoot, 'docs/quickstart.md', 'docs/quickstart.md exists.'),
@@ -126,7 +139,11 @@ export class ReleaseReadinessChecker {
       this.scriptExcludesCheck(scripts, 'mvp:test', 'real-provider:test'),
       this.scriptExcludesCheck(scripts, 'mvp:test', 'repair:openrouter-smoke:test'),
       this.scriptExcludesCheck(scripts, 'mvp:test', 'agent:real-provider-smoke:test'),
+      this.scriptExcludesCheck(scripts, 'rc:test', 'real-provider:test'),
+      this.scriptExcludesCheck(scripts, 'rc:test', 'repair:openrouter-smoke:test'),
+      this.scriptExcludesCheck(scripts, 'rc:test', 'agent:real-provider-smoke:test'),
 
+      this.scriptIncludesCheck(scripts, 'real-provider:test', 'provider:openrouter-client:test'),
       this.scriptIncludesCheck(scripts, 'real-provider:test', 'repair:openrouter-smoke:test'),
       this.scriptIncludesCheck(scripts, 'real-provider:test', 'agent:real-provider-smoke:test'),
 
@@ -182,7 +199,64 @@ export class ReleaseReadinessChecker {
     }
 
     return {
+      name: this.readOptionalString(parsed, 'name'),
+      version: this.readOptionalString(parsed, 'version'),
+      description: this.readOptionalString(parsed, 'description'),
+      type: this.readOptionalString(parsed, 'type'),
+      private: this.readOptionalBoolean(parsed, 'private'),
+      license: this.readOptionalString(parsed, 'license'),
       scripts,
+    };
+  }
+
+  private packageStringEqualsCheck(
+    packageJson: PackageJsonLike,
+    fieldName: 'name' | 'version' | 'type' | 'license',
+    expectedValue: string,
+  ): ReleaseReadinessCheck {
+    const actual = packageJson[fieldName];
+    const passed = actual === expectedValue;
+
+    return {
+      name: `package:${fieldName}`,
+      status: passed ? 'passed' : 'failed',
+      message: passed
+        ? `package.json ${fieldName} is "${expectedValue}".`
+        : `package.json ${fieldName} must be "${expectedValue}".`,
+    };
+  }
+
+  private packageStringIncludesCheck(
+    packageJson: PackageJsonLike,
+    fieldName: 'description',
+    expectedFragment: string,
+  ): ReleaseReadinessCheck {
+    const actual = packageJson[fieldName] ?? '';
+    const passed = actual.includes(expectedFragment);
+
+    return {
+      name: `package:${fieldName}:includes:${expectedFragment}`,
+      status: passed ? 'passed' : 'failed',
+      message: passed
+        ? `package.json ${fieldName} includes "${expectedFragment}".`
+        : `package.json ${fieldName} must include "${expectedFragment}".`,
+    };
+  }
+
+  private packageBooleanEqualsCheck(
+    packageJson: PackageJsonLike,
+    fieldName: 'private',
+    expectedValue: boolean,
+  ): ReleaseReadinessCheck {
+    const actual = packageJson[fieldName];
+    const passed = actual === expectedValue;
+
+    return {
+      name: `package:${fieldName}`,
+      status: passed ? 'passed' : 'failed',
+      message: passed
+        ? `package.json ${fieldName} is ${String(expectedValue)}.`
+        : `package.json ${fieldName} must be ${String(expectedValue)}.`,
     };
   }
 
@@ -294,6 +368,18 @@ export class ReleaseReadinessChecker {
     } catch {
       return false;
     }
+  }
+
+  private readOptionalString(record: Record<string, unknown>, key: string): string | undefined {
+    const value = record[key];
+
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  private readOptionalBoolean(record: Record<string, unknown>, key: string): boolean | undefined {
+    const value = record[key];
+
+    return typeof value === 'boolean' ? value : undefined;
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {

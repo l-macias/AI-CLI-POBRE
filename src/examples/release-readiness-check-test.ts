@@ -43,6 +43,14 @@ async function main(): Promise<void> {
   requireCheck(report.checks, 'file:.env.example');
   requireCheck(report.checks, 'file:README.md');
   requireCheck(report.checks, 'directory:docs');
+
+  requireCheck(report.checks, 'package:name');
+  requireCheck(report.checks, 'package:version');
+  requireCheck(report.checks, 'package:type');
+  requireCheck(report.checks, 'package:license');
+  requireCheck(report.checks, 'package:private');
+  requireCheck(report.checks, 'package:description:includes:runtime-centered');
+
   requireCheck(report.checks, 'file:docs/index.md');
   requireCheck(report.checks, 'file:docs/quickstart.md');
   requireCheck(report.checks, 'file:docs/cli-agent.md');
@@ -81,7 +89,11 @@ async function main(): Promise<void> {
   requireCheck(report.checks, 'script-excludes:mvp:test:real-provider:test');
   requireCheck(report.checks, 'script-excludes:mvp:test:repair:openrouter-smoke:test');
   requireCheck(report.checks, 'script-excludes:mvp:test:agent:real-provider-smoke:test');
+  requireCheck(report.checks, 'script-excludes:rc:test:real-provider:test');
+  requireCheck(report.checks, 'script-excludes:rc:test:repair:openrouter-smoke:test');
+  requireCheck(report.checks, 'script-excludes:rc:test:agent:real-provider-smoke:test');
 
+  requireCheck(report.checks, 'script-includes:real-provider:test:provider:openrouter-client:test');
   requireCheck(report.checks, 'script-includes:real-provider:test:repair:openrouter-smoke:test');
   requireCheck(report.checks, 'script-includes:real-provider:test:agent:real-provider-smoke:test');
 

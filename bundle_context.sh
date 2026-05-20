@@ -2,9 +2,8 @@
 
 # Lista de archivos a incluir
 files=(
-  "src/release/ReleaseReadinessChecker.ts"
-  "src/examples/release-readiness-check-test.ts"
-  "package.json"
+  "README.md"  
+  ".env.example"
 )
 echo "A continuación te presento el código fuente de los archivos solicitados para contexto:"
 echo "================================================================================"
