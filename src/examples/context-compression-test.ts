@@ -1,10 +1,75 @@
-import { MemoryCompactor } from '../memory/MemoryCompactor.js';
+import type { RuntimeContextSource } from '../types/ContextTypes.js';
 import { RuntimeInitializer } from '../core/RuntimeInitializer.js';
+import { MemoryCompactor } from '../memory/MemoryCompactor.js';
 import { TokenEstimator } from '../providers/TokenEstimator.js';
 
+function createRuntimeFixtureSources(): RuntimeContextSource[] {
+  return [
+    {
+      name: '.runtime/current-state.md',
+      priority: 'critical',
+      content: `# Current State
+
+## Status
+
+Session 50 usability validation is running against deterministic fixture content.
+
+## Notes
+
+- Runtime memory files are provided by the test.
+- The test must not depend on local ignored .runtime state.
+- Compression output must be generated from known input.
+`,
+    },
+    {
+      name: '.runtime/handoff.md',
+      priority: 'critical',
+      content: `# Handoff
+
+Continue validating Zero Runtime as a deterministic runtime-centered coding agent.
+`,
+    },
+    {
+      name: '.runtime/next-steps.md',
+      priority: 'high',
+      content: `# Next Steps
+
+Keep runtime memory tests deterministic from a clean clone.
+`,
+    },
+    {
+      name: '.runtime/active-module.md',
+      priority: 'high',
+      content: `# Active Module
+
+Context compression deterministic test.
+`,
+    },
+    {
+      name: '.runtime/decisions.md',
+      priority: 'medium',
+      content: `# Decisions
+
+- Runtime tests must create their own fixtures.
+- Ignored local .runtime files must not be required for rc:test.
+- Compression output must be generated from known input.
+`,
+    },
+    {
+      name: '.runtime/progress-log.md',
+      priority: 'low',
+      content: `# Progress Log
+
+- Created deterministic runtime fixture sources.
+- Compacted runtime context.
+- Verified compressed context loading.
+`,
+    },
+  ];
+}
+
 async function main(): Promise<void> {
-  const initializer = new RuntimeInitializer();
-  const sources = await initializer.loadRawRuntimeSources();
+  const sources = createRuntimeFixtureSources();
 
   const compactor = new MemoryCompactor();
   const result = await compactor.compact(sources);
@@ -17,6 +82,8 @@ async function main(): Promise<void> {
     summaryStatus: result.summary.status,
     activeModule: result.summary.activeModule,
   });
+
+  const initializer = new RuntimeInitializer();
 
   const compressedContext = await initializer.initialize({
     maxEstimatedContextTokens: 5000,
@@ -42,6 +109,16 @@ async function main(): Promise<void> {
 
   if (!compressedContext.sources.some((source) => source.name === '.runtime/runtime-summary.md')) {
     throw new Error('Expected compressed context to include runtime-summary.md.');
+  }
+
+  if (
+    !compressedContext.sources.some((source) => source.name === '.runtime/compressed-context.md')
+  ) {
+    throw new Error('Expected compressed context to include compressed-context.md.');
+  }
+
+  if (result.compression.originalCharacters <= 0) {
+    throw new Error('Expected runtime fixture to provide raw context content.');
   }
 
   if (result.compression.compressedCharacters <= 0) {

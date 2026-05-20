@@ -2,8 +2,10 @@
 
 # Lista de archivos a incluir
 files=(
-  "README.md"  
-  ".env.example"
+  "src/examples/context-compression-test.ts"
+  "src/memory/ContextCompressor.ts"
+  "src/memory/SummaryMemory.ts"
+  "src/memory/MemoryCompactor.ts"
 )
 echo "A continuación te presento el código fuente de los archivos solicitados para contexto:"
 echo "================================================================================"
