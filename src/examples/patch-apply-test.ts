@@ -36,6 +36,28 @@ async function main(): Promise<void> {
     explanation: 'Test proposal.',
   };
 
+  const dryRunResult = await runner.run({
+    projectRoot,
+    proposal,
+    applyConfirmed: false,
+    dryRun: true,
+    allowDirtyWorkingTree: false,
+  });
+
+  if (dryRunResult.status !== 'dry_run') {
+    throw new Error('Expected dry run patch to validate without applying.');
+  }
+
+  const dryRunContent = await readFile(resolve(projectRoot, 'src/example.ts'), 'utf8');
+
+  if (dryRunContent !== 'export const value = 1;\n') {
+    throw new Error('Expected dry run patch to avoid writing content.');
+  }
+
+  if (!dryRunResult.operationResults.every((operation) => operation.status === 'skipped')) {
+    throw new Error('Expected dry run operations to be skipped.');
+  }
+
   const cleanApplyResult = await runner.run({
     projectRoot,
     proposal,
@@ -214,6 +236,7 @@ async function main(): Promise<void> {
   }
 
   logger.info('Patch apply test completed', {
+    dryRun: dryRunResult.status,
     cleanApply: cleanApplyResult.status,
     dirtyBlocked: dirtyBlockedResult.status,
     dirtyAllowed: dirtyAllowedResult.status,

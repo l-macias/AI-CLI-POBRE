@@ -1,0 +1,462 @@
+warning: in the working copy of 'bundle_context.sh', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/bundle_context.sh b/bundle_context.sh[m
+[1mindex c8f8882..da7fb2e 100644[m
+[1m--- a/bundle_context.sh[m
+[1m+++ b/bundle_context.sh[m
+[36m@@ -2,25 +2,10 @@[m
+ [m
+ # Lista de archivos a incluir[m
+ files=([m
+[31m-  "src/types/RepairTypes.ts"[m
+[31m-  "src/patch-apply/PatchApplyTypes.ts"[m
+[31m-  "src/patch-apply/PatchApplyRunner.ts"[m
+[31m-  "src/security/ProtectedPathPolicy.ts"[m
+[31m-  "src/security/PatchThreatAnalyzer.ts"[m
+[31m-  "src/cli/CliTypes.ts"[m
+[31m-  "src/cli/CliCommandParser.ts"[m
+[31m-  "src/cli/CliRuntimeBridge.ts"[m
+[31m-  "src/cli/CliOutputFormatter.ts"[m
+[31m-  "src/cli/createCliCommandRegistry.ts"[m
+[31m-  "src/cli/CliRunner.ts"[m
+[31m-  "src/cli/commands/patchCommand.ts"[m
+[31m-  "src/cli/commands/securityCommand.ts"[m
+[31m-  "src/cli/commands/agentCommand.ts"[m
+[31m-  "src/scaffold/ScaffoldTypes.ts"[m
+[31m-  "src/scaffold/ScaffoldIntentParser.ts"[m
+[31m-  "src/examples/scaffold-intent-parser-test.ts"[m
+[32m+[m[32m  "src/release/ReleaseReadinessChecker.ts"[m
+[32m+[m[32m  "src/examples/release-readiness-check-test.ts"[m
+[32m+[m[32m  "package.json"[m
+ )[m
+[31m-[m
+ echo "A continuación te presento el código fuente de los archivos solicitados para contexto:"[m
+ echo "================================================================================"[m
+ [m
+[1mdiff --git a/done.md b/done.md[m
+[1mindex 713c1cc..dfc6d07 100644[m
+[1m--- a/done.md[m
+[1m+++ b/done.md[m
+[36m@@ -2103,3 +2103,199 @@[m [mReglas:[m
+ - provider real no autoriza patch apply[m
+ [m
+ Esta sesión es muy importante para que después scaffolding funcione como parte del agent y no como módulo suelto.[m
+[32m+[m[32mSESIÓN 45 — Module/Project Scaffolding[m
+[32m+[m
+[32m+[m[32mTu propuesta está muy bien. Solo la movería después de Agent Real Provider Integration.[m
+[32m+[m
+[32m+[m[32mEstructura recomendada:[m
+[32m+[m
+[32m+[m[32msrc/scaffold/[m
+[32m+[m[32m├── ScaffoldTypes.ts[m
+[32m+[m[32m├── ScaffoldIntentParser.ts[m
+[32m+[m[32m├── ScaffoldRequestBuilder.ts[m
+[32m+[m[32m├── ScaffoldPlanner.ts[m
+[32m+[m[32m├── ScaffoldPlanValidator.ts[m
+[32m+[m[32m├── FileTreeProposalBuilder.ts[m
+[32m+[m[32m├── ModuleGeneratorProvider.ts[m
+[32m+[m[32m├── ScaffoldProposalParser.ts[m
+[32m+[m[32m├── ScaffoldProposalSchema.ts[m
+[32m+[m[32m├── ScaffoldSafetyValidator.ts[m
+[32m+[m[32m├── ScaffoldDiffBuilder.ts[m
+[32m+[m[32m├── ScaffoldRunner.ts[m
+[32m+[m[32m└── ScaffoldReporter.ts[m
+[32m+[m
+[32m+[m[32mFlujo obligatorio:[m
+[32m+[m
+[32m+[m[32mScaffoldIntent[m
+[32m+[m[32m-> ScaffoldRequest[m
+[32m+[m[32m-> provider proposes scaffold proposal[m
+[32m+[m[32m-> runtime parses[m
+[32m+[m[32m-> runtime validates schema[m
+[32m+[m[32m-> runtime validates paths[m
+[32m+[m[32m-> runtime validates overwrite policy[m
+[32m+[m[32m-> runtime validates protected paths[m
+[32m+[m[32m-> runtime builds patch proposal[m
+[32m+[m[32m-> runtime shows tree + diff[m
+[32m+[m[32m-> approval gate[m
+[32m+[m[32m-> PatchApplyRunner[m
+[32m+[m[32m-> revalidate[m
+[32m+[m[32m-> report[m
+[32m+[m
+[32m+[m[32mRegla central:[m
+[32m+[m
+[32m+[m[32mNada de scaffolding directo.[m
+[32m+[m[32mTodo pasa por proposal/diff/approval.[m
+[32m+[m
+[32m+[m[32mComandos iniciales:[m
+[32m+[m
+[32m+[m[32mzero scaffold module \[m
+[32m+[m[32m --project ./target \[m
+[32m+[m[32m --name auth \[m
+[32m+[m[32m --kind backend \[m
+[32m+[m[32m --target src/modules/auth \[m
+[32m+[m[32m --provider fake-llm[m
+[32m+[m
+[32m+[m[32mDespués:[m
+[32m+[m
+[32m+[m[32mzero scaffold module \[m
+[32m+[m[32m --project ./target \[m
+[32m+[m[32m --name auth \[m
+[32m+[m[32m --kind backend \[m
+[32m+[m[32m --target src/modules/auth \[m
+[32m+[m[32m --provider openrouter \[m
+[32m+[m[32m --allow-real-provider \[m
+[32m+[m[32m --model provider/model[m
+[32m+[m
+[32m+[m[32mTambién agregaría:[m
+[32m+[m
+[32m+[m[32mScaffoldOverwritePolicy[m
+[32m+[m[32mScaffoldProtectedPathPolicy[m
+[32m+[m[32mScaffoldTemplateHints[m
+[32m+[m[32mScaffoldProjectConventionReader[m
+[32m+[m
+[32m+[m[32mPorque el scaffolding bueno no solo crea archivos: respeta convenciones existentes.[m
+[32m+[m[32mSESIÓN 46 — Documentation + Developer Guide[m
+[32m+[m
+[32m+[m[32mLa mantendría, pero con más énfasis en “por qué este proyecto es distinto”.[m
+[32m+[m
+[32m+[m[32mDocs recomendados:[m
+[32m+[m
+[32m+[m[32mdocs/[m
+[32m+[m[32m├── architecture.md[m
+[32m+[m[32m├── runtime-flow.md[m
+[32m+[m[32m├── agent-philosophy.md[m
+[32m+[m[32m├── cli.md[m
+[32m+[m[32m├── cli-agent.md[m
+[32m+[m[32m├── workspace.md[m
+[32m+[m[32m├── git-safety.md[m
+[32m+[m[32m├── repair-flow.md[m
+[32m+[m[32m├── patch-application.md[m
+[32m+[m[32m├── security-model.md[m
+[32m+[m[32m├── provider-strategy.md[m
+[32m+[m[32m├── project-memory.md[m
+[32m+[m[32m├── agent-real-provider.md[m
+[32m+[m[32m├── scaffolding.md[m
+[32m+[m[32m├── troubleshooting.md[m
+[32m+[m[32m├── known-limitations.md[m
+[32m+[m[32m└── release-checklist.md[m
+[32m+[m
+[32m+[m[32mAgregaría explícitamente:[m
+[32m+[m
+[32m+[m[32mdocs/why-runtime-authority.md[m
+[32m+[m
+[32m+[m[32mEse doc puede ser clave para explicar la diferencia competitiva:[m
+[32m+[m
+[32m+[m[32m- LLM propone, runtime decide.[m
+[32m+[m[32m- Memoria local no es memoria del modelo.[m
+[32m+[m[32m- Provider no ejecuta.[m
+[32m+[m[32m- Patches no se aplican sin aprobación.[m
+[32m+[m[32m- Todo queda auditable.[m
+[32m+[m[32m  SESIÓN 47 — MVP Polish[m
+[32m+[m
+[32m+[m[32mTu sesión está bien. La mantendría con algunos agregados.[m
+[32m+[m
+[32m+[m[32mObjetivos:[m
+[32m+[m
+[32m+[m[32mlimpiar examples viejos[m
+[32m+[m[32mordenar scripts[m
+[32m+[m[32mnormalizar nombres[m
+[32m+[m[32mmejorar README[m
+[32m+[m[32mquickstart[m
+[32m+[m[32mdemo flow[m
+[32m+[m[32mtroubleshooting[m
+[32m+[m[32mknown limitations[m
+[32m+[m[32mmejorar errores[m
+[32m+[m[32mordenar .runtime[m
+[32m+[m[32mnormalizar output CLI[m
+[32m+[m[32mmejorar prompts interactivos[m
+[32m+[m[32magregar --dry-run[m
+[32m+[m[32magregar fixtures demo[m
+[32m+[m
+[32m+[m[32mAgregaría:[m
+[32m+[m
+[32m+[m[32msrc/cli/CliErrorCatalog.ts[m
+[32m+[m[32msrc/cli/CliSuggestionBuilder.ts[m
+[32m+[m[32msrc/cli/CliDoctorReporter.ts[m
+[32m+[m[32msrc/demo/DemoProjectFactory.ts[m
+[32m+[m[32msrc/demo/DemoScenarioRunner.ts[m
+[32m+[m
+[32m+[m[32mComandos útiles:[m
+[32m+[m
+[32m+[m[32mzero doctor[m
+[32m+[m[32mzero project current[m
+[32m+[m[32mzero repair --dry-run[m
+[32m+[m[32mzero patch apply --dry-run[m
+[32m+[m[32mzero agent next[m
+[32m+[m[32mzero agent run --until approval[m
+[32m+[m[32mzero agent run --until report[m
+[32m+[m
+[32m+[m[32mCoincido con tu advertencia: agent run --until report solo si no compromete seguridad.[m
+[32m+[m
+[32m+[m[32mMi recomendación:[m
+[32m+[m
+[32m+[m[32mzero agent run --until approval ✅[m
+[32m+[m[32mzero agent run --until report ⚠️ solo si apply_patch sigue requiriendo approval ya existente[m
+[32m+[m[32mzero agent run --auto-approve ❌ no para MVP[m
+[32m+[m[32mSESIÓN 48 — Release Candidate v0.1.0[m
+[32m+[m
+[32m+[m[32mChecklist final:[m
+[32m+[m
+[32m+[m[32mCLI funciona[m
+[32m+[m[32mProject manager funciona[m
+[32m+[m[32mGit awareness funciona[m
+[32m+[m[32mRepair proposal funciona[m
+[32m+[m[32mReal provider opcional funciona[m
+[32m+[m[32mAgent real provider opcional funciona[m
+[32m+[m[32mPatch apply funciona[m
+[32m+[m[32mAgent loop funciona[m
+[32m+[m[32mProject memory funciona[m
+[32m+[m[32mScaffolding básico funciona[m
+[32m+[m[32mSecurity tests pasan[m
+[32m+[m[32mDocs existen[m
+[32m+[m[32mDemo final pasa[m
+[32m+[m[32mNo secrets en repo[m
+[32m+[m[32mNo .env leído o guardado[m
+[32m+[m[32mNo comandos git destructivos[m
+[32m+[m[32mNo auto-apply sin aprobación[m
+[32m+[m[32mNo provider real sin opt-in[m
+[32m+[m[32mNo premium sin aprobación[m
+[32m+[m[32mNo memory poisoning sin advertencia/bloqueo[m
+[32m+[m[32mNo report leaking secrets[m
+[32m+[m
+[32m+[m[32mAgregaría un comando de validación final:[m
+[32m+[m
+[32m+[m[32mnpm run rc:test[m
+[32m+[m
+[32m+[m[32mQue internamente corra un set curado:[m
+[32m+[m
+[32m+[m[32mtypecheck[m
+[32m+[m[32mlint[m
+[32m+[m[32msecurity regression[m
+[32m+[m[32mmemory tests[m
+[32m+[m[32mprovider tests fake[m
+[32m+[m[32mrepair tests[m
+[32m+[m[32mpatch apply tests[m
+[32m+[m[32magent full loop[m
+[32m+[m[32mcli agent flow[m
+[32m+[m[32mscaffold tests[m
+[32m+[m[32mdocs check[m
+[1mdiff --git a/sessions.chat.md b/sessions.chat.md[m
+[1mindex 4fa9154..2391450 100644[m
+[1m--- a/sessions.chat.md[m
+[1m+++ b/sessions.chat.md[m
+[36m@@ -1,199 +1,203 @@[m
+ Roadmap final corregido recomendado[m
+ [m
+[31m-SESIÓN 45 — Module/Project Scaffolding[m
+[31m-[m
+[31m-Tu propuesta está muy bien. Solo la movería después de Agent Real Provider Integration.[m
+[31m-[m
+[31m-Estructura recomendada:[m
+[31m-[m
+[31m-src/scaffold/[m
+[31m-├── ScaffoldTypes.ts[m
+[31m-├── ScaffoldIntentParser.ts[m
+[31m-├── ScaffoldRequestBuilder.ts[m
+[31m-├── ScaffoldPlanner.ts[m
+[31m-├── ScaffoldPlanValidator.ts[m
+[31m-├── FileTreeProposalBuilder.ts[m
+[31m-├── ModuleGeneratorProvider.ts[m
+[31m-├── ScaffoldProposalParser.ts[m
+[31m-├── ScaffoldProposalSchema.ts[m
+[31m-├── ScaffoldSafetyValidator.ts[m
+[31m-├── ScaffoldDiffBuilder.ts[m
+[31m-├── ScaffoldRunner.ts[m
+[31m-└── ScaffoldReporter.ts[m
+[31m-[m
+[31m-Flujo obligatorio:[m
+[31m-[m
+[31m-ScaffoldIntent[m
+[31m--> ScaffoldRequest[m
+[31m--> provider proposes scaffold proposal[m
+[31m--> runtime parses[m
+[31m--> runtime validates schema[m
+[31m--> runtime validates paths[m
+[31m--> runtime validates overwrite policy[m
+[31m--> runtime validates protected paths[m
+[31m--> runtime builds patch proposal[m
+[31m--> runtime shows tree + diff[m
+[31m--> approval gate[m
+[31m--> PatchApplyRunner[m
+[31m--> revalidate[m
+[31m--> report[m
+[31m-[m
+[31m-Regla central:[m
+[31m-[m
+[31m-Nada de scaffolding directo.[m
+[31m-Todo pasa por proposal/diff/approval.[m
+[31m-[m
+[31m-Comandos iniciales:[m
+[31m-[m
+[31m-zero scaffold module \[m
+[31m- --project ./target \[m
+[31m- --name auth \[m
+[31m- --kind backend \[m
+[31m- --target src/modules/auth \[m
+[31m- --provider fake-llm[m
+[31m-[m
+[31m-Después:[m
+[31m-[m
+[31m-zero scaffold module \[m
+[31m- --project ./target \[m
+[31m- --name auth \[m
+[31m- --kind backend \[m
+[31m- --target src/modules/auth \[m
+[31m- --provider openrouter \[m
+[31m- --allow-real-provider \[m
+[31m- --model provider/model[m
+[31m-[m
+[31m-También agregaría:[m
+[31m-[m
+[31m-ScaffoldOverwritePolicy[m
+[31m-ScaffoldProtectedPathPolicy[m
+[31m-ScaffoldTemplateHints[m
+[31m-ScaffoldProjectConventionReader[m
+[31m-[m
+[31m-Porque el scaffolding bueno no solo crea archivos: respeta convenciones existentes.[m
+[31m-[m
+[31m-SESIÓN 46 — Documentation + Developer Guide[m
+[31m-[m
+[31m-La mantendría, pero con más énfasis en “por qué este proyecto es distinto”.[m
+[31m-[m
+[31m-Docs recomendados:[m
+[31m-[m
+[31m-docs/[m
+[31m-├── architecture.md[m
+[31m-├── runtime-flow.md[m
+[31m-├── agent-philosophy.md[m
+[31m-├── cli.md[m
+[31m-├── cli-agent.md[m
+[31m-├── workspace.md[m
+[31m-├── git-safety.md[m
+[31m-├── repair-flow.md[m
+[31m-├── patch-application.md[m
+[31m-├── security-model.md[m
+[31m-├── provider-strategy.md[m
+[31m-├── project-memory.md[m
+[31m-├── agent-real-provider.md[m
+[31m-├── scaffolding.md[m
+[31m-├── troubleshooting.md[m
+[31m-├── known-limitations.md[m
+[31m-└── release-checklist.md[m
+[31m-[m
+[31m-Agregaría explícitamente:[m
+[31m-[m
+[31m-docs/why-runtime-authority.md[m
+[31m-[m
+[31m-Ese doc puede ser clave para explicar la diferencia competitiva:[m
+[31m-[m
+[31m-- LLM propone, runtime decide.[m
+[31m-- Memoria local no es memoria del modelo.[m
+[31m-- Provider no ejecuta.[m
+[31m-- Patches no se aplican sin aprobación.[m
+[31m-- Todo queda auditable.[m
+[31m-  SESIÓN 47 — MVP Polish[m
+[31m-[m
+[31m-Tu sesión está bien. La mantendría con algunos agregados.[m
+[31m-[m
+[31m-Objetivos:[m
+[31m-[m
+[31m-limpiar examples viejos[m
+[31m-ordenar scripts[m
+[31m-normalizar nombres[m
+[31m-mejorar README[m
+[31m-quickstart[m
+[31m-demo flow[m
+[31m-troubleshooting[m
+[31m-known limitations[m
+[31m-mejorar errores[m
+[31m-ordenar .runtime[m
+[31m-normalizar output CLI[m
+[31m-mejorar prompts interactivos[m
+[31m-agregar --dry-run[m
+[31m-agregar fixtures demo[m
+[31m-[m
+[31m-Agregaría:[m
+[31m-[m
+[31m-src/cli/CliErrorCatalog.ts[m
+[31m-src/cli/CliSuggestionBuilder.ts[m
+[31m-src/cli/CliDoctorReporter.ts[m
+[31m-src/demo/DemoProjectFactory.ts[m
+[31m-src/demo/DemoScenarioRunner.ts[m
+[31m-[m
+[31m-Comandos útiles:[m
+[31m-[m
+[31m-zero doctor[m
+[31m-zero project current[m
+[31m-zero repair --dry-run[m
+[31m-zero patch apply --dry-run[m
+[31m-zero agent next[m
+[31m-zero agent run --until approval[m
+[31m-zero agent run --until report[m
+[31m-[m
+[31m-Coincido con tu advertencia: agent run --until report solo si no compromete seguridad.[m
+[31m-[m
+[31m-Mi recomendación:[m
+[31m-[m
+[31m-zero agent run --until approval ✅[m
+[31m-zero agent run --until report ⚠️ solo si apply_patch sigue requiriendo approval ya existente[m
+[31m-zero agent run --auto-approve ❌ no para MVP[m
+[31m-SESIÓN 48 — Release Candidate v0.1.0[m
+[31m-[m
+[31m-Checklist final:[m
+[31m-[m
+[31m-CLI funciona[m
+[31m-Project manager funciona[m
+[31m-Git awareness funciona[m
+[31m-Repair proposal funciona[m
+[31m-Real provider opcional funciona[m
+[31m-Agent real provider opcional funciona[m
+[31m-Patch apply funciona[m
+[31m-Agent loop funciona[m
+[31m-Project memory funciona[m
+[31m-Scaffolding básico funciona[m
+[31m-Security tests pasan[m
+[31m-Docs existen[m
+[31m-Demo final pasa[m
+[31m-No secrets en repo[m
+[31m-No .env leído o guardado[m
+[31m-No comandos git destructivos[m
+[31m-No auto-apply sin aprobación[m
+[31m-No provider real sin opt-in[m
+[31m-No premium sin aprobación[m
+[31m-No memory poisoning sin advertencia/bloqueo[m
+[31m-No report leaking secrets[m
+[31m-[m
+[31m-Agregaría un comando de validación final:[m
+[31m-[m
+[31m-npm run rc:test[m
+[31m-[m
+[31m-Que internamente corra un set curado:[m
+[31m-[m
+[31m-typecheck[m
+[31m-lint[m
+[31m-security regression[m
+[31m-memory tests[m
+[31m-provider tests fake[m
+[31m-repair tests[m
+[31m-patch apply tests[m
+[31m-agent full loop[m
+[31m-cli agent flow[m
+[31m-scaffold tests[m
+[31m-docs check[m
+[32m+[m[32mSESIÓN 49 — Release Candidate v0.1.0 Final Pass[m
+[32m+[m
+[32m+[m[32mObjetivo: no agregar features. Solo cerrar estabilidad, seguridad, limpieza y preparación de release.[m
+[32m+[m
+[32m+[m[32m49.A — Git / repo hygiene final pass[m
+[32m+[m
+[32m+[m[32m- revisar git status[m
+[32m+[m[32m- confirmar .env no trackeado[m
+[32m+[m[32m- confirmar .runtime basura no trackeada[m
+[32m+[m[32m- revisar .gitignore[m
+[32m+[m[32m- revisar archivos generados por quickstart/tests[m
+[32m+[m[32m- limpiar outputs temporales[m
+[32m+[m[32m- confirmar que docs sí estén trackeados[m
+[32m+[m[32m  49.B — Package / scripts final audit[m
+[32m+[m[32m- revisar package.json[m
+[32m+[m[32m- confirmar name/version/license[m
+[32m+[m[32m- confirmar scripts principales[m
+[32m+[m[32m- confirmar rc:test[m
+[32m+[m[32m- confirmar real-provider:test separado[m
+[32m+[m

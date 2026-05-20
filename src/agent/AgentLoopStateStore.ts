@@ -38,6 +38,7 @@ const validActionKinds = new Set([
   'revalidate_project',
   'report_result',
   'cancel',
+  'scaffold_module',
 ]);
 
 const validDecisionStatuses = new Set(['pending', 'selected', 'executed', 'skipped', 'blocked']);

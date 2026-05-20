@@ -1,5 +1,5 @@
 import type { CliRunResult } from './CliTypes.js';
-
+import { CliSuggestionBuilder } from './CliSuggestionBuilder.js';
 interface ProjectCommandOutputLike {
   action?: string;
   config?: {
@@ -43,6 +43,12 @@ interface StatusLike {
 interface DoctorLike {
   projectRoot?: string;
   ready?: boolean;
+  summary?: {
+    passed?: number;
+    warnings?: number;
+    failed?: number;
+    total?: number;
+  };
   stack?: {
     stacks?: string[];
     packageManager?: string | null;
@@ -51,7 +57,15 @@ interface DoctorLike {
     hasSrcDirectory?: boolean;
   };
   checks?: Record<string, string>;
+  checkDetails?: {
+    name?: string;
+    label?: string;
+    status?: string;
+    required?: boolean;
+    message?: string;
+  }[];
   issues?: IssueLike[];
+  recommendations?: string[];
 }
 
 interface RealProjectTrialReportLike {
@@ -176,6 +190,9 @@ interface PatchApplyOutputLike {
       decision?: string;
       reason?: string;
     };
+    plan?: {
+      operations?: unknown[];
+    };
     boundary?: {
       branch?: string;
       workingTreeState?: string;
@@ -264,19 +281,53 @@ interface ScaffoldCommandOutputLike {
     markdown?: string;
   }[];
 }
-
+interface DemoCommandOutputLike {
+  action?: string;
+  status?: string;
+  projectRoot?: string;
+  proposalPath?: string;
+  reportPath?: string;
+  scaffoldStatus?: string;
+  dryRunStatus?: string;
+  applyStatus?: string;
+  validationStatus?: string;
+  gitWorkingTreeStatus?: string;
+  changedFiles?: string[];
+  generatedFiles?: string[];
+}
+interface QuickstartCommandOutputLike {
+  action?: string;
+  status?: string;
+  projectRoot?: string;
+  proposalPath?: string;
+  reportPath?: string;
+  scaffoldStatus?: string;
+  dryRunStatus?: string;
+  applyStatus?: string;
+  validationStatus?: string;
+  gitWorkingTreeStatus?: string;
+  changedFiles?: string[];
+  generatedFiles?: string[];
+}
 export class CliOutputFormatter {
+  private readonly suggestionBuilder = new CliSuggestionBuilder();
   public format(result: CliRunResult, format: 'text' | 'json'): string {
     if (format === 'json') {
       return JSON.stringify(result, null, 2);
     }
 
-    if (typeof result.output === 'string') {
-      return result.output;
+    if (result.status === 'error' && typeof result.output === 'string') {
+      return `${result.output}
+
+${this.formatError(result)}`;
     }
 
     if (result.status === 'error') {
       return this.formatError(result);
+    }
+
+    if (typeof result.output === 'string') {
+      return result.output;
     }
 
     if (result.command === 'init') {
@@ -323,11 +374,18 @@ export class CliOutputFormatter {
     if (result.command === 'scaffold') {
       return this.formatScaffold(result.output);
     }
+    if (result.command === 'quickstart') {
+      return this.formatQuickstart(result.output);
+    }
+    if (result.command === 'demo') {
+      return this.formatDemo(result.output);
+    }
     return JSON.stringify(result.output, null, 2);
   }
 
   private formatError(result: CliRunResult): string {
     const issues = result.issues.map((issue) => `- ${issue.code}: ${issue.message}`).join('\n');
+    const suggestions = this.suggestionBuilder.buildMany(result.issues);
 
     return `Zero Runtime command failed
 
@@ -335,7 +393,10 @@ Command: ${result.command}
 Created: ${result.createdAt}
 
 Issues:
-${issues || '- unknown error'}`;
+${issues || '- unknown error'}
+
+Suggestions:
+${this.formatList(suggestions)}`;
   }
 
   private formatInit(output: unknown): string {
@@ -371,14 +432,14 @@ ${this.formatList(data.missingFiles)}`;
 
   private formatDoctor(output: unknown): string {
     const data = output as DoctorLike;
-    const checks = Object.entries(data.checks ?? {})
-      .map(([name, status]) => `- ${name}: ${status}`)
-      .join('\n');
 
     return `Zero Runtime doctor
 
 Project: ${data.projectRoot ?? 'unknown'}
 Ready: ${this.yesNo(data.ready)}
+
+Readiness:
+${this.formatDoctorSummary(data.summary)}
 
 Stack:
 ${this.formatList(data.stack?.stacks)}
@@ -386,10 +447,59 @@ ${this.formatList(data.stack?.stacks)}
 Package manager: ${data.stack?.packageManager ?? 'unknown'}
 
 Checks:
-${checks || '- none'}
+${this.formatDoctorChecks(data.checkDetails, data.checks)}
 
 Issues:
-${this.formatIssues(data.issues)}`;
+${this.formatIssues(data.issues)}
+
+Recommendations:
+${this.formatList(data.recommendations)}`;
+  }
+  private formatDoctorChecks(
+    details:
+      | {
+          name?: string;
+          label?: string;
+          status?: string;
+          required?: boolean;
+          message?: string;
+        }[]
+      | undefined,
+    fallback: Record<string, string> | undefined,
+  ): string {
+    if (details && details.length > 0) {
+      return details
+        .map((check) => {
+          const requirement = check.required === true ? 'required' : 'optional';
+
+          return `- [${check.status ?? 'unknown'}] ${check.label ?? check.name ?? 'unknown'} (${requirement})
+  ${check.message ?? 'No message'}`;
+        })
+        .join('\n');
+    }
+
+    const entries = Object.entries(fallback ?? {});
+
+    if (entries.length === 0) {
+      return '- none';
+    }
+
+    return entries.map(([name, status]) => `- ${name}: ${status}`).join('\n');
+  }
+  private formatDoctorSummary(
+    summary:
+      | {
+          passed?: number;
+          warnings?: number;
+          failed?: number;
+          total?: number;
+        }
+      | undefined,
+  ): string {
+    return `- Passed: ${summary?.passed ?? 0}
+- Warnings: ${summary?.warnings ?? 0}
+- Failed: ${summary?.failed ?? 0}
+- Total: ${summary?.total ?? 0}`;
   }
 
   private formatInspect(output: unknown): string {
@@ -548,6 +658,7 @@ ${this.formatWorkspaceProjects(projects)}`;
     return `Zero Runtime patch apply
 
 Status: ${data.status ?? 'unknown'}
+Mode: ${data.status === 'dry_run' ? 'dry-run' : 'apply'}
 Project root: ${data.projectRoot ?? 'unknown'}
 Proposal: ${data.proposalId ?? 'unknown'}
 
@@ -915,7 +1026,63 @@ ${this.formatScaffoldDiffPreviews(previews)}
 Failures:
 ${this.formatUnknownList(failures)}`;
   }
+  private formatQuickstart(output: unknown): string {
+    const data = output as QuickstartCommandOutputLike;
 
+    return `Zero Runtime quickstart
+
+Status: ${data.status ?? 'unknown'}
+Project root: ${data.projectRoot ?? 'unknown'}
+Proposal: ${data.proposalPath ?? 'unknown'}
+Report: ${data.reportPath ?? 'unknown'}
+
+Flow:
+- Scaffold: ${data.scaffoldStatus ?? 'unknown'}
+- Dry run: ${data.dryRunStatus ?? 'unknown'}
+- Apply: ${data.applyStatus ?? 'unknown'}
+- Validation: ${data.validationStatus ?? 'unknown'}
+
+Git:
+- Working tree: ${data.gitWorkingTreeStatus ?? 'unknown'}
+
+Changed files:
+${this.formatList(data.changedFiles)}
+
+Generated files:
+${this.formatList(data.generatedFiles)}
+
+Next:
+- Open the report artifact.
+- Review changed files.
+- Run git diff before keeping or reverting the demo output.
+- Use zero agent start for an approval-gated real workflow.`;
+  }
+  private formatDemo(output: unknown): string {
+    const data = output as DemoCommandOutputLike;
+
+    return `Zero Runtime demo
+
+Action: ${data.action ?? 'unknown'}
+Status: ${data.status ?? 'unknown'}
+Project root: ${data.projectRoot ?? 'unknown'}
+Proposal: ${data.proposalPath ?? 'unknown'}
+Report: ${data.reportPath ?? 'unknown'}
+
+Flow:
+- Scaffold: ${data.scaffoldStatus ?? 'unknown'}
+- Dry run: ${data.dryRunStatus ?? 'unknown'}
+- Apply: ${data.applyStatus ?? 'unknown'}
+- Validation: ${data.validationStatus ?? 'unknown'}
+
+Git:
+- Working tree: ${data.gitWorkingTreeStatus ?? 'unknown'}
+
+Changed files:
+${this.formatList(data.changedFiles)}
+
+Generated files:
+${this.formatList(data.generatedFiles)}`;
+  }
   private formatScaffoldOperations(
     operations: readonly {
       kind?: string;

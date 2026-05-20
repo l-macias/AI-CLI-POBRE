@@ -1,5 +1,11 @@
 import { readFile, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { AgentLoopReporter } from '../agent/AgentLoopReporter.js';
+import { AgentLoopStateStore } from '../agent/AgentLoopStateStore.js';
+import { AgentProviderConfigReader } from '../agent/AgentProviderConfigReader.js';
+import { AgentRuntimeBridge } from '../agent/AgentRuntimeBridge.js';
+import { AgentStepExecutor } from '../agent/AgentStepExecutor.js';
+import { InteractiveAgentLoop } from '../agent/InteractiveAgentLoop.js';
 import { ProjectBootstrapper } from '../bootstrap/ProjectBootstrapper.js';
 import { RuntimeDirectoryInspector } from '../bootstrap/RuntimeDirectoryInspector.js';
 import { GitChangeBoundary } from '../git/GitChangeBoundary.js';
@@ -7,36 +13,35 @@ import { GitDiffReader } from '../git/GitDiffReader.js';
 import { GitReporter } from '../git/GitReporter.js';
 import { GitStatusReader } from '../git/GitStatusReader.js';
 import { GitWorkingTreeGuard } from '../git/GitWorkingTreeGuard.js';
-import { PatchApplyRunner } from '../patch-apply/PatchApplyRunner.js';
-import { RealProjectTrialRunner } from '../real-project-trial/RealProjectTrialRunner.js';
-import { PatchProposalParser } from '../repair/PatchProposalParser.js';
-import { RepairAttemptRunner } from '../repair/RepairAttemptRunner.js';
-import { StaticRepairProposalProvider } from '../repair/StaticRepairProposalProvider.js';
-import type { PatchProposal } from '../types/RepairTypes.js';
-import { FakeLlmRepairProposalProvider } from '../repair/FakeLlmRepairProposalProvider.js';
-import type { RepairProposalProvider } from '../repair/RepairProposalProvider.js';
-import { TargetProjectManager } from '../workspace/TargetProjectManager.js';
-import { TargetProjectResolver } from '../workspace/TargetProjectResolver.js';
-import { PolicyAwareRepairProposalProvider } from '../repair/PolicyAwareRepairProposalProvider.js';
-import { AgentLoopReporter } from '../agent/AgentLoopReporter.js';
-import { AgentLoopStateStore } from '../agent/AgentLoopStateStore.js';
-import { AgentStepExecutor } from '../agent/AgentStepExecutor.js';
-import { InteractiveAgentLoop } from '../agent/InteractiveAgentLoop.js';
-import { OpenRouterClient } from '../providers/OpenRouterClient.js';
-import { OpenRouterConfigLoader } from '../providers/OpenRouterConfigLoader.js';
-import { OpenRouterRepairProposalProvider } from '../repair/OpenRouterRepairProposalProvider.js';
 import { ProjectMemoryReader } from '../memory/ProjectMemoryReader.js';
 import { ProjectMemoryStore } from '../memory/ProjectMemoryStore.js';
-import { SecurityRegressionSuite } from '../security/SecurityRegressionSuite.js';
-import { SecurityReviewReporter } from '../security/SecurityReviewReporter.js';
-import { AgentProviderConfigReader } from '../agent/AgentProviderConfigReader.js';
+import { PatchApplyRunner } from '../patch-apply/PatchApplyRunner.js';
+import { OpenRouterClient } from '../providers/OpenRouterClient.js';
+import { RealProjectTrialRunner } from '../real-project-trial/RealProjectTrialRunner.js';
+import { OpenRouterConfigLoader } from '../providers/OpenRouterConfigLoader.js';
+import { FakeLlmRepairProposalProvider } from '../repair/FakeLlmRepairProposalProvider.js';
+import { OpenRouterRepairProposalProvider } from '../repair/OpenRouterRepairProposalProvider.js';
+import { PatchProposalParser } from '../repair/PatchProposalParser.js';
+import { PolicyAwareRepairProposalProvider } from '../repair/PolicyAwareRepairProposalProvider.js';
+import { RepairAttemptRunner } from '../repair/RepairAttemptRunner.js';
+import type { RepairProposalProvider } from '../repair/RepairProposalProvider.js';
+import { StaticRepairProposalProvider } from '../repair/StaticRepairProposalProvider.js';
+import { ScaffoldPatchProposalWriter } from '../scaffold/ScaffoldPatchProposalWriter.js';
 import { ScaffoldReporter } from '../scaffold/ScaffoldReporter.js';
 import { ScaffoldRunner } from '../scaffold/ScaffoldRunner.js';
-import { ScaffoldPatchProposalWriter } from '../scaffold/ScaffoldPatchProposalWriter.js';
+import { DemoScenarioRunner } from '../demo/DemoScenarioRunner.js';
+import { SecurityRegressionSuite } from '../security/SecurityRegressionSuite.js';
+import { SecurityReviewReporter } from '../security/SecurityReviewReporter.js';
+import type { PatchProposal } from '../types/RepairTypes.js';
+import { TargetProjectManager } from '../workspace/TargetProjectManager.js';
+import { TargetProjectResolver } from '../workspace/TargetProjectResolver.js';
+import { WorkspaceConfigLoader } from '../workspace/WorkspaceConfigLoader.js';
 import type {
   TargetProjectResolveResult,
+  WorkspaceConfig,
   WorkspaceTargetProject,
 } from '../workspace/WorkspaceConfigTypes.js';
+import { CliDoctorReporter } from './CliDoctorReporter.js';
 import type {
   CliAgentCommand,
   CliDoctorCommand,
@@ -46,10 +51,12 @@ import type {
   CliPatchCommand,
   CliProjectCommand,
   CliRepairCommand,
+  CliScaffoldCommand,
   CliSecurityCommand,
   CliStatusCommand,
   CliValidateCommand,
-  CliScaffoldCommand,
+  CliDemoCommand,
+  CliQuickstartCommand,
 } from './CliTypes.js';
 
 export interface CliRuntimeBridgeOptions {
@@ -64,6 +71,7 @@ export interface CliRuntimeBridgeOptions {
   gitReporter?: GitReporter | undefined;
   patchApplyRunner?: PatchApplyRunner | undefined;
   patchProposalParser?: PatchProposalParser | undefined;
+  agentRuntimeBridge?: AgentRuntimeBridge | undefined;
 }
 
 export class CliRuntimeBridge {
@@ -79,6 +87,9 @@ export class CliRuntimeBridge {
   private readonly patchApplyRunner: PatchApplyRunner;
   private readonly patchProposalParser: PatchProposalParser;
   private readonly agentProviderConfigReader: AgentProviderConfigReader;
+  private readonly doctorReporter: CliDoctorReporter;
+  private readonly workspaceConfigLoader: WorkspaceConfigLoader;
+  private readonly agentRuntimeBridge?: AgentRuntimeBridge | undefined;
 
   public constructor(options: CliRuntimeBridgeOptions = {}) {
     this.bootstrapper = options.bootstrapper ?? new ProjectBootstrapper();
@@ -97,6 +108,9 @@ export class CliRuntimeBridge {
     this.patchApplyRunner = options.patchApplyRunner ?? new PatchApplyRunner();
     this.patchProposalParser = options.patchProposalParser ?? new PatchProposalParser();
     this.agentProviderConfigReader = new AgentProviderConfigReader();
+    this.doctorReporter = new CliDoctorReporter();
+    this.workspaceConfigLoader = new WorkspaceConfigLoader();
+    this.agentRuntimeBridge = options.agentRuntimeBridge;
   }
 
   public async init(command: CliInitCommand): Promise<unknown> {
@@ -194,22 +208,23 @@ export class CliRuntimeBridge {
 
   public async doctor(command: CliDoctorCommand): Promise<unknown> {
     const projectRoot = this.resolveWorkspaceRoot(command.projectRoot);
-    const runtime = await this.runtimeInspector.inspect(projectRoot);
     const bootstrapPlan = await this.bootstrapper.preview(projectRoot);
 
-    return {
+    let workspaceConfig: WorkspaceConfig | undefined;
+    let workspaceConfigError: string | undefined;
+
+    try {
+      workspaceConfig = await this.workspaceConfigLoader.load(projectRoot);
+    } catch (error) {
+      workspaceConfigError = error instanceof Error ? error.message : String(error);
+    }
+
+    return this.doctorReporter.build({
       projectRoot,
-      ready: runtime.runtimeExists && runtime.missingFiles.length === 0,
-      runtime,
-      stack: bootstrapPlan.stack,
-      issues: bootstrapPlan.issues,
-      checks: {
-        runtimeDirectory: runtime.runtimeExists ? 'passed' : 'failed',
-        runtimeFiles: runtime.missingFiles.length === 0 ? 'passed' : 'warning',
-        packageJson: bootstrapPlan.stack.hasPackageJson ? 'passed' : 'warning',
-        tsconfig: bootstrapPlan.stack.hasTsConfig ? 'passed' : 'warning',
-      },
-    };
+      bootstrapPlan,
+      workspaceConfig,
+      workspaceConfigError,
+    });
   }
 
   public async project(command: CliProjectCommand): Promise<unknown> {
@@ -342,13 +357,15 @@ export class CliRuntimeBridge {
     return this.patchApplyRunner.run({
       projectRoot,
       proposal: parsed.value,
-      applyConfirmed: true,
+      applyConfirmed: command.confirmApply,
+      dryRun: command.dryRun,
       allowDirtyWorkingTree: command.allowDirty,
       allowMissingRepository: command.allowMissingRepository,
       confirmDelete: command.confirmDelete,
       backupEnabled: command.backupEnabled,
     });
   }
+
   public async security(command: CliSecurityCommand): Promise<unknown> {
     const projectRoot = this.resolveWorkspaceRoot(command.projectRoot);
     const reportPath = resolve(
@@ -394,6 +411,7 @@ export class CliRuntimeBridge {
     });
 
     const executor = new AgentStepExecutor({
+      runtimeBridge: this.agentRuntimeBridge ?? this.createAgentRuntimeBridge(),
       store,
       reporter,
     });
@@ -519,7 +537,34 @@ Agent loop state removed:
       text: await readFile(reportPath, 'utf8'),
     };
   }
+  public async quickstart(command: CliQuickstartCommand): Promise<unknown> {
+    const projectRoot = resolve(command.projectRoot ?? '.runtime/quickstart/product-flow/project');
 
+    const runner = new DemoScenarioRunner();
+
+    const result = await runner.run({
+      projectRoot,
+    });
+
+    return {
+      action: 'quickstart',
+      ...result,
+    };
+  }
+  public async demo(command: CliDemoCommand): Promise<unknown> {
+    const projectRoot = resolve(command.projectRoot ?? '.runtime/demo/product-flow/project');
+
+    const runner = new DemoScenarioRunner();
+
+    const result = await runner.run({
+      projectRoot,
+    });
+
+    return {
+      action: command.action,
+      ...result,
+    };
+  }
   public async scaffold(command: CliScaffoldCommand): Promise<unknown> {
     const projectRoot = this.resolveWorkspaceRoot(command.projectRoot);
     const reportPath = resolve(
@@ -550,6 +595,7 @@ Agent loop state removed:
         dryRun: command.dryRun,
       },
     });
+
     const proposalOutputPath =
       command.proposalOutputPath && result.patchProposal
         ? await new ScaffoldPatchProposalWriter().write({
@@ -557,6 +603,7 @@ Agent loop state removed:
             proposal: result.patchProposal,
           })
         : undefined;
+
     return {
       action: command.action,
       projectRoot,
@@ -585,6 +632,13 @@ Agent loop state removed:
       safety: result.safety,
     };
   }
+
+  private createAgentRuntimeBridge(): AgentRuntimeBridge {
+    return new AgentRuntimeBridge({
+      cliBridge: this,
+    });
+  }
+
   private async loadAgentState(
     store: AgentLoopStateStore,
   ): Promise<Awaited<ReturnType<AgentLoopStateStore['load']>>> {
@@ -701,6 +755,7 @@ zero agent step ${nextAction.kind} --project ${state.projectRoot}`;
       ),
     ];
   }
+
   private createRepairProposalProvider(command: CliRepairCommand): RepairProposalProvider {
     const fallback = new StaticRepairProposalProvider(this.createStaticRepairProposal());
 
@@ -734,6 +789,7 @@ zero agent step ${nextAction.kind} --project ${state.projectRoot}`;
       premiumApproved: command.premiumApproved,
     });
   }
+
   private createOpenRouterRepairProposalProvider(
     command: CliRepairCommand,
   ): OpenRouterRepairProposalProvider {
@@ -765,6 +821,7 @@ zero agent step ${nextAction.kind} --project ${state.projectRoot}`;
       temperature: 0,
     });
   }
+
   private createStaticRepairProposal(): PatchProposal {
     return {
       id: 'static-cli-repair-proposal',
@@ -775,11 +832,12 @@ zero agent step ${nextAction.kind} --project ${state.projectRoot}`;
         'Static repair provider intentionally produces no patch operations. Use --provider fake-llm for parser-backed fake model output.',
     };
   }
+
   private async loadRepairMemoryContextSources(input: {
     command: CliRepairCommand;
     projectRoot: string;
     projectName: string;
-  }) {
+  }): Promise<NonNullable<Awaited<ReturnType<ProjectMemoryReader['readContextSource']>>>[]> {
     if (input.command.includeProjectMemory !== true) {
       return [];
     }

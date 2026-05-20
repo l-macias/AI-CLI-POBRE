@@ -45,7 +45,8 @@ async function main(): Promise<void> {
   const formattedMissingStatus = runner.format(missingStatusResult, 'text');
 
   assertIncludes(formattedMissingStatus, 'No agent loop state found');
-
+  assertIncludes(formattedMissingStatus, 'Suggestions:');
+  assertIncludes(formattedMissingStatus, 'zero agent start --project ./target');
   const resetWithoutConfirmResult = await runner.run(['agent', 'reset', '--project', fixtureRoot]);
 
   assertStatus(resetWithoutConfirmResult.status, 'error');
@@ -59,6 +60,8 @@ async function main(): Promise<void> {
       resetWithoutConfirmJson.includes('CLI_AGENT_CONFIRM_RESET_REQUIRED'),
     'Expected reset without confirm to expose confirm-reset requirement.',
   );
+  assertIncludes(resetWithoutConfirmText, 'Suggestions:');
+  assertIncludes(resetWithoutConfirmText, 'zero agent reset --project ./target --confirm-reset');
 
   const startResult = await runner.run([
     'agent',
@@ -135,6 +138,8 @@ async function main(): Promise<void> {
   const formattedBadApproval = runner.format(badApprovalResult, 'text');
 
   assertIncludes(formattedBadApproval, 'Agent approval not found');
+  assertIncludes(formattedBadApproval, 'Suggestions:');
+  assertIncludes(formattedBadApproval, 'zero agent approvals --project ./target');
 
   const approveResult = await runner.run([
     'agent',

@@ -13,6 +13,14 @@ async function main(): Promise<void> {
   const renderer = new CliHelpRenderer();
   const help = renderer.render();
 
+  assertIncludes(help, 'Recommended:');
+  assertIncludes(help, 'zero quickstart');
+  assertIncludes(help, 'Quickstart flow:');
+  assertIncludes(help, 'writes .runtime/quickstart-report.md');
+  assertIncludes(help, 'Quickstart uses deterministic fake provider only.');
+  assertIncludes(help, 'Quickstart runs dry-run before apply.');
+  assertIncludes(help, 'Quickstart writes an auditable report artifact.');
+
   assertIncludes(help, 'zero agent start');
   assertIncludes(help, 'zero agent status');
   assertIncludes(help, 'zero agent actions');
@@ -32,6 +40,9 @@ async function main(): Promise<void> {
   const formattedHelp = runner.format(helpResult, 'text');
 
   assertIncludes(formattedHelp, 'Zero Runtime CLI');
+  assertIncludes(formattedHelp, 'Recommended:');
+  assertIncludes(formattedHelp, 'zero quickstart');
+  assertIncludes(formattedHelp, 'Quickstart flow:');
   assertIncludes(formattedHelp, 'zero agent start');
   assertIncludes(formattedHelp, 'zero agent step request_repair_proposal');
   assertIncludes(formattedHelp, 'zero agent step apply_patch');
@@ -49,12 +60,13 @@ async function main(): Promise<void> {
   assertIncludes(docs, 'The provider proposes. The runtime controls.');
 
   logger.info('CLI help docs test completed', {
+    helpIncludesQuickstart: help.includes('zero quickstart'),
     helpIncludesAgent: help.includes('zero agent start'),
     docsPath,
     docsIncludesApprovalGate: docs.includes('## Approval gate'),
   });
 
-  logger.info('Session 40.D CLI help and docs test passed');
+  logger.info('Session 47.G CLI quickstart help polish test passed');
 }
 
 function assertStatus(actual: string, expected: string): void {

@@ -8,7 +8,7 @@ The runtime remains responsible for:
 - enforcing explicit opt-in;
 - checking provider/model policy;
 - estimating cost;
-- normalizing provider response;
+- normalizing provider responses;
 - parsing provider text;
 - validating `PatchProposal` schema;
 - validating patch safety;
@@ -32,47 +32,61 @@ User approves explicitly
 Runtime applies only if approval exists
 Runtime revalidates
 Runtime reports
+```
 
 The OpenRouter integration must not:
 
-apply patches directly;
-bypass parser/schema validation;
-bypass patch safety validation;
-bypass model policy;
-bypass approval gates;
-log API keys;
-include API keys in errors;
-require network in normal tests;
-run paid or real provider calls without explicit opt-in.
-Environment variables
+- apply patches directly;
+- bypass parser/schema validation;
+- bypass patch safety validation;
+- bypass model policy;
+- bypass approval gates;
+- log API keys;
+- include API keys in errors;
+- require network in normal deterministic tests;
+- run paid or real provider calls without explicit opt-in.
+
+## Environment variables
 
 Required for real provider usage:
 
+```env
 ZERO_OPENROUTER_ENABLED=1
 OPENROUTER_API_KEY=your_openrouter_api_key
-ZERO_OPENROUTER_MODEL=provider/model
+OPENROUTER_DEFAULT_MODEL=provider/model
+```
 
 Optional:
 
+```env
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 ZERO_OPENROUTER_TIMEOUT_MS=30000
 ZERO_OPENROUTER_MAX_TOKENS=1200
 OPENROUTER_HTTP_REFERER=https://your-app.example
-OPENROUTER_APP_TITLE="Zero Runtime"
-Model selection
+OPENROUTER_APP_TITLE=Zero Runtime
+```
 
-The OpenRouter adapter should not decide long-term model strategy.
+Real smoke tests also require:
+
+```env
+ZERO_RUN_REAL_PROVIDER_TEST=1
+```
+
+## Model selection
+
+The OpenRouter adapter should not own long-term model strategy.
 
 Model selection should come from:
 
-CLI flags;
-workspace config;
-provider strategy;
-repair/model policy;
-explicit environment config.
+- CLI flags;
+- workspace config;
+- provider strategy;
+- repair/model policy;
+- explicit environment config.
 
-For CLI repair, you can provide a model explicitly:
+For CLI repair, provide a model explicitly:
 
+```bash
 zero repair \
   --project ./target \
   --target src/example.ts \
@@ -80,23 +94,46 @@ zero repair \
   --provider openrouter \
   --allow-real-provider \
   --model provider/model
+```
 
-If --model is omitted, ZERO_OPENROUTER_MODEL must be set.
+If `--model` is omitted, `OPENROUTER_DEFAULT_MODEL` must be configured.
 
-Real provider opt-in
+## Real provider opt-in
 
 Real provider usage requires explicit CLI opt-in:
 
+```bash
 --allow-real-provider
+```
 
 This prevents accidental network/API calls.
 
-Without this flag, zero repair --provider openrouter must fail before constructing a real provider call.
+Without this flag, this command must fail before constructing a real provider call:
 
-Running local tests
+```bash
+zero repair --provider openrouter
+```
 
-Normal tests do not call OpenRouter:
+## Deterministic test gates
 
+Normal MVP and RC gates must not call OpenRouter:
+
+```bash
+npm run mvp:test
+npm run rc:test
+```
+
+OpenRouter real smoke tests are intentionally separate:
+
+```bash
+npm run real-provider:test
+```
+
+## Local non-network tests
+
+These tests should not require a real OpenRouter request:
+
+```bash
 npm run provider:openrouter-config:test
 npm run provider:openrouter-client:test
 npm run provider:response-normalizer:test
@@ -104,55 +141,96 @@ npm run repair:openrouter-provider:test
 npm run cli:repair-openrouter-provider:test
 npm run typecheck
 npm run lint
-Running the optional real smoke test
+```
 
-The smoke test is skipped unless explicitly enabled:
+## Optional real smoke tests
 
-npm run repair:openrouter-smoke:test
+The smoke tests are skipped unless explicitly enabled.
 
-To run it for real:
+Run all real provider smoke tests:
 
+```bash
 ZERO_RUN_REAL_PROVIDER_TEST=1 \
 ZERO_OPENROUTER_ENABLED=1 \
 OPENROUTER_API_KEY=your_openrouter_api_key \
-ZERO_OPENROUTER_MODEL=provider/model \
+OPENROUTER_DEFAULT_MODEL=provider/model \
+npm run real-provider:test
+```
+
+Run only repair smoke test:
+
+```bash
+ZERO_RUN_REAL_PROVIDER_TEST=1 \
+ZERO_OPENROUTER_ENABLED=1 \
+OPENROUTER_API_KEY=your_openrouter_api_key \
+OPENROUTER_DEFAULT_MODEL=provider/model \
 npm run repair:openrouter-smoke:test
+```
 
-On Windows PowerShell:
+PowerShell:
 
+```powershell
 $env:ZERO_RUN_REAL_PROVIDER_TEST="1"
 $env:ZERO_OPENROUTER_ENABLED="1"
 $env:OPENROUTER_API_KEY="your_openrouter_api_key"
-$env:ZERO_OPENROUTER_MODEL="provider/model"
-npm run repair:openrouter-smoke:test
-Expected smoke-test behavior
+$env:OPENROUTER_DEFAULT_MODEL="provider/model"
+npm run real-provider:test
+```
 
-The smoke test:
+## Expected smoke-test behavior
 
-builds a small in-memory RepairRequest;
-asks the provider for a low-risk patch proposal;
-normalizes the provider response;
-parses the returned text;
-validates the PatchProposal schema;
-validates patch safety;
-prints only safe metadata.
+The smoke tests may contact OpenRouter only when explicitly enabled.
 
-It does not apply patches.
+They should:
 
-It does not write to the target project.
+- build a small controlled request;
+- request a low-risk proposal;
+- normalize the provider response;
+- parse returned text;
+- validate `PatchProposal` schema;
+- validate patch safety;
+- print only safe metadata.
 
-It does not print the API key.
+They must not:
 
-It does not print raw provider response bodies.
+- apply patches;
+- write to the target project without runtime approval;
+- print API keys;
+- print raw secret-bearing provider payloads;
+- run inside `mvp:test`;
+- run inside deterministic `provider:all:test`.
 
-Current integration scope
+## Current integration scope
 
 Current status:
 
-zero repair --provider openrouter ✅
-zero agent start --provider openrouter ❌ not integrated yet
-
-Agent integration should be done separately because the agent loop persists state and uses approval-gated actions. Real provider usage inside the agent should remain explicit and auditable.
+```txt
+zero repair --provider openrouter                 ✅ supported with explicit opt-in
+zero agent start --provider openrouter            ✅ supported with explicit opt-in/config persistence
+zero agent step request_repair_proposal            ✅ supported through runtime bridge/provider policy
+zero agent step apply_patch                        ✅ still approval-gated
+npm run mvp:test                                   ✅ deterministic
+npm run rc:test                                    ✅ deterministic + readiness
+npm run real-provider:test                         ⚠️ optional real smoke tests
 ```
 
----
+Agent integration must remain explicit and auditable because the agent loop persists state and uses approval-gated actions.
+
+## Release rule
+
+Do not add real provider smoke tests to:
+
+```txt
+mvp:test
+provider:all:test
+cli:all:test
+agent:all:test
+```
+
+Use:
+
+```txt
+real-provider:test
+```
+
+for real network/API validation.

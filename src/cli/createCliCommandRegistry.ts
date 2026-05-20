@@ -14,6 +14,8 @@ import { ValidateCommand } from './commands/validateCommand.js';
 import { AgentCommand } from './commands/agentCommand.js';
 import { SecurityCommand } from './commands/securityCommand.js';
 import { ScaffoldCommand } from './commands/scaffoldCommand.js';
+import { DemoCommand } from './commands/demoCommand.js';
+import { QuickstartCommand } from './commands/quickstartCommand.js';
 export interface CreateCliCommandRegistryOptions {
   bridge?: CliRuntimeBridge | undefined;
   helpRenderer?: CliHelpRenderer | undefined;
@@ -27,6 +29,7 @@ export function createCliCommandRegistry(
   const registry = new CliCommandRegistry();
 
   registry.register(new HelpCommand(helpRenderer));
+  registry.register(new QuickstartCommand(bridge));
   registry.register(new InitCommand(bridge));
   registry.register(new InspectCommand(bridge));
   registry.register(new ValidateCommand(bridge));
@@ -39,5 +42,6 @@ export function createCliCommandRegistry(
   registry.register(new AgentCommand(bridge));
   registry.register(new SecurityCommand(bridge));
   registry.register(new ScaffoldCommand(bridge));
+  registry.register(new DemoCommand(bridge));
   return registry;
 }

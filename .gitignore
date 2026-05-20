@@ -6,6 +6,6 @@ dist
 *.log
 
 .runtime/
-.runtime/checkpoints/*.json
-.runtime/retrieval-cache.md
-.runtime/compressed-context.md
+done.md
+sessions.chat.md
+bundle_context.sh

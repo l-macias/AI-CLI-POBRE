@@ -16,12 +16,16 @@ import type {
   CliScaffoldAction,
   CliScaffoldCommand,
   CliScaffoldModuleKind,
+  CliDemoAction,
+  CliDemoCommand,
+  CliQuickstartCommand,
 } from './CliTypes.js';
 
 type FlagValue = string | string[] | boolean;
 
 const knownCommands = new Set([
   'help',
+  'quickstart',
   'init',
   'inspect',
   'validate',
@@ -34,6 +38,7 @@ const knownCommands = new Set([
   'agent',
   'security',
   'scaffold',
+  'demo',
 ]);
 
 const knownProjectActions = new Set(['add', 'list', 'use', 'current', 'remove']);
@@ -41,6 +46,7 @@ const knownGitActions = new Set(['status', 'diff', 'doctor']);
 const knownPatchActions = new Set(['apply']);
 const knownSecurityActions = new Set(['review']);
 const knownScaffoldActions = new Set(['module']);
+const knownDemoActions = new Set(['product-flow']);
 const knownScaffoldModuleKinds = new Set([
   'backend',
   'frontend',
@@ -135,7 +141,9 @@ export class CliCommandParser {
         },
       };
     }
-
+    if (commandName === 'quickstart') {
+      return this.buildQuickstartCommand(flags, format);
+    }
     if (commandName === 'init') {
       return {
         ok: true,
@@ -198,6 +206,9 @@ export class CliCommandParser {
     if (commandName === 'scaffold') {
       return this.buildScaffoldCommand(args, flags, format);
     }
+    if (commandName === 'demo') {
+      return this.buildDemoCommand(args, flags, format);
+    }
     const projectCommand = this.buildProjectCommand(commandName, flags, format);
 
     if (projectCommand instanceof Error) {
@@ -217,7 +228,37 @@ export class CliCommandParser {
       command: projectCommand,
     };
   }
+  private buildQuickstartCommand(
+    flags: Map<string, FlagValue>,
+    format: CliOutputFormat,
+  ): CliParseResult {
+    const command = this.withProjectRoot(
+      {
+        name: 'quickstart' as const,
+        format,
+      },
+      flags,
+    );
 
+    const issues = this.validateQuickstartCommand(command);
+
+    if (issues.length > 0) {
+      return {
+        ok: false,
+        issues,
+      };
+    }
+
+    return {
+      ok: true,
+      command,
+    };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private validateQuickstartCommand(_command: CliQuickstartCommand): CliParseIssue[] {
+    return [];
+  }
   private buildProjectManagerCommand(
     args: string[],
     flags: Map<string, FlagValue>,
@@ -362,6 +403,7 @@ export class CliCommandParser {
         action: action as CliPatchAction,
         proposalPath: this.getOptionalStringFlag(flags, 'proposal'),
         confirmApply: this.hasBooleanFlag(flags, 'confirm-apply'),
+        dryRun: this.hasBooleanFlag(flags, 'dry-run'),
         allowDirty: this.hasBooleanFlag(flags, 'allow-dirty'),
         allowMissingRepository: this.hasBooleanFlag(flags, 'allow-missing-repo'),
         confirmDelete: this.hasBooleanFlag(flags, 'confirm-delete'),
@@ -389,6 +431,7 @@ export class CliCommandParser {
     action: CliPatchAction;
     proposalPath?: string | undefined;
     confirmApply: boolean;
+    dryRun: boolean;
   }): CliParseIssue[] {
     const issues: CliParseIssue[] = [];
 
@@ -399,7 +442,7 @@ export class CliCommandParser {
       });
     }
 
-    if (command.action === 'apply' && command.confirmApply !== true) {
+    if (command.action === 'apply' && command.confirmApply !== true && command.dryRun !== true) {
       issues.push({
         code: 'CLI_PATCH_CONFIRM_APPLY_REQUIRED',
         message: 'patch apply requires --confirm-apply.',
@@ -569,7 +612,61 @@ export class CliCommandParser {
       command,
     };
   }
+  private buildDemoCommand(
+    args: string[],
+    flags: Map<string, FlagValue>,
+    format: CliOutputFormat,
+  ): CliParseResult {
+    const action = args.find((arg) => !arg.startsWith('--')) ?? 'product-flow';
 
+    if (!knownDemoActions.has(action)) {
+      return {
+        ok: false,
+        issues: [
+          {
+            code: 'CLI_UNKNOWN_DEMO_ACTION',
+            message: `Unknown demo action "${action}". Allowed: product-flow.`,
+          },
+        ],
+      };
+    }
+
+    const command = this.withProjectRoot(
+      {
+        name: 'demo' as const,
+        format,
+        action: action as CliDemoAction,
+      },
+      flags,
+    );
+
+    const issues = this.validateDemoCommand(command);
+
+    if (issues.length > 0) {
+      return {
+        ok: false,
+        issues,
+      };
+    }
+
+    return {
+      ok: true,
+      command,
+    };
+  }
+
+  private validateDemoCommand(command: CliDemoCommand): CliParseIssue[] {
+    const issues: CliParseIssue[] = [];
+
+    if (command.action !== 'product-flow') {
+      issues.push({
+        code: 'CLI_DEMO_ACTION_INVALID',
+        message: 'demo supports only the product-flow action.',
+      });
+    }
+
+    return issues;
+  }
   private validateScaffoldCommand(command: CliScaffoldCommand): CliParseIssue[] {
     const issues: CliParseIssue[] = [];
 

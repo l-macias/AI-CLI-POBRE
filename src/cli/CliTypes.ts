@@ -14,7 +14,9 @@ export type CliCommandName =
   | 'patch'
   | 'agent'
   | 'security'
-  | 'scaffold';
+  | 'scaffold'
+  | 'demo'
+  | 'quickstart';
 
 export type CliProjectAction = 'add' | 'list' | 'use' | 'current' | 'remove';
 
@@ -36,6 +38,7 @@ export type CliAgentAction =
 
 export type CliSecurityAction = 'review';
 export type CliScaffoldAction = 'module';
+export type CliDemoAction = 'product-flow';
 export type CliScaffoldModuleKind = 'backend' | 'frontend' | 'fullstack' | 'library' | 'generic';
 export type CliRepairProvider = 'fake-llm' | 'static' | 'openrouter';
 
@@ -50,7 +53,9 @@ export interface CliBaseCommand {
 export interface CliHelpCommand extends CliBaseCommand {
   name: 'help';
 }
-
+export interface CliQuickstartCommand extends CliBaseCommand {
+  name: 'quickstart';
+}
 export interface CliInitCommand extends CliBaseCommand {
   name: 'init';
   confirmOverwrite: boolean;
@@ -117,6 +122,7 @@ export interface CliPatchCommand extends CliBaseCommand {
   action: CliPatchAction;
   proposalPath?: string | undefined;
   confirmApply: boolean;
+  dryRun: boolean;
   allowDirty: boolean;
   allowMissingRepository: boolean;
   confirmDelete: boolean;
@@ -168,9 +174,13 @@ export interface CliScaffoldCommand extends CliBaseCommand {
   outputPath?: string | undefined;
   proposalOutputPath?: string | undefined;
 }
-
+export interface CliDemoCommand extends CliBaseCommand {
+  name: 'demo';
+  action: CliDemoAction;
+}
 export type CliCommand =
   | CliHelpCommand
+  | CliQuickstartCommand
   | CliInitCommand
   | CliInspectCommand
   | CliValidateCommand
@@ -182,7 +192,8 @@ export type CliCommand =
   | CliPatchCommand
   | CliAgentCommand
   | CliSecurityCommand
-  | CliScaffoldCommand;
+  | CliScaffoldCommand
+  | CliDemoCommand;
 
 export interface CliParseIssue {
   code: string;

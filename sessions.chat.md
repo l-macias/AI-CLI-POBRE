@@ -1,199 +1,203 @@
 Roadmap final corregido recomendado
 
-SESIÓN 45 — Module/Project Scaffolding
+SESIÓN 49 — Release Candidate v0.1.0 Final Pass
 
-Tu propuesta está muy bien. Solo la movería después de Agent Real Provider Integration.
+Objetivo: no agregar features. Solo cerrar estabilidad, seguridad, limpieza y preparación de release.
 
-Estructura recomendada:
+49.A — Git / repo hygiene final pass
 
-src/scaffold/
-├── ScaffoldTypes.ts
-├── ScaffoldIntentParser.ts
-├── ScaffoldRequestBuilder.ts
-├── ScaffoldPlanner.ts
-├── ScaffoldPlanValidator.ts
-├── FileTreeProposalBuilder.ts
-├── ModuleGeneratorProvider.ts
-├── ScaffoldProposalParser.ts
-├── ScaffoldProposalSchema.ts
-├── ScaffoldSafetyValidator.ts
-├── ScaffoldDiffBuilder.ts
-├── ScaffoldRunner.ts
-└── ScaffoldReporter.ts
+- revisar git status
+- confirmar .env no trackeado
+- confirmar .runtime basura no trackeada
+- revisar .gitignore
+- revisar archivos generados por quickstart/tests
+- limpiar outputs temporales
+- confirmar que docs sí estén trackeados
+  49.B — Package / scripts final audit
+- revisar package.json
+- confirmar name/version/license
+- confirmar scripts principales
+- confirmar rc:test
+- confirmar real-provider:test separado
+- confirmar que mvp:test no use provider real
+- confirmar que no haya scripts duplicados/confusos
+  49.C — README / docs final consistency
+- revisar README.md
+- revisar docs/index.md
+- revisar docs/quickstart.md
+- revisar docs/security-model.md
+- revisar docs/release-checklist.md
+- revisar docs/provider-openrouter.md
+- corregir inconsistencias de nombres/env vars/comandos
+- no crear docs enormes nuevos salvo necesidad
+  49.D — Release readiness report final polish
+- mejorar output de release-readiness-test si hace falta
+- validar checks semánticos mínimos
+- validar docs críticas
+- validar provider separation
+- validar quickstart/product-flow
+  49.E — Final RC gate
+- npm run typecheck
+- npm run lint
+- npm run release:readiness:test
+- npm run mvp:test
+- npm run rc:test
+  49.F — v0.1.0 release checklist
+- generar checklist final humano
+- listar qué está incluido en v0.1.0
+- listar qué NO está incluido
+- listar known limitations
+- listar comandos principales
+- listar próximos pasos post-v0.1.0
+  SESIÓN 50 — MVP Usability Pass / First External User Test
 
-Flujo obligatorio:
+Objetivo: probarlo como si fueras un usuario técnico externo.
 
-ScaffoldIntent
--> ScaffoldRequest
--> provider proposes scaffold proposal
--> runtime parses
--> runtime validates schema
--> runtime validates paths
--> runtime validates overwrite policy
--> runtime validates protected paths
--> runtime builds patch proposal
--> runtime shows tree + diff
--> approval gate
--> PatchApplyRunner
--> revalidate
--> report
+50.A — Fresh clone simulation
 
-Regla central:
+- simular proyecto limpio
+- npm install
+- npm run check
+- npm run cli -- help
+- npm run cli -- quickstart
+- npm run rc:test
+  50.B — First real target project trial
+- usar un proyecto real pequeño
+- zero doctor
+- zero inspect
+- zero validate
+- zero repair con fake provider
+- patch dry-run
+- revisar diff
+- aplicar si corresponde
+  50.C — UX friction log
+- anotar errores incómodos
+- mensajes confusos
+- comandos largos
+- outputs ruidosos
+- docs insuficientes
+  50.D — Minor polish only
+- corregir mensajes
+- corregir docs
+- corregir comandos ambiguos
+- no features grandes
+  SESIÓN 51 — Public MVP Packaging
 
-Nada de scaffolding directo.
-Todo pasa por proposal/diff/approval.
+Objetivo: preparar el proyecto para mostrarlo o compartirlo.
 
-Comandos iniciales:
+51.A — README public polish
 
-zero scaffold module \
- --project ./target \
- --name auth \
- --kind backend \
- --target src/modules/auth \
- --provider fake-llm
+- pitch claro
+- features
+- quickstart
+- seguridad
+- filosofía runtime-authority
+- ejemplos CLI
+  51.B — Demo script / walkthrough
+- comandos de demo
+- expected output resumido
+- explicación de qué demuestra
+  51.C — Known limitations
+- provider real opcional
+- no auto-approve
+- scaffold básico
+- agent loop técnico
+- docs todavía MVP
+- no marketplace/npm public todavía si no se decide
+  51.D — Changelog inicial
+- crear CHANGELOG.md
+- v0.1.0
+- features
+- security model
+- tests/gates
+- limitations
 
-Después:
+SESIÓN 52 — Post-MVP Real Usability Upgrade
 
-zero scaffold module \
- --project ./target \
- --name auth \
- --kind backend \
- --target src/modules/auth \
- --provider openrouter \
- --allow-real-provider \
- --model provider/model
+Objetivo: empezar a hacerlo más cómodo y útil para uso real diario.
 
-También agregaría:
+52.A — Interactive mode real
 
-ScaffoldOverwritePolicy
-ScaffoldProtectedPathPolicy
-ScaffoldTemplateHints
-ScaffoldProjectConventionReader
+- zero scaffold module --interactive
+- zero repair --interactive
+- zero agent run --interactive
+- selección de proyecto
+- selección de target
+- selección de provider
+  52.B — Better project onboarding
+- zero project init
+- zero project current
+- zero project doctor
+- presets
+- workspace más cómodo
+  52.C — Better agent run modes
+- zero agent run --until approval
+- zero agent run --until report
+- mantener apply approval-gated
+- NO auto-approve todavía
+  52.D — Better reports
+- reportes más legibles
+- resumen ejecutivo
+- diff links/paths
+- decisiones tomadas
+- bloqueos
+- próximos pasos
+  SESIÓN 53 — Runtime Intelligence Upgrade
 
-Porque el scaffolding bueno no solo crea archivos: respeta convenciones existentes.
+Objetivo: mejorar capacidad real sin romper la autoridad del runtime.
 
-SESIÓN 46 — Documentation + Developer Guide
+53.A — Code intelligence stronger
 
-La mantendría, pero con más énfasis en “por qué este proyecto es distinto”.
+- import graph más útil
+- related files resolver
+- symbol scanner mejorado
+- target expansion controlado
+  53.B — Repair context smarter
+- incluir archivos relacionados
+- limitar tokens
+- explicar por qué se eligió contexto
+- evitar retrieval poisoning
+  53.C — Patch quality evaluator
+- evaluar patch antes de aplicar
+- detectar cambios innecesarios
+- detectar riesgo arquitectónico
+- detectar edits fuera de objetivo
+  SESIÓN 54 — Provider Strategy v2
 
-Docs recomendados:
+Objetivo: hacer provider layer más escalable.
 
-docs/
-├── architecture.md
-├── runtime-flow.md
-├── agent-philosophy.md
-├── cli.md
-├── cli-agent.md
-├── workspace.md
-├── git-safety.md
-├── repair-flow.md
-├── patch-application.md
-├── security-model.md
-├── provider-strategy.md
-├── project-memory.md
-├── agent-real-provider.md
-├── scaffolding.md
-├── troubleshooting.md
-├── known-limitations.md
-└── release-checklist.md
+54.A — Provider profiles
 
-Agregaría explícitamente:
+- free
+- cheap
+- strong
+- local
+- premium
+  54.B — Model routing policy
+- elegir modelo por tarea
+- presupuesto
+- riesgo
+- tamaño de contexto
+- necesidad de precisión
+  54.C — Provider fallback
+- fallback seguro
+- no fallback premium sin aprobación
+- registrar decisión
+  SESIÓN 55 — Local Memory / Project Knowledge v2
 
-docs/why-runtime-authority.md
+Objetivo: que la memoria sea más útil sin volverse peligrosa.
 
-Ese doc puede ser clave para explicar la diferencia competitiva:
+55.A — Memory review command
 
-- LLM propone, runtime decide.
-- Memoria local no es memoria del modelo.
-- Provider no ejecuta.
-- Patches no se aplican sin aprobación.
-- Todo queda auditable.
-  SESIÓN 47 — MVP Polish
-
-Tu sesión está bien. La mantendría con algunos agregados.
-
-Objetivos:
-
-limpiar examples viejos
-ordenar scripts
-normalizar nombres
-mejorar README
-quickstart
-demo flow
-troubleshooting
-known limitations
-mejorar errores
-ordenar .runtime
-normalizar output CLI
-mejorar prompts interactivos
-agregar --dry-run
-agregar fixtures demo
-
-Agregaría:
-
-src/cli/CliErrorCatalog.ts
-src/cli/CliSuggestionBuilder.ts
-src/cli/CliDoctorReporter.ts
-src/demo/DemoProjectFactory.ts
-src/demo/DemoScenarioRunner.ts
-
-Comandos útiles:
-
-zero doctor
-zero project current
-zero repair --dry-run
-zero patch apply --dry-run
-zero agent next
-zero agent run --until approval
-zero agent run --until report
-
-Coincido con tu advertencia: agent run --until report solo si no compromete seguridad.
-
-Mi recomendación:
-
-zero agent run --until approval ✅
-zero agent run --until report ⚠️ solo si apply_patch sigue requiriendo approval ya existente
-zero agent run --auto-approve ❌ no para MVP
-SESIÓN 48 — Release Candidate v0.1.0
-
-Checklist final:
-
-CLI funciona
-Project manager funciona
-Git awareness funciona
-Repair proposal funciona
-Real provider opcional funciona
-Agent real provider opcional funciona
-Patch apply funciona
-Agent loop funciona
-Project memory funciona
-Scaffolding básico funciona
-Security tests pasan
-Docs existen
-Demo final pasa
-No secrets en repo
-No .env leído o guardado
-No comandos git destructivos
-No auto-apply sin aprobación
-No provider real sin opt-in
-No premium sin aprobación
-No memory poisoning sin advertencia/bloqueo
-No report leaking secrets
-
-Agregaría un comando de validación final:
-
-npm run rc:test
-
-Que internamente corra un set curado:
-
-typecheck
-lint
-security regression
-memory tests
-provider tests fake
-repair tests
-patch apply tests
-agent full loop
-cli agent flow
-scaffold tests
-docs check
+- zero memory list
+- zero memory inspect
+- zero memory clear
+  55.B — Memory trust levels
+- user-approved
+- runtime-generated
+- provider-suggested
+- quarantined
+  55.C — Memory poisoning defense upgrade
+- detectar instrucciones maliciosas
+- bloquear reglas peligrosas
+- auditar origen

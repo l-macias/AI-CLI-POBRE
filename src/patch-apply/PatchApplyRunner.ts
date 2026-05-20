@@ -55,10 +55,9 @@ export class PatchApplyRunner {
     const createdAt = new Date().toISOString();
     const applyId = `patch-apply-${createdAt.replaceAll(':', '').replaceAll('.', '')}`;
     const plan = this.planner.plan(input);
-    const issues: PatchApplyIssue[] = [
-      ...this.approvalPolicy.validateInput(input),
-      ...this.validator.validate(plan),
-    ];
+    const approvalIssues = input.dryRun === true ? [] : this.approvalPolicy.validateInput(input);
+
+    const issues: PatchApplyIssue[] = [...approvalIssues, ...this.validator.validate(plan)];
 
     issues.push(...(await this.validateFilesystemPaths(input.projectRoot, plan.operations)));
 
@@ -117,7 +116,31 @@ export class PatchApplyRunner {
 
       return blocked;
     }
+    if (input.dryRun === true) {
+      const dryRun = this.result({
+        id: applyId,
+        status: 'dry_run',
+        input,
+        plan,
+        boundary,
+        guard,
+        contentChecks: contentVerification.checks,
+        operationResults: plan.operations.map((operation) => {
+          return {
+            targetFile: operation.targetFile,
+            kind: operation.kind,
+            status: 'skipped',
+            message: 'Dry run: operation validated but not applied.',
+          };
+        }),
+        issues,
+        createdAt,
+      });
 
+      await this.reporter.write(dryRun);
+
+      return dryRun;
+    }
     const operationResults: PatchApplyOperationResult[] = [];
 
     try {

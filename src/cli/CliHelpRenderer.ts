@@ -2,10 +2,15 @@ export class CliHelpRenderer {
   public render(): string {
     return `Zero Runtime CLI
 
+Recommended:
+  zero quickstart [--project .runtime/quickstart/product-flow/project]
+  zero doctor [--project ./path]
+  zero agent next --project ./target
+
 Usage:
   zero help
   zero init [--project ./path] [--overwrite]
-
+  zero quickstart [--project .runtime/quickstart/product-flow/project]
   zero project add --path ./target --name "Target Project" [--no-current]
   zero project list
   zero project use "Target Project"
@@ -43,11 +48,19 @@ Usage:
   zero git doctor [--project ./target] [--allow-dirty] [--allow-missing-repo]
 
   zero patch apply --project ./target --proposal .runtime/proposal.json --confirm-apply [--allow-dirty] [--allow-missing-repo] [--confirm-delete] [--no-backup]
+  zero patch apply --project ./target --proposal .runtime/proposal.json --dry-run [--allow-dirty] [--allow-missing-repo]
+
+Internal:
+  zero demo product-flow [--project .runtime/demo/product-flow/project]
 
 Global:
   --format text|json
 
 Commands:
+  quickstart
+    Run a deterministic end-to-end onboarding flow:
+    scaffold proposal, dry-run, apply, validate, git audit, and report artifact.
+
   init
     Initialize .runtime structure for a target project.
 
@@ -88,6 +101,17 @@ Commands:
   patch
     Apply a validated patch proposal with explicit approval and safety checks.
 
+  demo
+    Internal compatibility alias for deterministic product flow demos.
+
+Quickstart flow:
+  1. zero scaffold module --provider fake-llm
+  2. zero patch apply --dry-run
+  3. zero patch apply --confirm-apply
+  4. zero validate
+  5. zero git status
+  6. writes .runtime/quickstart-report.md
+
 Agent lifecycle:
   1. zero agent start --project ./target --target src/file.ts --objective "Fix the issue"
   2. zero agent next --project ./target
@@ -112,6 +136,9 @@ Safety:
   - Patch application requires explicit approval.
   - Agent patch application requires a persisted approved approval request.
   - Patch application uses backup, git guard, and current-content checks.
+  - Quickstart uses deterministic fake provider only.
+  - Quickstart runs dry-run before apply.
+  - Quickstart writes an auditable report artifact.
   - No uncontrolled shell commands.
   - Git CLI commands are read-only.
   - No git commit, push, reset, checkout, stash, add, or restore from CLI git commands.

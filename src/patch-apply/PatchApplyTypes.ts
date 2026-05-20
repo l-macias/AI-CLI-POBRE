@@ -1,7 +1,7 @@
 import type { PatchOperation, PatchProposal } from '../types/RepairTypes.js';
 import type { GitChangeBoundary, GitWorkingTreeGuardResult } from '../git/GitAwarenessTypes.js';
 
-export type PatchApplyStatus = 'applied' | 'blocked' | 'failed';
+export type PatchApplyStatus = 'applied' | 'blocked' | 'failed' | 'dry_run';
 
 export interface PatchApplyIssue {
   code: string;
@@ -12,7 +12,8 @@ export interface PatchApplyIssue {
 export interface PatchApplyInput {
   projectRoot: string;
   proposal: PatchProposal;
-  applyConfirmed: true;
+  applyConfirmed: boolean;
+  dryRun?: boolean | undefined;
   allowDirtyWorkingTree?: boolean | undefined;
   allowMissingRepository?: boolean | undefined;
   confirmDelete?: boolean | undefined;

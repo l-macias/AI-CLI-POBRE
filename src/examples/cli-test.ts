@@ -84,6 +84,8 @@ async function main(): Promise<void> {
     'agent',
     'security',
     'scaffold',
+    'demo',
+    'quickstart',
   ] as const;
 
   for (const commandName of requiredCommands) {
@@ -338,7 +340,6 @@ async function main(): Promise<void> {
   };
 
   await writeFile(patchProposalPath, `${JSON.stringify(patchProposal, null, 2)}\n`, 'utf8');
-
   await writeFile(invalidPatchProposalPath, '{ invalid json', 'utf8');
 
   await writeFile(
@@ -370,6 +371,16 @@ async function main(): Promise<void> {
     patchProjectRoot,
     '--proposal',
     patchProposalPath,
+  ]);
+
+  const patchApplyDryRunResult = await runner.run([
+    'patch',
+    'apply',
+    '--project',
+    patchProjectRoot,
+    '--proposal',
+    patchProposalPath,
+    '--dry-run',
   ]);
 
   const invalidPatchJsonResult = await runner.run([
@@ -439,6 +450,11 @@ async function main(): Promise<void> {
   const formattedPatchApply = runner.format(patchApplyResult, 'text');
   const formattedInvalidPatchJson = runner.format(invalidPatchJsonResult, 'text');
   const formattedInvalidPatchShape = runner.format(invalidPatchShapeResult, 'text');
+  const formattedPatchApplyDryRun = runner.format(patchApplyDryRunResult, 'text');
+  const formattedPatchApplyBlockedWithoutConfirm = runner.format(
+    patchApplyBlockedWithoutConfirmResult,
+    'text',
+  );
   const formattedJson = runner.format(validateResult, 'json');
 
   const capturedOutput = await captureConsoleOutput(async () => {
@@ -489,6 +505,7 @@ async function main(): Promise<void> {
       gitDoctorAllowDirty: gitDoctorAllowDirtyResult.status,
       gitAwareRepair: gitAwareRepairResult.status,
       patchApplyBlockedWithoutConfirm: patchApplyBlockedWithoutConfirmResult.status,
+      patchApplyDryRun: patchApplyDryRunResult.status,
       invalidPatchJson: invalidPatchJsonResult.status,
       invalidPatchShape: invalidPatchShapeResult.status,
       patchApply: patchApplyResult.status,
@@ -506,6 +523,11 @@ async function main(): Promise<void> {
       agentStatus: formattedAgentStatus.includes('Zero Runtime agent'),
       doctor: formattedDoctor.includes('Zero Runtime doctor'),
       project: formattedProjectList.includes('Managed Target Project'),
+      patchApplyBlockedWithoutConfirm:
+        formattedPatchApplyBlockedWithoutConfirm.includes('Suggestions:'),
+      patchApplyDryRun:
+        formattedPatchApplyDryRun.includes('Status: dry_run') &&
+        formattedPatchApplyDryRun.includes('Mode: dry-run'),
       workspaceManagedInspect: formattedWorkspaceManagedInspect.includes('Managed Target Project'),
       workspaceManagedValidate:
         formattedWorkspaceManagedValidate.includes('Managed Target Project'),
@@ -554,6 +576,9 @@ async function main(): Promise<void> {
   assertStatus(gitDoctorDirtyResult.status, 'ok');
   assertStatus(gitDoctorAllowDirtyResult.status, 'ok');
   assertStatus(gitAwareRepairResult.status, 'ok');
+  assertStatus(patchApplyDryRunResult.status, 'ok');
+  assertIncludes(formattedPatchApplyDryRun, 'Status: dry_run');
+  assertIncludes(formattedPatchApplyDryRun, 'Mode: dry-run');
   assertStatus(patchApplyBlockedWithoutConfirmResult.status, 'error');
   assertStatus(invalidPatchJsonResult.status, 'error');
   assertStatus(invalidPatchShapeResult.status, 'error');
@@ -663,6 +688,10 @@ async function main(): Promise<void> {
   assertIncludes(formattedAgentStatus, 'Action: status');
 
   assertIncludes(formattedDoctor, 'Zero Runtime doctor');
+  assertIncludes(formattedDoctor, 'Readiness:');
+  assertIncludes(formattedDoctor, 'Runtime directory');
+  assertIncludes(formattedDoctor, 'Environment example');
+  assertIncludes(formattedDoctor, 'Recommendations:');
   assertIncludes(formattedProjectList, 'Zero Runtime project');
   assertIncludes(formattedProjectList, 'Managed Target Project');
   assertIncludes(formattedWorkspaceManagedInspect, 'Managed Target Project');
@@ -692,10 +721,13 @@ async function main(): Promise<void> {
   assertIncludes(formattedPatchApply, 'Proposal: cli-patch-apply-proposal');
   assertIncludes(formattedPatchApply, 'src/patch-target.ts');
   assertIncludes(formattedPatchApply, 'Backup:');
-
+  assertIncludes(formattedPatchApplyBlockedWithoutConfirm, 'Suggestions:');
+  assertIncludes(
+    formattedPatchApplyBlockedWithoutConfirm,
+    'zero patch apply --proposal .runtime/proposal.json --confirm-apply',
+  );
   assertIncludes(formattedInvalidPatchJson, 'Invalid patch proposal JSON');
   assertIncludes(formattedInvalidPatchShape, 'Patch operation at index 0 kind must be');
-
   assertIncludes(formattedJson, '"command": "validate"');
 
   assertNotJsonText(formattedInspect, 'inspect');
@@ -717,8 +749,9 @@ async function main(): Promise<void> {
   assertNotJsonText(formattedGitDoctorAllowDirty, 'git-doctor-allow-dirty');
   assertNotJsonText(formattedGitAwareRepair, 'git-aware-repair');
   assertNotJsonText(formattedPatchApply, 'patch-apply');
+  assertNotJsonText(formattedPatchApplyDryRun, 'patch-apply-dry-run');
 
-  logger.info('Session 40.A CLI agent command smoke test passed');
+  logger.info('Session 46.F CLI output polish test passed');
 }
 
 async function resetGitFixture(repoRoot: string): Promise<void> {
