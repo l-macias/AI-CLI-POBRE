@@ -16,6 +16,7 @@ import { SecurityCommand } from './commands/securityCommand.js';
 import { ScaffoldCommand } from './commands/scaffoldCommand.js';
 import { DemoCommand } from './commands/demoCommand.js';
 import { QuickstartCommand } from './commands/quickstartCommand.js';
+import { MemoryCommand } from './commands/memoryCommand.js';
 export interface CreateCliCommandRegistryOptions {
   bridge?: CliRuntimeBridge | undefined;
   helpRenderer?: CliHelpRenderer | undefined;
@@ -37,6 +38,7 @@ export function createCliCommandRegistry(
   registry.register(new StatusCommand(bridge));
   registry.register(new DoctorCommand(bridge));
   registry.register(new ProjectCommand(bridge));
+  registry.register(new MemoryCommand());
   registry.register(new GitCommand(bridge));
   registry.register(new PatchCommand(bridge));
   registry.register(new AgentCommand(bridge));

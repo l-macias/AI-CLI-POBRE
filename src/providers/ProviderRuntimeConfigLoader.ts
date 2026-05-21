@@ -97,9 +97,10 @@ export class ProviderRuntimeConfigLoader {
 
   private createFallbackConfig(): ProviderRuntimeConfig {
     const policy = new ProviderPolicy();
+    const providerStrategy = policy.createDefaultConfig(this.fallbackDefaultModel);
 
     return {
-      providerStrategy: policy.createDefaultConfig(this.fallbackDefaultModel),
+      providerStrategy,
       modelBudget: {
         tokenLimit: {
           maxPromptTokens: 8_000,
@@ -124,6 +125,13 @@ export class ProviderRuntimeConfigLoader {
             tier: 'cheap',
             inputUsdPerMillionTokens: 0.15,
             outputUsdPerMillionTokens: 0.6,
+          },
+          {
+            provider: 'openrouter',
+            model: 'openai/gpt-5-premium',
+            tier: 'premium',
+            inputUsdPerMillionTokens: 2,
+            outputUsdPerMillionTokens: 8,
           },
         ],
       },

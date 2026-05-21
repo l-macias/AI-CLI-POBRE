@@ -19,6 +19,9 @@ import type {
   CliDemoAction,
   CliDemoCommand,
   CliQuickstartCommand,
+  CliAgentRunUntil,
+  CliMemoryAction,
+  CliMemoryCommand,
 } from './CliTypes.js';
 
 type FlagValue = string | string[] | boolean;
@@ -39,9 +42,11 @@ const knownCommands = new Set([
   'security',
   'scaffold',
   'demo',
+  'memory',
 ]);
 
 const knownProjectActions = new Set(['add', 'list', 'use', 'current', 'remove']);
+const knownMemoryActions = new Set(['list', 'inspect', 'clear']);
 const knownGitActions = new Set(['status', 'diff', 'doctor']);
 const knownPatchActions = new Set(['apply']);
 const knownSecurityActions = new Set(['review']);
@@ -64,6 +69,7 @@ const knownAgentActions = new Set([
   'actions',
   'approvals',
   'next',
+  'run',
   'reset',
 ]);
 
@@ -187,7 +193,9 @@ export class CliCommandParser {
     if (commandName === 'project') {
       return this.buildProjectManagerCommand(args, flags, format);
     }
-
+    if (commandName === 'memory') {
+      return this.buildMemoryCommand(args, flags, format);
+    }
     if (commandName === 'git') {
       return this.buildGitCommand(args, flags, format);
     }
@@ -287,6 +295,7 @@ export class CliCommandParser {
         targetPath: this.getOptionalStringFlag(flags, 'path'),
         targetName: this.getOptionalStringFlag(flags, 'name'),
         setCurrent: !this.hasBooleanFlag(flags, 'no-current'),
+        interactive: this.hasBooleanFlag(flags, 'interactive'),
       },
       flags,
     );
@@ -305,14 +314,95 @@ export class CliCommandParser {
       command,
     };
   }
+  private buildMemoryCommand(
+    args: string[],
+    flags: Map<string, FlagValue>,
+    format: CliOutputFormat,
+  ): CliParseResult {
+    const action = args.find((arg) => !arg.startsWith('--')) ?? 'list';
 
+    if (!knownMemoryActions.has(action)) {
+      return {
+        ok: false,
+        issues: [
+          {
+            code: 'CLI_UNKNOWN_MEMORY_ACTION',
+            message: `Unknown memory action "${action}". Allowed: list, inspect, clear.`,
+          },
+        ],
+      };
+    }
+
+    const command = this.withProjectRoot(
+      {
+        name: 'memory' as const,
+        format,
+        action: action as CliMemoryAction,
+        entryId: this.resolveMemoryEntryId(args, action),
+        confirmClear: this.hasBooleanFlag(flags, 'confirm'),
+      },
+      flags,
+    );
+
+    const issues = this.validateMemoryCommand(command);
+
+    if (issues.length > 0) {
+      return {
+        ok: false,
+        issues,
+      };
+    }
+
+    return {
+      ok: true,
+      command,
+    };
+  }
+
+  private validateMemoryCommand(command: CliMemoryCommand): CliParseIssue[] {
+    const issues: CliParseIssue[] = [];
+
+    if (command.action === 'clear' && command.confirmClear !== true) {
+      issues.push({
+        code: 'CLI_MEMORY_CLEAR_CONFIRM_REQUIRED',
+        message: 'memory clear requires --confirm.',
+      });
+    }
+
+    return issues;
+  }
+
+  private resolveMemoryEntryId(args: string[], action: string): string | undefined {
+    if (action !== 'inspect') {
+      return undefined;
+    }
+
+    const actionIndex = args.findIndex((arg) => arg === action);
+
+    if (actionIndex < 0) {
+      return undefined;
+    }
+
+    const next = args[actionIndex + 1];
+
+    if (!next || next.startsWith('--')) {
+      return undefined;
+    }
+
+    return next;
+  }
   private validateProjectManagerCommand(command: {
     action: CliProjectAction;
     projectRef?: string | undefined;
     targetPath?: string | undefined;
     targetName?: string | undefined;
+    interactive: boolean;
   }): CliParseIssue[] {
     const issues: CliParseIssue[] = [];
+
+    if (command.interactive) {
+      return issues;
+    }
 
     if (command.action === 'add') {
       if (!command.targetPath) {
@@ -465,7 +555,7 @@ export class CliCommandParser {
         issues: [
           {
             code: 'CLI_UNKNOWN_AGENT_ACTION',
-            message: `Unknown agent action "${action}". Allowed: start, status, step, approve, reject, report, actions, approvals, next, reset.`,
+            message: `Unknown agent action "${action}". Allowed: start, status, step, approve, reject, report, actions, approvals, next, run, reset.`,
           },
         ],
       };
@@ -484,6 +574,7 @@ export class CliCommandParser {
         stepKind: this.resolveAgentStepKind(args, action),
         approvalId: this.resolveAgentApprovalId(args, action),
         reason: this.getOptionalStringFlag(flags, 'reason'),
+        runUntil: this.resolveAgentRunUntil(flags),
         confirmReset: this.hasBooleanFlag(flags, 'confirm-reset'),
         includeProjectMemory: this.hasBooleanFlag(flags, 'include-project-memory'),
         provider: this.resolveRepairProvider(flags),
@@ -493,6 +584,7 @@ export class CliCommandParser {
         allowRealProvider: this.hasBooleanFlag(flags, 'allow-real-provider'),
         allowPremium: this.hasBooleanFlag(flags, 'allow-premium'),
         premiumApproved: this.hasBooleanFlag(flags, 'premium-approved'),
+        interactive: this.hasBooleanFlag(flags, 'interactive'),
       },
       flags,
     );
@@ -594,6 +686,7 @@ export class CliCommandParser {
         objective: this.getOptionalStringFlag(flags, 'objective'),
         outputPath: this.getOptionalStringFlag(flags, 'output'),
         proposalOutputPath: this.getOptionalStringFlag(flags, 'save-proposal'),
+        interactive: this.hasBooleanFlag(flags, 'interactive'),
       },
       flags,
     );
@@ -677,6 +770,10 @@ export class CliCommandParser {
       });
     }
 
+    if (command.interactive) {
+      return issues;
+    }
+
     if (command.moduleName.trim().length === 0) {
       issues.push({
         code: 'CLI_SCAFFOLD_NAME_REQUIRED',
@@ -738,9 +835,11 @@ export class CliCommandParser {
     action: CliAgentAction;
     stepKind?: AgentActionKind | undefined;
     approvalId?: string | undefined;
+    runUntil?: CliAgentRunUntil | undefined;
     confirmReset: boolean;
     provider: CliRepairProvider;
     allowRealProvider: boolean;
+    interactive: boolean;
   }): CliParseIssue[] {
     const issues: CliParseIssue[] = [];
 
@@ -768,7 +867,8 @@ export class CliCommandParser {
     if (
       command.action === 'start' &&
       command.provider === 'openrouter' &&
-      command.allowRealProvider !== true
+      command.allowRealProvider !== true &&
+      command.interactive !== true
     ) {
       issues.push({
         code: 'CLI_AGENT_REAL_PROVIDER_OPT_IN_REQUIRED',
@@ -776,7 +876,12 @@ export class CliCommandParser {
           'agent start --provider openrouter requires --allow-real-provider to prevent accidental real provider calls.',
       });
     }
-
+    if (command.action === 'run' && command.runUntil !== 'approval') {
+      issues.push({
+        code: 'CLI_AGENT_RUN_UNTIL_REQUIRED',
+        message: 'agent run requires --until approval.',
+      });
+    }
     return issues;
   }
 
@@ -823,7 +928,15 @@ export class CliCommandParser {
 
     return next;
   }
+  private resolveAgentRunUntil(flags: Map<string, FlagValue>): CliAgentRunUntil | undefined {
+    const value = this.getOptionalStringFlag(flags, 'until');
 
+    if (value === 'approval') {
+      return value;
+    }
+
+    return undefined;
+  }
   private resolveProjectRef(args: string[], action: string): string | undefined {
     const actionIndex = args.findIndex((arg) => arg === action);
 
@@ -895,6 +1008,7 @@ export class CliCommandParser {
         premiumApproved: this.hasBooleanFlag(flags, 'premium-approved'),
         allowRealProvider: this.hasBooleanFlag(flags, 'allow-real-provider'),
         includeProjectMemory: this.hasBooleanFlag(flags, 'include-project-memory'),
+        interactive: this.hasBooleanFlag(flags, 'interactive'),
       },
       flags,
     );

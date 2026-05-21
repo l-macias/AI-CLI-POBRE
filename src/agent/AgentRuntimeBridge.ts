@@ -126,6 +126,7 @@ export class AgentRuntimeBridge {
       premiumApproved: providerDecision.allowed ? providerConfig.premiumApproved : false,
       allowRealProvider: providerDecision.allowed ? providerConfig.allowRealProvider : false,
       includeProjectMemory: providerConfig.includeProjectMemory,
+      interactive: false,
     };
 
     const repairOutput = await this.cliBridge.repair(command);

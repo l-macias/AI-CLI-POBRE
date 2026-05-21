@@ -1,21 +1,25 @@
+import { PatchQualityEvaluator } from '../repair/PatchQualityEvaluator.js';
 import { PatchThreatAnalyzer } from '../security/PatchThreatAnalyzer.js';
 import { ProtectedPathPolicy } from '../security/ProtectedPathPolicy.js';
 import type { SecurityFinding } from '../security/SecurityReviewTypes.js';
-import type { PatchOperation } from '../types/RepairTypes.js';
+import type { PatchOperation, PatchQualityIssue } from '../types/RepairTypes.js';
 import type { PatchApplyIssue, PatchApplyPlan } from './PatchApplyTypes.js';
 
 export interface PatchApplyValidatorOptions {
   pathPolicy?: ProtectedPathPolicy | undefined;
   patchThreatAnalyzer?: PatchThreatAnalyzer | undefined;
+  patchQualityEvaluator?: PatchQualityEvaluator | undefined;
 }
 
 export class PatchApplyValidator {
   private readonly pathPolicy: ProtectedPathPolicy;
   private readonly patchThreatAnalyzer: PatchThreatAnalyzer;
+  private readonly patchQualityEvaluator: PatchQualityEvaluator;
 
   public constructor(options: PatchApplyValidatorOptions = {}) {
     this.pathPolicy = options.pathPolicy ?? new ProtectedPathPolicy();
     this.patchThreatAnalyzer = options.patchThreatAnalyzer ?? new PatchThreatAnalyzer();
+    this.patchQualityEvaluator = options.patchQualityEvaluator ?? new PatchQualityEvaluator();
   }
 
   public validate(plan: PatchApplyPlan): PatchApplyIssue[] {
@@ -65,7 +69,25 @@ export class PatchApplyValidator {
       }),
     );
 
+    const qualityEvaluation = this.patchQualityEvaluator.evaluate({
+      proposal: plan.proposal,
+    });
+
+    issues.push(
+      ...qualityEvaluation.issues.map((issue) => {
+        return this.qualityIssueToPatchApplyIssue(issue);
+      }),
+    );
+
     return issues;
+  }
+
+  private qualityIssueToPatchApplyIssue(issue: PatchQualityIssue): PatchApplyIssue {
+    return {
+      code: issue.code.replace(/^PATCH_QUALITY_/, 'PATCH_APPLY_QUALITY_'),
+      message: issue.message,
+      severity: issue.severity,
+    };
   }
 
   private securityFindingToPatchApplyIssue(finding: SecurityFinding): PatchApplyIssue {

@@ -32,22 +32,39 @@ export class ProviderStrategy {
 
   public select(input: ProviderSelectionInput): ProviderSelectionResult {
     const roleConfig = this.policy.getRoleConfig(this.config, input.role);
+    const requestedProfileConfig = input.requestedProfile
+      ? this.policy.getProfileConfig(this.config, input.requestedProfile)
+      : null;
+    const preferredProfileConfig = roleConfig.preferredProfile
+      ? this.policy.getProfileConfig(this.config, roleConfig.preferredProfile)
+      : null;
+
     const selected = this.selector.select({
       roleConfig,
       request: input,
+      requestedProfileConfig: requestedProfileConfig ?? undefined,
+      preferredProfileConfig: preferredProfileConfig ?? undefined,
     });
 
     const result: ProviderSelectionResult = {
       role: input.role,
-      provider: roleConfig.provider,
+      provider:
+        requestedProfileConfig?.provider ?? preferredProfileConfig?.provider ?? roleConfig.provider,
       model: selected.model,
       tier: selected.tier,
-      fallbackModels: [...roleConfig.fallbackModels],
+      fallbackModels: requestedProfileConfig?.fallbackModels
+        ? [...requestedProfileConfig.fallbackModels]
+        : [...roleConfig.fallbackModels],
       reason: selected.reason,
+      routingReasons: input.routingReasons ? [...input.routingReasons] : [],
       premiumSelected: selected.premiumSelected,
       riskLevel: input.riskLevel,
       selectedAt: new Date().toISOString(),
     };
+
+    if (selected.profile) {
+      result.profile = selected.profile;
+    }
 
     this.auditor.record(result);
 
@@ -61,6 +78,10 @@ export class ProviderStrategy {
   public getConfig(): ProviderStrategyConfig {
     return {
       defaultProvider: this.config.defaultProvider,
+      profiles: this.config.profiles?.map((profile) => ({
+        ...profile,
+        fallbackModels: [...profile.fallbackModels],
+      })),
       roles: this.config.roles.map((role) => ({
         ...role,
         fallbackModels: [...role.fallbackModels],

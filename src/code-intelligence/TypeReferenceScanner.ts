@@ -8,7 +8,10 @@ const ignoredTypeNames = new Set([
   'Boolean',
   'Date',
   'Error',
+  'JSON',
   'Map',
+  'Math',
+  'NodeJS',
   'Number',
   'Object',
   'Promise',
@@ -29,8 +32,13 @@ export class TypeReferenceScanner {
     const lines = file.content.split('\n');
 
     for (let index = 0; index < lines.length; index += 1) {
-      const line = lines[index] ?? '';
+      const rawLine = lines[index] ?? '';
+      const line = this.stripInlineNoise(rawLine);
       const lineNumber = index + 1;
+
+      if (line.trim().length === 0) {
+        continue;
+      }
 
       for (const match of line.matchAll(typeLikeReferencePattern)) {
         const rawName = match[0];
@@ -44,7 +52,7 @@ export class TypeReferenceScanner {
           name,
           filePath: file.path,
           line: lineNumber,
-          sourceText: line.trim(),
+          sourceText: rawLine.trim(),
         });
       }
     }
@@ -64,6 +72,13 @@ export class TypeReferenceScanner {
     }
 
     return name;
+  }
+
+  private stripInlineNoise(line: string): string {
+    return line
+      .replace(/\/\/.*$/u, '')
+      .replace(/(['"`])(?:\\.|(?!\1).)*\1/gu, '')
+      .replace(/\bnew\s+[A-Z][A-Za-z0-9_]*\b/gu, '');
   }
 
   private dedupeReferences(references: TypeReference[]): TypeReference[] {

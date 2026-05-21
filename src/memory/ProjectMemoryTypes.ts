@@ -9,12 +9,19 @@ export type ProjectMemoryEntryKind =
 
 export type ProjectMemoryImportance = 'critical' | 'high' | 'medium' | 'low';
 
+export type ProjectMemoryTrustLevel =
+  | 'user-approved'
+  | 'runtime-generated'
+  | 'provider-suggested'
+  | 'quarantined';
+
 export interface ProjectMemoryEntry {
   id: string;
   kind: ProjectMemoryEntryKind;
   title: string;
   content: string;
   importance: ProjectMemoryImportance;
+  trustLevel: ProjectMemoryTrustLevel;
   tags: string[];
   source?: string | undefined;
   metadata?: JsonObject | undefined;
@@ -26,6 +33,7 @@ export interface ProjectKnownFileMemory {
   path: string;
   summary: string;
   importance: ProjectMemoryImportance;
+  trustLevel: ProjectMemoryTrustLevel;
   tags: string[];
   lastSeenAt: string;
   metadata?: JsonObject | undefined;
@@ -52,6 +60,7 @@ export interface ProjectMemoryAppendInput {
   title: string;
   content: string;
   importance?: ProjectMemoryImportance | undefined;
+  trustLevel?: ProjectMemoryTrustLevel | undefined;
   tags?: string[] | undefined;
   source?: string | undefined;
   metadata?: JsonObject | undefined;
@@ -61,6 +70,7 @@ export interface ProjectMemoryKnownFileInput {
   path: string;
   summary: string;
   importance?: ProjectMemoryImportance | undefined;
+  trustLevel?: ProjectMemoryTrustLevel | undefined;
   tags?: string[] | undefined;
   metadata?: JsonObject | undefined;
 }
@@ -68,6 +78,7 @@ export interface ProjectMemoryKnownFileInput {
 export interface ProjectMemoryQueryInput {
   kinds?: ProjectMemoryEntryKind[] | undefined;
   tags?: string[] | undefined;
+  trustLevels?: ProjectMemoryTrustLevel[] | undefined;
   minImportance?: ProjectMemoryImportance | undefined;
   limit?: number | undefined;
 }

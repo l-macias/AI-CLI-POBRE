@@ -11,6 +11,8 @@ Usage:
   zero help
   zero init [--project ./path] [--overwrite]
   zero quickstart [--project .runtime/quickstart/product-flow/project]
+
+  zero project add --interactive
   zero project add --path ./target --name "Target Project" [--no-current]
   zero project list
   zero project use "Target Project"
@@ -19,13 +21,16 @@ Usage:
 
   zero inspect --project ./path [--target src/file.ts] [--name "Project"] [--objective "..."]
   zero validate --project ./path [--target src/file.ts] [--name "Project"] [--objective "..."]
-  zero repair --project ./path [--target src/file.ts] [--name "Project"] [--objective "..."] [--provider fake-llm|static] [--fake-provider-mode json_only|markdown_json|text_around_json|invalid_json|invalid_schema]
-
+  zero repair --interactive
+  zero repair --project ./path [--target src/file.ts] [--name "Project"] [--objective "..."] [--provider fake-llm|static|openrouter] [--model "..."] [--allow-real-provider] [--include-project-memory]
+  
+  zero agent start --interactive
   zero agent start --project ./target --target src/file.ts --objective "Fix the issue" [--name "Project"]
   zero agent status --project ./target
   zero agent actions --project ./target
   zero agent approvals --project ./target
   zero agent next --project ./target
+  zero agent run --until approval --project ./target
   zero agent step inspect_project --project ./target
   zero agent step validate_project --project ./target
   zero agent step check_git --project ./target
@@ -50,6 +55,9 @@ Usage:
   zero patch apply --project ./target --proposal .runtime/proposal.json --confirm-apply [--allow-dirty] [--allow-missing-repo] [--confirm-delete] [--no-backup]
   zero patch apply --project ./target --proposal .runtime/proposal.json --dry-run [--allow-dirty] [--allow-missing-repo]
 
+  zero scaffold module --interactive
+  zero scaffold module --project ./target --name auth --kind backend --target src/modules/auth --provider fake-llm [--save-proposal .runtime/proposals/auth-module.patch-proposal.json]
+
 Internal:
   zero demo product-flow [--project .runtime/demo/product-flow/project]
 
@@ -72,11 +80,14 @@ Commands:
 
   repair
     Build repair context and produce a patch proposal preview.
+    Use --interactive for guided local usage.
     Provider output is parsed, schema-validated, policy-checked, and safety-validated.
     Does not apply patches automatically.
 
   agent
     Run an approval-gated interactive agent loop from the CLI.
+    Use agent start --interactive for guided local setup.
+    Use agent run --until approval to execute safe steps and stop before apply_patch.
     The loop can inspect, validate, check git state, request a repair proposal,
     show a diff preview, request approval, apply an approved patch, revalidate,
     and write a final report.
@@ -94,12 +105,19 @@ Commands:
 
   project
     Manage persistent target projects in .runtime/workspace-config.json.
+    Use project add --interactive for guided local setup.
+    Once a current project is configured, commands can omit --project.
 
   git
     Read git status, diff, and safe change boundary information.
 
   patch
     Apply a validated patch proposal with explicit approval and safety checks.
+
+  scaffold
+    Build a module scaffold proposal.
+    Use --interactive for guided local usage.
+    Produces a proposal/diff preview; patch application remains controlled by patch apply.
 
   demo
     Internal compatibility alias for deterministic product flow demos.
@@ -143,6 +161,6 @@ Safety:
   - Git CLI commands are read-only.
   - No git commit, push, reset, checkout, stash, add, or restore from CLI git commands.
   - No network calls in the current fake/static provider flow.
-  - No .env reading.`;
+  - .env is loaded only for explicit provider/runtime configuration.`;
   }
 }

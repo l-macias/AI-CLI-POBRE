@@ -13,6 +13,7 @@ import type {
   ProjectMemoryQueryInput,
   ProjectMemoryQueryResult,
   ProjectMemoryStoreOptions,
+  ProjectMemoryTrustLevel,
 } from './ProjectMemoryTypes.js';
 
 const defaultProjectMemoryFileName = 'project-memory.json';
@@ -88,15 +89,33 @@ export class ProjectMemoryStore {
   }
 
   public async append(input: ProjectMemoryAppendInput): Promise<ProjectMemoryDocument> {
-    this.sanitizer.assertSafeMemoryInput({
+    const evaluation = this.sanitizer.evaluateMemoryInput({
       title: input.title,
       content: input.content,
       source: input.source,
+      trustLevel: input.trustLevel,
     });
+
+    if (!evaluation.safe) {
+      throw new Error('Project memory poisoning blocked.');
+    }
 
     const document = await this.load();
     const now = new Date().toISOString();
-    const entry = this.createEntry(input, now);
+    const entry = this.createEntry(
+      {
+        ...input,
+        title: evaluation.title,
+        content: evaluation.content,
+        trustLevel: evaluation.trustLevel,
+        tags:
+          evaluation.trustLevel === 'quarantined'
+            ? [...(input.tags ?? []), 'memory-poisoning', 'quarantined']
+            : input.tags,
+        metadata: this.sanitizer.mergeMetadata(input.metadata, evaluation.metadata),
+      },
+      now,
+    );
 
     return this.save({
       ...document,
@@ -143,11 +162,16 @@ export class ProjectMemoryStore {
 
   public async upsertKnownFile(input: ProjectMemoryKnownFileInput): Promise<ProjectMemoryDocument> {
     this.sanitizer.assertSafePath(input.path);
-    this.sanitizer.assertSafeMemoryInput({
+
+    const evaluation = this.sanitizer.evaluateMemoryInput({
       title: input.path,
       content: input.summary,
       source: input.path,
+      trustLevel: input.trustLevel,
     });
+    if (!evaluation.safe) {
+      throw new Error('Project memory poisoning blocked.');
+    }
 
     const document = await this.load();
     const now = new Date().toISOString();
@@ -156,13 +180,18 @@ export class ProjectMemoryStore {
 
     const knownFile: ProjectKnownFileMemory = {
       path: normalizedPath,
-      summary: this.sanitizer.sanitizeText(input.summary),
+      summary: evaluation.content,
       importance: input.importance ?? 'medium',
-      tags: this.sanitizer.normalizeTags(input.tags),
+      trustLevel: evaluation.trustLevel,
+      tags: this.sanitizer.normalizeTags(
+        evaluation.trustLevel === 'quarantined'
+          ? [...(input.tags ?? []), 'memory-poisoning', 'quarantined']
+          : input.tags,
+      ),
       lastSeenAt: now,
     };
 
-    const metadata = this.sanitizer.sanitizeMetadata(input.metadata);
+    const metadata = this.sanitizer.mergeMetadata(input.metadata, evaluation.metadata);
 
     if (metadata) {
       knownFile.metadata = metadata;
@@ -184,12 +213,17 @@ export class ProjectMemoryStore {
     const document = await this.load();
     const kinds = new Set(input.kinds ?? []);
     const tags = new Set((input.tags ?? []).map((tag) => tag.trim().toLowerCase()));
+    const trustLevels = new Set(input.trustLevels ?? []);
     const minImportance = input.minImportance ?? 'low';
     const limit = input.limit ?? 50;
 
     const entries = document.entries
       .filter((entry) => {
         if (kinds.size > 0 && !kinds.has(entry.kind)) {
+          return false;
+        }
+
+        if (trustLevels.size > 0 && !trustLevels.has(entry.trustLevel)) {
           return false;
         }
 
@@ -207,6 +241,10 @@ export class ProjectMemoryStore {
 
     const knownFiles = document.knownFiles
       .filter((file) => {
+        if (trustLevels.size > 0 && !trustLevels.has(file.trustLevel)) {
+          return false;
+        }
+
         if (importanceRank[file.importance] < importanceRank[minImportance]) {
           return false;
         }
@@ -250,6 +288,7 @@ export class ProjectMemoryStore {
       title: this.sanitizer.sanitizeText(input.title),
       content: this.sanitizer.sanitizeText(input.content),
       importance: input.importance ?? 'medium',
+      trustLevel: input.trustLevel ?? 'runtime-generated',
       tags: this.sanitizer.normalizeTags(input.tags),
       createdAt: now,
       updatedAt: now,
@@ -331,6 +370,7 @@ export class ProjectMemoryStore {
       title: this.sanitizer.sanitizeText(title),
       content: this.sanitizer.sanitizeText(content),
       importance: this.readImportance(record['importance']) ?? 'medium',
+      trustLevel: this.readTrustLevel(record['trustLevel']) ?? 'runtime-generated',
       tags: this.readTags(record['tags']),
       createdAt,
       updatedAt,
@@ -380,6 +420,7 @@ export class ProjectMemoryStore {
       path: this.sanitizer.normalizeRelativePath(path),
       summary: this.sanitizer.sanitizeText(summary),
       importance: this.readImportance(record['importance']) ?? 'medium',
+      trustLevel: this.readTrustLevel(record['trustLevel']) ?? 'runtime-generated',
       tags: this.readTags(record['tags']),
       lastSeenAt,
     };
@@ -417,6 +458,19 @@ export class ProjectMemoryStore {
 
   private readImportance(value: unknown): ProjectMemoryImportance | null {
     if (value === 'critical' || value === 'high' || value === 'medium' || value === 'low') {
+      return value;
+    }
+
+    return null;
+  }
+
+  private readTrustLevel(value: unknown): ProjectMemoryTrustLevel | null {
+    if (
+      value === 'user-approved' ||
+      value === 'runtime-generated' ||
+      value === 'provider-suggested' ||
+      value === 'quarantined'
+    ) {
       return value;
     }
 

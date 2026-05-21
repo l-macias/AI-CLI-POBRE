@@ -2,7 +2,7 @@ import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ProjectMemoryStore } from '../memory/ProjectMemoryStore.js';
 
-function assert(condition: boolean, message: string): void {
+function assert(condition: boolean, message: string): asserts condition {
   if (!condition) {
     throw new Error(message);
   }
@@ -36,6 +36,7 @@ await store.appendFact({
   content:
     'The runtime is the authority. LLM/provider output is untrusted and must pass validation.',
   importance: 'critical',
+  trustLevel: 'user-approved',
   tags: ['architecture', 'runtime'],
 });
 
@@ -44,6 +45,7 @@ await store.appendDecision({
   content:
     'Provider adapters must not hardcode long-term model strategy. Model selection belongs to strategy/config/policy.',
   importance: 'high',
+  trustLevel: 'runtime-generated',
   tags: ['provider', 'policy'],
   metadata: {
     provider: 'openrouter',
@@ -56,6 +58,7 @@ await store.appendConstraint({
   content:
     'Real provider calls require explicit opt-in and must not run in normal tests. OPENROUTER_API_KEY=secret-value',
   importance: 'critical',
+  trustLevel: 'runtime-generated',
   tags: ['security', 'provider'],
 });
 
@@ -63,6 +66,7 @@ await store.appendSessionNote({
   title: 'Session 42.A started',
   content: 'Created local project memory store for facts, decisions, constraints, and notes.',
   importance: 'medium',
+  trustLevel: 'provider-suggested',
   tags: ['session-42'],
 });
 
@@ -71,6 +75,7 @@ await store.upsertKnownFile({
   summary:
     'Repair proposal provider that routes OpenRouter text through normalizer, parser, and schema validation.',
   importance: 'high',
+  trustLevel: 'runtime-generated',
   tags: ['repair', 'provider'],
 });
 
@@ -78,6 +83,7 @@ await store.upsertKnownFile({
   path: 'src/repair/OpenRouterRepairProposalProvider.ts',
   summary: 'Updated summary should replace the previous known file memory entry.',
   importance: 'high',
+  trustLevel: 'runtime-generated',
   tags: ['repair', 'provider', 'updated'],
 });
 
@@ -85,6 +91,14 @@ const document = await store.load();
 
 assert(document.entries.length === 4, 'Expected four project memory entries.');
 assert(document.knownFiles.length === 1, 'Known file should be upserted, not duplicated.');
+assert(
+  document.entries.some((entry) => entry.trustLevel === 'provider-suggested'),
+  'Expected provider-suggested trust level to be stored.',
+);
+assert(
+  document.knownFiles.every((file) => file.trustLevel === 'runtime-generated'),
+  'Expected known files to include runtime-generated trust level.',
+);
 assert(
   document.knownFiles[0]?.summary ===
     'Updated summary should replace the previous known file memory entry.',
@@ -109,6 +123,15 @@ const providerQuery = await store.query({
 
 assert(providerQuery.entries.length >= 1, 'Provider query should return provider-related entries.');
 assert(providerQuery.knownFiles.length === 1, 'Provider query should return known provider file.');
+
+const providerSuggestedQuery = await store.query({
+  trustLevels: ['provider-suggested'],
+});
+
+assert(
+  providerSuggestedQuery.entries.length === 1,
+  'Expected provider-suggested query to return one entry.',
+);
 
 let blockedEnvPath = false;
 

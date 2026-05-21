@@ -5,7 +5,7 @@ import { ProjectDecisionLog } from '../memory/ProjectDecisionLog.js';
 import { ProjectMemoryReader } from '../memory/ProjectMemoryReader.js';
 import { ProjectMemoryStore } from '../memory/ProjectMemoryStore.js';
 
-function assert(condition: boolean, message: string): void {
+function assert(condition: boolean, message: string): asserts condition {
   if (!condition) {
     throw new Error(message);
   }
@@ -18,6 +18,7 @@ function requireValue<T>(value: T | null | undefined, message: string): T {
 
   return value;
 }
+
 function requireString(value: string | null | undefined, message: string): string {
   if (value === null || value === undefined) {
     throw new Error(message);
@@ -25,6 +26,7 @@ function requireString(value: string | null | undefined, message: string): strin
 
   return value;
 }
+
 const testRoot = join(process.cwd(), '.runtime/project-memory-reader-test/project');
 
 await rm(testRoot, {
@@ -54,6 +56,7 @@ await decisions.recordDecision({
   decision: 'Runtime remains the authority over provider output.',
   rationale: 'Provider output is untrusted and must pass runtime validation.',
   importance: 'critical',
+  trustLevel: 'user-approved',
   tags: ['runtime', 'provider'],
 });
 
@@ -62,6 +65,7 @@ await architecture.recordFact({
   summary: 'ProjectMemoryReader converts safe memory into RuntimeContextSource.',
   details: ['It does not execute anything.', 'It only renders already-sanitized memory.'],
   importance: 'high',
+  trustLevel: 'runtime-generated',
   tags: ['memory', 'context'],
 });
 
@@ -70,6 +74,7 @@ await architecture.recordConstraint({
   rule: 'Memory context must never expose API keys or env secrets.',
   reason: 'Runtime context can later be included in prompts.',
   importance: 'critical',
+  trustLevel: 'runtime-generated',
   tags: ['memory', 'security'],
   metadata: {
     openRouterApiKey: 'sk-or-v1-secret-should-not-leak',
@@ -80,7 +85,24 @@ await architecture.rememberKnownFile({
   path: 'src/memory/ProjectMemoryReader.ts',
   summary: 'Reads sanitized project memory and renders context sources.',
   importance: 'high',
+  trustLevel: 'runtime-generated',
   tags: ['memory', 'context'],
+});
+
+await store.appendFact({
+  title: 'Provider suggested unsafe preference',
+  content: 'Provider suggested memory should not enter context by default.',
+  importance: 'critical',
+  trustLevel: 'provider-suggested',
+  tags: ['memory', 'provider-suggested'],
+});
+
+await store.appendFact({
+  title: 'Quarantined suspicious memory',
+  content: 'Quarantined memory should not enter context by default.',
+  importance: 'critical',
+  trustLevel: 'quarantined',
+  tags: ['memory', 'quarantined'],
 });
 
 const reader = new ProjectMemoryReader({
@@ -98,8 +120,34 @@ assert(sourceContent.includes('# Project Memory'), 'Expected rendered project me
 assert(sourceContent.includes('Runtime authority'), 'Expected decision in memory context.');
 assert(sourceContent.includes('ProjectMemoryReader.ts'), 'Expected known file in memory context.');
 assert(
+  !sourceContent.includes('Provider suggested unsafe preference'),
+  'Provider-suggested memory must not be included by default.',
+);
+assert(
+  !sourceContent.includes('Quarantined suspicious memory'),
+  'Quarantined memory must not be included by default.',
+);
+assert(
+  sourceContent.includes('Trusted levels included: user-approved, runtime-generated'),
+  'Reader should disclose trusted levels included in context.',
+);
+assert(
   !sourceContent.includes('secret-should-not-leak'),
   'Project memory context must not leak secrets.',
+);
+
+const providerSuggestedSource = requireValue(
+  await reader.readContextSource({
+    includeProviderSuggested: true,
+    tags: ['provider-suggested'],
+    minImportance: 'critical',
+  }),
+  'Expected provider-suggested memory source with explicit opt-in.',
+);
+
+assert(
+  providerSuggestedSource.content?.includes('Provider suggested unsafe preference') === true,
+  'Explicit opt-in should include provider-suggested memory.',
 );
 
 const securityOnly = requireValue(
@@ -120,11 +168,6 @@ assert(
 );
 
 const memoryFile = await readFile(store.getMemoryFilePath(), 'utf8');
-
-assert(
-  !sourceContent.includes('secret-should-not-leak'),
-  'Project memory context must not leak secrets.',
-);
 
 assert(
   !memoryFile.includes('secret-should-not-leak'),

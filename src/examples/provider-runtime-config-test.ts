@@ -24,6 +24,7 @@ async function main(): Promise<void> {
       {
         providerStrategy: {
           defaultProvider: 'openrouter',
+          profiles: [],
           roles: [],
         },
         modelBudget: {},
@@ -77,32 +78,85 @@ async function main(): Promise<void> {
 
   assertEqual(validLoad.source, 'external');
   assertEqual(validLoad.issues.length, 0);
+  assertEqual(validLoad.config.providerStrategy.profiles?.length ?? 0, 5);
 
   assertEqual(invalidLoad.source, 'fallback');
   assertEqual(invalidLoad.issues[0]?.code ?? '', 'PROVIDER_RUNTIME_CONFIG_INVALID');
 
   assertEqual(missingLoad.source, 'fallback');
   assertEqual(missingLoad.issues[0]?.code ?? '', 'PROVIDER_RUNTIME_CONFIG_NOT_FOUND');
+  assertEqual(missingLoad.config.providerStrategy.profiles?.length ?? 0, 5);
 
   assertEqual(plannerDecision.allowed ? 'yes' : 'no', 'yes');
-  assertEqual(plannerDecision.selection.model, 'openai/gpt-oss-120b:free');
+  assertEqual(plannerDecision.selection.model, 'openai/gpt-4o-mini');
+  assertEqual(plannerDecision.selection.profile ?? '', 'cheap');
 
   assertEqual(premiumDecision.allowed ? 'yes' : 'no', 'yes');
   assertEqual(premiumDecision.selection.model, 'openai/gpt-4o-mini');
+  assertEqual(premiumDecision.selection.profile ?? '', 'strong');
+  assertEqual(premiumDecision.selection.premiumSelected ? 'yes' : 'no', 'no');
 
-  console.log('\nSession 27.95 provider runtime config test passed.');
+  console.log('\nSession 54.B provider runtime config test passed.');
 }
 
 function createValidConfig(): ProviderRuntimeConfig {
   return {
     providerStrategy: {
       defaultProvider: 'openrouter',
+      profiles: [
+        {
+          profile: 'free',
+          provider: 'openrouter',
+          model: 'openai/gpt-oss-120b:free',
+          tier: 'free',
+          allowPremium: false,
+          description: 'Free deterministic profile.',
+          fallbackModels: ['openai/gpt-4o-mini'],
+        },
+        {
+          profile: 'cheap',
+          provider: 'openrouter',
+          model: 'openai/gpt-4o-mini',
+          tier: 'cheap',
+          allowPremium: false,
+          description: 'Cheap default profile.',
+          fallbackModels: ['openai/gpt-oss-120b:free'],
+        },
+        {
+          profile: 'strong',
+          provider: 'openrouter',
+          model: 'openai/gpt-4o-mini',
+          tier: 'standard',
+          allowPremium: false,
+          description: 'Strong non-premium profile.',
+          fallbackModels: ['openai/gpt-oss-120b:free'],
+        },
+        {
+          profile: 'local',
+          provider: 'openrouter',
+          model: 'local/runtime-controlled-model',
+          tier: 'free',
+          allowPremium: false,
+          description: 'Local placeholder profile.',
+          fallbackModels: ['openai/gpt-oss-120b:free'],
+        },
+        {
+          profile: 'premium',
+          provider: 'openrouter',
+          model: 'openai/gpt-5-premium',
+          tier: 'premium',
+          allowPremium: true,
+          description: 'Premium explicit approval profile.',
+          fallbackModels: ['openai/gpt-4o-mini'],
+        },
+      ],
       roles: [
         {
           role: 'planner',
           provider: 'openrouter',
           model: 'openai/gpt-oss-120b:free',
           tier: 'free',
+          preferredProfile: 'free',
           fallbackModels: ['openai/gpt-4o-mini'],
           allowPremium: false,
         },
@@ -111,6 +165,7 @@ function createValidConfig(): ProviderRuntimeConfig {
           provider: 'openrouter',
           model: 'openai/gpt-oss-120b:free',
           tier: 'free',
+          preferredProfile: 'free',
           fallbackModels: ['openai/gpt-4o-mini'],
           allowPremium: false,
         },
@@ -119,6 +174,7 @@ function createValidConfig(): ProviderRuntimeConfig {
           provider: 'openrouter',
           model: 'openai/gpt-4o-mini',
           tier: 'cheap',
+          preferredProfile: 'cheap',
           fallbackModels: ['openai/gpt-oss-120b:free'],
           allowPremium: false,
         },
@@ -127,6 +183,7 @@ function createValidConfig(): ProviderRuntimeConfig {
           provider: 'openrouter',
           model: 'openai/gpt-5-premium',
           tier: 'premium',
+          preferredProfile: 'premium',
           fallbackModels: ['openai/gpt-4o-mini'],
           allowPremium: true,
         },
@@ -135,6 +192,7 @@ function createValidConfig(): ProviderRuntimeConfig {
           provider: 'openrouter',
           model: 'openai/gpt-oss-120b:free',
           tier: 'free',
+          preferredProfile: 'free',
           fallbackModels: ['openai/gpt-4o-mini'],
           allowPremium: false,
         },

@@ -4,23 +4,28 @@ import type { SecurityFinding } from '../security/SecurityReviewTypes.js';
 import type {
   PatchOperation,
   PatchProposal,
+  PatchQualityIssue,
   PatchValidationIssue,
   PatchValidationResult,
   RepairRequest,
 } from '../types/RepairTypes.js';
+import { PatchQualityEvaluator } from './PatchQualityEvaluator.js';
 
 export interface PatchSafetyValidatorOptions {
   pathPolicy?: ProtectedPathPolicy | undefined;
   patchThreatAnalyzer?: PatchThreatAnalyzer | undefined;
+  patchQualityEvaluator?: PatchQualityEvaluator | undefined;
 }
 
 export class PatchSafetyValidator {
   private readonly pathPolicy: ProtectedPathPolicy;
   private readonly patchThreatAnalyzer: PatchThreatAnalyzer;
+  private readonly patchQualityEvaluator: PatchQualityEvaluator;
 
   public constructor(options: PatchSafetyValidatorOptions = {}) {
     this.pathPolicy = options.pathPolicy ?? new ProtectedPathPolicy();
     this.patchThreatAnalyzer = options.patchThreatAnalyzer ?? new PatchThreatAnalyzer();
+    this.patchQualityEvaluator = options.patchQualityEvaluator ?? new PatchQualityEvaluator();
   }
 
   public validate(input: {
@@ -29,7 +34,13 @@ export class PatchSafetyValidator {
   }): PatchValidationResult {
     const issues: PatchValidationIssue[] = [];
 
-    const allowedTargets = new Set(input.request.targetFiles.map((file) => file.relativePath));
+    const editableTargets = new Set(
+      input.request.targetFiles
+        .filter((file) => file.role !== 'related_context' && file.editable !== false)
+        .map((file) => file.relativePath),
+    );
+
+    const knownContextTargets = new Set(input.request.targetFiles.map((file) => file.relativePath));
 
     if (input.proposal.operations.length === 0) {
       issues.push({
@@ -58,10 +69,21 @@ export class PatchSafetyValidator {
         }),
       );
 
-      if (!allowedTargets.has(operation.targetFile)) {
+      if (!knownContextTargets.has(operation.targetFile)) {
         issues.push({
           code: 'PATCH_TARGET_NOT_IN_REPAIR_CONTEXT',
           message: `Patch targets a file outside repair context: ${operation.targetFile}`,
+          severity: 'error',
+        });
+      }
+
+      if (
+        knownContextTargets.has(operation.targetFile) &&
+        !editableTargets.has(operation.targetFile)
+      ) {
+        issues.push({
+          code: 'PATCH_TARGET_IS_READ_ONLY_CONTEXT',
+          message: `Patch targets a read-only related context file: ${operation.targetFile}`,
           severity: 'error',
         });
       }
@@ -97,9 +119,28 @@ export class PatchSafetyValidator {
       }),
     );
 
+    const qualityEvaluation = this.patchQualityEvaluator.evaluate({
+      request: input.request,
+      proposal: input.proposal,
+    });
+
+    issues.push(
+      ...qualityEvaluation.issues.map((issue) => {
+        return this.qualityIssueToPatchValidationIssue(issue);
+      }),
+    );
+
     return {
       valid: !issues.some((issue) => issue.severity === 'error'),
       issues,
+    };
+  }
+
+  private qualityIssueToPatchValidationIssue(issue: PatchQualityIssue): PatchValidationIssue {
+    return {
+      code: issue.code,
+      message: issue.message,
+      severity: issue.severity,
     };
   }
 

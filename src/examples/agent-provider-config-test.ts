@@ -41,6 +41,7 @@ const cliCommand: CliAgentCommand = {
   allowRealProvider: true,
   allowPremium: false,
   premiumApproved: false,
+  interactive: false,
 };
 
 const fromCli = reader.fromCliCommand(cliCommand);

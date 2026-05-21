@@ -36,6 +36,7 @@ import type { PatchProposal } from '../types/RepairTypes.js';
 import { TargetProjectManager } from '../workspace/TargetProjectManager.js';
 import { TargetProjectResolver } from '../workspace/TargetProjectResolver.js';
 import { WorkspaceConfigLoader } from '../workspace/WorkspaceConfigLoader.js';
+import type { AgentActionKind } from '../agent/AgentTypes.js';
 import type {
   TargetProjectResolveResult,
   WorkspaceConfig,
@@ -475,6 +476,22 @@ Agent loop state removed:
         text: this.formatAgentNextAction(state),
       };
     }
+    if (command.action === 'run') {
+      if (command.runUntil !== 'approval') {
+        throw new Error('agent run requires --until approval.');
+      }
+
+      const updated = await this.runAgentUntilApproval({
+        state,
+        executor,
+      });
+
+      return {
+        action: command.action,
+        state: updated,
+        text: this.formatAgentRunUntilApprovalResult(updated),
+      };
+    }
 
     if (command.action === 'step') {
       if (!command.stepKind) {
@@ -529,6 +546,10 @@ Agent loop state removed:
         action: command.action,
         state: updated,
       };
+    }
+
+    if (command.action === 'report') {
+      await reporter.write(state);
     }
 
     return {
@@ -692,7 +713,131 @@ Next action:
 Suggested command:
 zero agent step ${nextAction.kind} --project ${state.projectRoot}`;
   }
+  private async runAgentUntilApproval(input: {
+    state: Awaited<ReturnType<AgentLoopStateStore['load']>>;
+    executor: AgentStepExecutor;
+  }): Promise<Awaited<ReturnType<AgentLoopStateStore['load']>>> {
+    let current = input.state;
 
+    const safeSteps: readonly AgentActionKind[] = [
+      'inspect_project',
+      'validate_project',
+      'check_git',
+      'build_repair_context',
+      'request_repair_proposal',
+      'show_diff_preview',
+      'request_approval',
+    ];
+
+    for (const stepKind of safeSteps) {
+      const action = current.actions.find((candidate) => candidate.kind === stepKind);
+
+      if (!action) {
+        throw new Error(`Agent action not found for run --until approval: ${stepKind}`);
+      }
+
+      if (action.status === 'executed') {
+        continue;
+      }
+
+      if (action.kind === 'apply_patch') {
+        throw new Error('agent run --until approval must never execute apply_patch.');
+      }
+
+      current = await input.executor.execute(current, action.id);
+
+      const updatedAction = current.actions.find((candidate) => candidate.id === action.id);
+
+      if (
+        current.status === 'failed' ||
+        current.status === 'cancelled' ||
+        updatedAction?.status === 'blocked'
+      ) {
+        return current;
+      }
+    }
+
+    return current;
+  }
+
+  private formatAgentRunUntilApprovalResult(
+    state: Awaited<ReturnType<AgentLoopStateStore['load']>>,
+  ): string {
+    const safeStepKinds: readonly AgentActionKind[] = [
+      'inspect_project',
+      'validate_project',
+      'check_git',
+      'build_repair_context',
+      'request_repair_proposal',
+      'show_diff_preview',
+      'request_approval',
+    ];
+
+    const safeActions = safeStepKinds
+      .map((kind) => {
+        return state.actions.find((action) => action.kind === kind);
+      })
+      .filter((action): action is NonNullable<typeof action> => {
+        return action !== undefined;
+      });
+
+    const executedActions = safeActions.filter((action) => {
+      return action.status === 'executed';
+    });
+
+    const blockedActions = safeActions.filter((action) => {
+      return action.status === 'blocked';
+    });
+
+    const pendingApprovalCount = state.approvals.filter((approval) => {
+      return approval.status === 'pending';
+    }).length;
+
+    const applyPatchAction = state.actions.find((action) => {
+      return action.kind === 'apply_patch';
+    });
+
+    return `Zero Runtime agent run
+
+Mode: until approval
+Status: ${state.status}
+Project: ${state.projectName}
+Root: ${state.projectRoot}
+
+Executed safe steps:
+${this.formatAgentRunActionList(executedActions)}
+
+Blocked safe steps:
+${this.formatAgentRunActionList(blockedActions)}
+
+Stopped before:
+- apply_patch
+
+Approvals:
+- Pending: ${String(pendingApprovalCount)}
+
+Apply patch:
+- Status: ${applyPatchAction?.status ?? 'unknown'}
+- Requires approval: ${applyPatchAction?.requiresApproval === true ? 'yes' : 'no'}
+
+Next:
+- Review diff preview and approvals.
+- Run: zero agent approvals --project ${state.projectRoot}
+- Approve only after review.
+- Run apply step manually after approval.`;
+  }
+  private formatAgentRunActionList(
+    actions: readonly {
+      readonly kind: AgentActionKind;
+      readonly status: string;
+    }[],
+  ): string {
+    if (actions.length === 0) {
+      return '- none';
+    }
+
+    return actions.map((action) => `- ${action.kind} (${action.status})`).join('\n');
+  }
   private assertAgentApprovalExists(
     state: Awaited<ReturnType<AgentLoopStateStore['load']>>,
     approvalId: string,

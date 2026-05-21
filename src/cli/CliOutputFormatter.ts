@@ -56,6 +56,18 @@ interface DoctorLike {
     hasTsConfig?: boolean;
     hasSrcDirectory?: boolean;
   };
+  workspace?: {
+    workspaceRoot?: string;
+    currentProjectId?: string | null;
+    currentProject?: {
+      id?: string;
+      name?: string;
+      rootPath?: string;
+    };
+    projectCount?: number;
+    configLoaded?: boolean;
+    configError?: string;
+  };
   checks?: Record<string, string>;
   checkDetails?: {
     name?: string;
@@ -173,7 +185,66 @@ interface RepairAttemptLike {
     };
   };
 }
-
+interface MemoryCommandOutputLike {
+  action?: string;
+  projectRoot?: string;
+  memoryFile?: string;
+  status?: string;
+  summary?: {
+    projectName?: string;
+    entries?: number;
+    knownFiles?: number;
+    updatedAt?: string;
+    trustLevels?: {
+      'user-approved'?: number;
+      'runtime-generated'?: number;
+      'provider-suggested'?: number;
+      quarantined?: number;
+    };
+  };
+  entries?: {
+    id?: string;
+    kind?: string;
+    title?: string;
+    importance?: string;
+    trustLevel?: string;
+    tags?: string[];
+    source?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    contentPreview?: string;
+    content?: string;
+  }[];
+  knownFiles?: {
+    path?: string;
+    summary?: string;
+    importance?: string;
+    trustLevel?: string;
+    tags?: string[];
+    lastSeenAt?: string;
+  }[];
+  selectedEntry?: {
+    id?: string;
+    kind?: string;
+    title?: string;
+    importance?: string;
+    trustLevel?: string;
+    tags?: string[];
+    source?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    content?: string;
+  };
+  selectedKnownFile?: {
+    path?: string;
+    summary?: string;
+    importance?: string;
+    trustLevel?: string;
+    tags?: string[];
+    lastSeenAt?: string;
+  };
+  issues?: IssueLike[];
+}
 interface GitCommandOutputLike {
   action?: string;
   text?: string;
@@ -357,7 +428,9 @@ ${this.formatError(result)}`;
     if (result.command === 'project') {
       return this.formatProject(result.output);
     }
-
+    if (result.command === 'memory') {
+      return this.formatMemory(result.output);
+    }
     if (result.command === 'git') {
       return this.formatGit(result.output);
     }
@@ -435,8 +508,16 @@ ${this.formatList(data.missingFiles)}`;
 
     return `Zero Runtime doctor
 
-Project: ${data.projectRoot ?? 'unknown'}
-Ready: ${this.yesNo(data.ready)}
+Workspace:
+- Root: ${data.workspace?.workspaceRoot ?? data.projectRoot ?? 'unknown'}
+- Config loaded: ${this.yesNo(data.workspace?.configLoaded)}
+- Project count: ${data.workspace?.projectCount ?? 0}
+- Current project: ${data.workspace?.currentProject?.name ?? 'none'}
+- Current project root: ${data.workspace?.currentProject?.rootPath ?? 'none'}
+
+Inspected root:
+- Root: ${data.projectRoot ?? 'unknown'}
+- Ready: ${this.yesNo(data.ready)}
 
 Readiness:
 ${this.formatDoctorSummary(data.summary)}
@@ -651,7 +732,142 @@ Current project id: ${data.config?.currentProjectId ?? 'none'}
 Projects:
 ${this.formatWorkspaceProjects(projects)}`;
   }
+  private formatMemory(output: unknown): string {
+    const data = output as MemoryCommandOutputLike;
 
+    if (data.action === 'inspect' && data.selectedEntry) {
+      return `Zero Runtime memory
+
+Action: inspect
+Status: ${data.status ?? 'unknown'}
+Project root: ${data.projectRoot ?? 'unknown'}
+Memory file: ${data.memoryFile ?? 'unknown'}
+
+Entry:
+- Id: ${data.selectedEntry.id ?? 'unknown'}
+- Kind: ${data.selectedEntry.kind ?? 'unknown'}
+- Title: ${data.selectedEntry.title ?? 'unknown'}
+- Importance: ${data.selectedEntry.importance ?? 'unknown'}
+- Trust: ${data.selectedEntry.trustLevel ?? 'unknown'}
+- Tags: ${data.selectedEntry.tags?.join(', ') || 'none'}
+- Source: ${data.selectedEntry.source ?? 'none'}
+- Created: ${data.selectedEntry.createdAt ?? 'unknown'}
+- Updated: ${data.selectedEntry.updatedAt ?? 'unknown'}
+
+Content:
+${data.selectedEntry.content ?? 'none'}
+
+Issues:
+${this.formatIssues(data.issues)}`;
+    }
+
+    if (data.action === 'inspect' && data.selectedKnownFile) {
+      return `Zero Runtime memory
+
+Action: inspect
+Status: ${data.status ?? 'unknown'}
+Project root: ${data.projectRoot ?? 'unknown'}
+Memory file: ${data.memoryFile ?? 'unknown'}
+
+Known file:
+- Path: ${data.selectedKnownFile.path ?? 'unknown'}
+- Importance: ${data.selectedKnownFile.importance ?? 'unknown'}
+- Trust: ${data.selectedKnownFile.trustLevel ?? 'unknown'}
+- Tags: ${data.selectedKnownFile.tags?.join(', ') || 'none'}
+- Last seen: ${data.selectedKnownFile.lastSeenAt ?? 'unknown'}
+
+Summary:
+${data.selectedKnownFile.summary ?? 'none'}
+
+Issues:
+${this.formatIssues(data.issues)}`;
+    }
+
+    return `Zero Runtime memory
+
+Action: ${data.action ?? 'unknown'}
+Status: ${data.status ?? 'unknown'}
+Project root: ${data.projectRoot ?? 'unknown'}
+Memory file: ${data.memoryFile ?? 'unknown'}
+
+Summary:
+- Project: ${data.summary?.projectName ?? 'unknown'}
+- Entries: ${data.summary?.entries ?? 0}
+- Known files: ${data.summary?.knownFiles ?? 0}
+- Updated: ${data.summary?.updatedAt ?? 'unknown'}
+- Trust user-approved: ${data.summary?.trustLevels?.['user-approved'] ?? 0}
+- Trust runtime-generated: ${data.summary?.trustLevels?.['runtime-generated'] ?? 0}
+- Trust provider-suggested: ${data.summary?.trustLevels?.['provider-suggested'] ?? 0}
+- Trust quarantined: ${data.summary?.trustLevels?.quarantined ?? 0}
+
+Entries:
+${this.formatMemoryEntries(data.entries)}
+
+Known files:
+${this.formatMemoryKnownFiles(data.knownFiles)}
+
+Issues:
+${this.formatIssues(data.issues)}`;
+  }
+
+  private formatMemoryEntries(
+    entries:
+      | {
+          id?: string;
+          kind?: string;
+          title?: string;
+          importance?: string;
+          trustLevel?: string;
+          tags?: string[];
+          source?: string;
+          contentPreview?: string;
+        }[]
+      | undefined,
+  ): string {
+    if (!entries || entries.length === 0) {
+      return '- none';
+    }
+
+    return entries
+      .map((entry) => {
+        return `- [${entry.importance ?? 'unknown'}] ${entry.kind ?? 'unknown'}: ${
+          entry.title ?? 'unknown'
+        }
+  Id: ${entry.id ?? 'unknown'}
+  Trust: ${entry.trustLevel ?? 'unknown'}
+  Tags: ${entry.tags?.join(', ') || 'none'}
+  Source: ${entry.source ?? 'none'}
+  Preview: ${entry.contentPreview ?? 'none'}`;
+      })
+      .join('\n');
+  }
+
+  private formatMemoryKnownFiles(
+    files:
+      | {
+          path?: string;
+          summary?: string;
+          importance?: string;
+          trustLevel?: string;
+          tags?: string[];
+          lastSeenAt?: string;
+        }[]
+      | undefined,
+  ): string {
+    if (!files || files.length === 0) {
+      return '- none';
+    }
+
+    return files
+      .map((file) => {
+        return `- [${file.importance ?? 'unknown'}] ${file.path ?? 'unknown'}
+  Trust: ${file.trustLevel ?? 'unknown'}
+  Tags: ${file.tags?.join(', ') || 'none'}
+  Last seen: ${file.lastSeenAt ?? 'unknown'}
+  Summary: ${file.summary ?? 'none'}`;
+      })
+      .join('\n');
+  }
   private formatGit(output: unknown): string {
     const data = output as GitCommandOutputLike;
 

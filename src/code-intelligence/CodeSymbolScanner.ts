@@ -6,17 +6,19 @@ import type {
 import type { IndexedProjectFile } from '../types/RetrievalTypes.js';
 
 const exportDeclarationPattern =
-  /^\s*export\s+(?:declare\s+)?(class|interface|type|enum|function|const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)/;
+  /^\s*export\s+(?:declare\s+)?(?:abstract\s+)?(class|interface|type|enum|function|const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)/;
 
 const defaultExportPattern =
-  /^\s*export\s+default\s+(?:class|function)?\s*([A-Za-z_$][A-Za-z0-9_$]*)?/;
+  /^\s*export\s+default\s+(?:(?:abstract\s+)?class|async\s+function|function)?\s*([A-Za-z_$][A-Za-z0-9_$]*)?/;
 
 const namedExportPattern = /^\s*export\s*\{([^}]+)\}/;
-
 const namedImportPattern = /^\s*import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+['"][^'"]+['"]/;
 
 const defaultImportPattern =
   /^\s*import\s+(?:type\s+)?([A-Za-z_$][A-Za-z0-9_$]*)\s*(?:,\s*|\s+from\s+['"][^'"]+['"])/;
+
+const namespaceImportPattern =
+  /^\s*import\s+(?:type\s+)?\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+['"][^'"]+['"]/;
 
 export class CodeSymbolScanner {
   public scan(file: IndexedProjectFile): CodeSymbolScanResult {
@@ -46,8 +48,8 @@ export class CodeSymbolScanner {
 
     return {
       filePath: file.path,
-      exports,
-      imports,
+      exports: this.dedupeSymbols(exports),
+      imports: this.dedupeSymbols(imports),
     };
   }
 
@@ -107,15 +109,15 @@ export class CodeSymbolScanner {
       .filter((item) => item.length > 0)
       .map((item) => {
         const normalized = item.replace(/^type\s+/, '');
-        const [rawName] = normalized.split(/\s+as\s+/);
-        const name = rawName?.trim();
+        const parts = normalized.split(/\s+as\s+/);
+        const exportedName = parts[1]?.trim() ?? parts[0]?.trim();
 
-        if (!name) {
+        if (!exportedName) {
           return null;
         }
 
         return {
-          name,
+          name: exportedName,
           kind: 'named_export',
           filePath,
           line: lineNumber,
@@ -127,6 +129,18 @@ export class CodeSymbolScanner {
 
   private parseImports(filePath: string, line: string, lineNumber: number): CodeSymbol[] {
     const symbols: CodeSymbol[] = [];
+
+    const namespaceImport = namespaceImportPattern.exec(line);
+
+    if (namespaceImport?.[1]) {
+      symbols.push({
+        name: namespaceImport[1],
+        kind: 'namespace_import',
+        filePath,
+        line: lineNumber,
+        sourceText: line.trim(),
+      });
+    }
 
     const defaultImport = defaultImportPattern.exec(line);
 
@@ -153,8 +167,8 @@ export class CodeSymbolScanner {
       .filter((item) => item.length > 0)
       .map((item) => item.replace(/^type\s+/, ''))
       .map((item) => {
-        const [rawName] = item.split(/\s+as\s+/);
-        return rawName?.trim();
+        const parts = item.split(/\s+as\s+/);
+        return parts[1]?.trim() ?? parts[0]?.trim();
       })
       .filter((item): item is string => item !== undefined && item.length > 0)
       .map((name): CodeSymbol => {
@@ -170,6 +184,24 @@ export class CodeSymbolScanner {
     symbols.push(...namedSymbols);
 
     return symbols;
+  }
+
+  private dedupeSymbols(symbols: CodeSymbol[]): CodeSymbol[] {
+    const seen = new Set<string>();
+    const deduped: CodeSymbol[] = [];
+
+    for (const symbol of symbols) {
+      const key = [symbol.filePath, symbol.line, symbol.kind, symbol.name].join('::');
+
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      deduped.push(symbol);
+    }
+
+    return deduped;
   }
 
   private toSymbolKind(value: string): CodeSymbolKind {

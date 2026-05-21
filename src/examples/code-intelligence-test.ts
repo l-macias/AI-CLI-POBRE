@@ -12,6 +12,8 @@ async function main(): Promise<void> {
     targetFilePath: 'src/retrieval/ImportGraph.ts',
     query: 'ImportGraph RetrievalTypes import relationships',
     maxChunks: 8,
+    maxRelatedFiles: 6,
+    maxFilesToScan: 8,
   });
 
   logger.info('Code intelligence report generated', {
@@ -21,9 +23,11 @@ async function main(): Promise<void> {
       resolvedPath: item.resolvedPath,
       isTypeOnly: item.isTypeOnly,
       specifiers: item.specifiers,
+      importKind: item.importKind,
     })),
     importedBy: report.relationship?.importedBy,
     relatedFiles: report.relatedFiles,
+    targetExpansion: report.targetExpansion,
     symbolFiles: report.symbols.map((item) => ({
       filePath: item.filePath,
       exports: item.exports.map((symbol) => symbol.name),
@@ -52,6 +56,14 @@ async function main(): Promise<void> {
     throw new Error('Expected target file to expose imports.');
   }
 
+  const hasImportKind = report.relationship.imports.some((item) => {
+    return item.importKind === 'static_import';
+  });
+
+  if (!hasImportKind) {
+    throw new Error('Expected import graph to classify static imports.');
+  }
+
   if (report.symbols.length === 0) {
     throw new Error('Expected code intelligence report to scan symbols.');
   }
@@ -62,6 +74,18 @@ async function main(): Promise<void> {
 
   if (!hasImportGraphSymbol) {
     throw new Error('Expected CodeSymbolScanner to find ImportGraph export.');
+  }
+
+  if (!report.targetExpansion) {
+    throw new Error('Expected code intelligence report to include controlled target expansion.');
+  }
+
+  if (report.targetExpansion.scannedFilePaths.length > 8) {
+    throw new Error('Expected target expansion to respect maxFilesToScan.');
+  }
+
+  if (report.relatedFiles.length > 6) {
+    throw new Error('Expected related files to respect maxRelatedFiles.');
   }
 
   if (report.retrieval.chunks.length === 0) {

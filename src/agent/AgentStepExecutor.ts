@@ -255,6 +255,19 @@ export class AgentStepExecutor {
     }
 
     if (action.kind === 'request_approval') {
+      const readiness = this.evaluatePatchApprovalReadiness(state);
+
+      if (!readiness.ready) {
+        return {
+          actionId: action.id,
+          actionKind: action.kind,
+          status: 'blocked',
+          message: readiness.reason,
+          summary: readiness.summary,
+          createdAt,
+        };
+      }
+
       return {
         actionId: action.id,
         actionKind: action.kind,
@@ -339,7 +352,7 @@ export class AgentStepExecutor {
   ): Promise<AgentLoopState> {
     const updatedAt = new Date().toISOString();
     const approvalState =
-      action.kind === 'request_approval'
+      action.kind === 'request_approval' && execution.status === 'executed'
         ? this.approvalGate.requestApproval(state, {
             actionId: 'agent-action-apply_patch',
             scope: 'patch_apply',
@@ -396,6 +409,85 @@ export class AgentStepExecutor {
     return this.persist(updated);
   }
 
+  private evaluatePatchApprovalReadiness(state: AgentLoopState): {
+    ready: boolean;
+    reason: string;
+    summary: JsonObject;
+  } {
+    const repairSummary = this.asRecord(state.metadata?.['execution_request_repair_proposal']);
+    const repairStatus = this.stringValue(repairSummary['status']);
+    const patchValid = this.booleanValue(repairSummary['patchValid']);
+
+    if (repairStatus !== 'diff_ready') {
+      return {
+        ready: false,
+        reason: `Patch approval cannot be requested because repair status is "${repairStatus}".`,
+        summary: {
+          approvalReady: false,
+          repairStatus,
+          patchValid,
+          reason: 'repair_status_not_diff_ready',
+        },
+      };
+    }
+
+    if (!patchValid) {
+      return {
+        ready: false,
+        reason: 'Patch approval cannot be requested because the patch proposal is not valid.',
+        summary: {
+          approvalReady: false,
+          repairStatus,
+          patchValid,
+          reason: 'patch_not_valid',
+        },
+      };
+    }
+
+    try {
+      const intent = this.patchApplyIntentBuilder.buildFromMetadata(state.metadata);
+
+      if (intent.proposal.operations.length === 0) {
+        return {
+          ready: false,
+          reason: 'Patch approval cannot be requested because the proposal has no operations.',
+          summary: {
+            approvalReady: false,
+            repairStatus,
+            patchValid,
+            proposalId: intent.proposal.id,
+            operationCount: 0,
+            reason: 'proposal_has_no_operations',
+          },
+        };
+      }
+
+      return {
+        ready: true,
+        reason: 'Patch approval can be requested.',
+        summary: {
+          approvalReady: true,
+          repairStatus,
+          patchValid,
+          proposalId: intent.proposal.id,
+          operationCount: intent.proposal.operations.length,
+        },
+      };
+    } catch (error) {
+      return {
+        ready: false,
+        reason: `Patch approval cannot be requested: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        summary: {
+          approvalReady: false,
+          repairStatus,
+          patchValid,
+          reason: 'invalid_patch_apply_intent',
+        },
+      };
+    }
+  }
   private requestPatchApprovalSummary(state: AgentLoopState, action: AgentAction): JsonObject {
     const repairSummary = this.asRecord(state.metadata?.['execution_request_repair_proposal']);
     const diffSummary = this.asRecord(state.metadata?.['execution_show_diff_preview']);
@@ -416,7 +508,6 @@ export class AgentStepExecutor {
       warning: 'Patch will not be applied until approval is explicitly granted.',
     };
   }
-
   private async blockAction(
     state: AgentLoopState,
     action: AgentAction,

@@ -4,6 +4,9 @@ import { ImportGraph } from '../retrieval/ImportGraph.js';
 import type {
   CodeIntelligenceReportInput,
   CodeIntelligenceReportResult,
+  CodeSymbolScanResult,
+  TargetExpansionSelection,
+  TypeReferenceScanResult,
 } from '../types/CodeIntelligenceTypes.js';
 import type { IndexedProjectFile } from '../types/RetrievalTypes.js';
 import { CodeSymbolScanner } from './CodeSymbolScanner.js';
@@ -48,18 +51,40 @@ export class CodeIntelligenceReport {
 
     const graph = this.importGraph.build(files);
     const targetFile = this.resolveTargetFile(input, files, retrieval.chunks);
+
+    const preselectedFiles = this.selectPreliminaryScanFiles(
+      files,
+      targetFile?.path,
+      retrieval.chunks,
+    );
+    const preliminarySymbols = this.scanSymbols(preselectedFiles);
+    const preliminaryTypeReferences = this.scanTypeReferences(preselectedFiles);
+
     const relationship = targetFile
-      ? this.relationshipMap.buildForFile(targetFile.path, graph, retrieval.chunks)
+      ? this.relationshipMap.buildForFile(targetFile.path, graph, retrieval.chunks, {
+          exportedSymbols: preliminarySymbols,
+          typeReferences: preliminaryTypeReferences,
+          maxRelatedFiles: input.maxRelatedFiles ?? 8,
+        })
+      : undefined;
+
+    const targetExpansion = targetFile
+      ? this.buildTargetExpansion(
+          input,
+          targetFile.path,
+          relationship?.relatedFiles.map((file) => file.filePath) ?? [],
+        )
       : undefined;
 
     const filesToScan = this.selectFilesToScan(
       files,
       targetFile?.path,
-      relationship?.relatedFiles.map((file) => file.filePath) ?? [],
+      targetExpansion?.selectedRelatedFilePaths ?? [],
+      targetExpansion?.maxFilesToScan ?? input.maxFilesToScan ?? 10,
     );
 
-    const symbols = filesToScan.map((file) => this.symbolScanner.scan(file));
-    const typeReferences = filesToScan.map((file) => this.typeReferenceScanner.scan(file));
+    const symbols = this.scanSymbols(filesToScan);
+    const typeReferences = this.scanTypeReferences(filesToScan);
 
     const result: CodeIntelligenceReportResult = {
       input,
@@ -76,6 +101,10 @@ export class CodeIntelligenceReport {
 
     if (relationship) {
       result.relationship = relationship;
+    }
+
+    if (targetExpansion) {
+      result.targetExpansion = targetExpansion;
     }
 
     return result;
@@ -115,10 +144,10 @@ export class CodeIntelligenceReport {
     return files.find((file) => file.path === firstChunk.chunk.filePath) ?? null;
   }
 
-  private selectFilesToScan(
+  private selectPreliminaryScanFiles(
     files: IndexedProjectFile[],
     targetFilePath: string | undefined,
-    relatedFilePaths: string[],
+    retrievalChunks: CodeIntelligenceReportResult['retrieval']['chunks'],
   ): IndexedProjectFile[] {
     const selectedPaths = new Set<string>();
 
@@ -126,16 +155,93 @@ export class CodeIntelligenceReport {
       selectedPaths.add(targetFilePath);
     }
 
-    for (const relatedFilePath of relatedFilePaths.slice(0, 6)) {
+    for (const chunk of retrievalChunks.slice(0, 12)) {
+      selectedPaths.add(chunk.chunk.filePath);
+    }
+
+    if (selectedPaths.size === 0) {
+      return files.slice(0, 12);
+    }
+
+    return files.filter(
+      (file) => selectedPaths.has(file.path) && this.isScannableProjectFile(file.path),
+    );
+  }
+
+  private buildTargetExpansion(
+    input: CodeIntelligenceReportInput,
+    targetFilePath: string,
+    relatedFilePaths: string[],
+  ): TargetExpansionSelection {
+    const maxRelatedFiles = input.maxRelatedFiles ?? 8;
+    const maxFilesToScan = input.maxFilesToScan ?? 10;
+    const selectedRelatedFilePaths = relatedFilePaths.slice(0, maxRelatedFiles);
+
+    const reasons = [
+      'target file is always included',
+      'direct imports and importers are preferred',
+      'retrieval matches can expand context but remain capped',
+      `related files capped at ${String(maxRelatedFiles)}`,
+      `total scanned files capped at ${String(maxFilesToScan)}`,
+    ];
+
+    return {
+      targetFilePath,
+      scannedFilePaths: [targetFilePath, ...selectedRelatedFilePaths].slice(0, maxFilesToScan),
+      selectedRelatedFilePaths,
+      maxRelatedFiles,
+      maxFilesToScan,
+      reasons,
+    };
+  }
+
+  private selectFilesToScan(
+    files: IndexedProjectFile[],
+    targetFilePath: string | undefined,
+    relatedFilePaths: string[],
+    maxFilesToScan: number,
+  ): IndexedProjectFile[] {
+    const selectedPaths = new Set<string>();
+
+    if (targetFilePath) {
+      selectedPaths.add(targetFilePath);
+    }
+
+    for (const relatedFilePath of relatedFilePaths) {
+      if (selectedPaths.size >= maxFilesToScan) {
+        break;
+      }
+
       selectedPaths.add(relatedFilePath);
     }
 
     if (selectedPaths.size === 0) {
-      return files.slice(0, 6);
+      return files.slice(0, maxFilesToScan);
     }
 
     return files.filter((file) => {
-      return selectedPaths.has(file.path) && !file.path.startsWith('src/examples/');
+      return selectedPaths.has(file.path) && this.isScannableProjectFile(file.path);
     });
+  }
+
+  private scanSymbols(files: IndexedProjectFile[]): CodeSymbolScanResult[] {
+    return files.map((file) => this.symbolScanner.scan(file));
+  }
+
+  private scanTypeReferences(files: IndexedProjectFile[]): TypeReferenceScanResult[] {
+    return files.map((file) => this.typeReferenceScanner.scan(file));
+  }
+
+  private isScannableProjectFile(filePath: string): boolean {
+    if (filePath.startsWith('src/examples/') || filePath.startsWith('.runtime/')) {
+      return false;
+    }
+
+    return (
+      filePath.endsWith('.ts') ||
+      filePath.endsWith('.tsx') ||
+      filePath.endsWith('.js') ||
+      filePath.endsWith('.jsx')
+    );
   }
 }

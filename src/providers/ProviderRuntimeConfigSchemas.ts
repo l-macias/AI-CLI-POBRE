@@ -9,6 +9,14 @@ const modelTierSchema = z.union([
   z.literal('premium'),
 ]);
 
+const providerProfileSchema = z.union([
+  z.literal('free'),
+  z.literal('cheap'),
+  z.literal('strong'),
+  z.literal('local'),
+  z.literal('premium'),
+]);
+
 const providerTaskRoleSchema = z.union([
   z.literal('planner'),
   z.literal('retriever'),
@@ -16,6 +24,18 @@ const providerTaskRoleSchema = z.union([
   z.literal('reviewer'),
   z.literal('repair'),
 ]);
+
+const providerProfileConfigSchema = z
+  .object({
+    profile: providerProfileSchema,
+    provider: providerNameSchema,
+    model: z.string().min(1),
+    tier: modelTierSchema,
+    allowPremium: z.boolean(),
+    description: z.string().min(1),
+    fallbackModels: z.array(z.string().min(1)),
+  })
+  .strict();
 
 const roleModelConfigSchema = z
   .object({
@@ -25,12 +45,14 @@ const roleModelConfigSchema = z
     tier: modelTierSchema,
     fallbackModels: z.array(z.string().min(1)),
     allowPremium: z.boolean(),
+    preferredProfile: providerProfileSchema.optional(),
   })
   .strict();
 
 export const providerStrategyConfigSchema = z
   .object({
     defaultProvider: providerNameSchema,
+    profiles: z.array(providerProfileConfigSchema).min(5).optional(),
     roles: z.array(roleModelConfigSchema).min(5),
   })
   .strict();

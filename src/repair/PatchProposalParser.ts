@@ -24,8 +24,10 @@ export class PatchProposalParser {
     const jsonText =
       options.allowJsonExtraction === true ? this.extractJsonLikeContent(input) : input.trim();
 
-    const directParse = safeJsonParse(jsonText);
-    const parsed = directParse.ok ? directParse : safeJsonParse(this.jsonRepair.repair(jsonText));
+    const parsed =
+      options.allowJsonExtraction === true
+        ? this.parseWithRepair(jsonText)
+        : safeJsonParse(jsonText);
 
     if (!parsed.ok) {
       return {
@@ -47,6 +49,16 @@ export class PatchProposalParser {
       ok: true,
       value: validated.data,
     };
+  }
+
+  private parseWithRepair(input: string): Result<unknown> {
+    const directParse = safeJsonParse(input);
+
+    if (directParse.ok) {
+      return directParse;
+    }
+
+    return safeJsonParse(this.jsonRepair.repair(input));
   }
 
   private formatSchemaError(error: ZodError): string {

@@ -11,7 +11,8 @@ export type CodeSymbolKind =
   | 'var'
   | 'default'
   | 'named_export'
-  | 'imported_symbol';
+  | 'imported_symbol'
+  | 'namespace_import';
 
 export interface CodeSymbol {
   name: string;
@@ -39,10 +40,19 @@ export interface TypeReferenceScanResult {
   references: TypeReference[];
 }
 
+export type RelatedFileReason =
+  | 'direct_import'
+  | 'importer'
+  | 'retrieval_match'
+  | 'shared_symbol'
+  | 'shared_type_reference'
+  | 'same_directory'
+  | 'nearby_index_file';
+
 export interface RelatedFile {
   filePath: string;
   score: number;
-  reasons: string[];
+  reasons: RelatedFileReason[];
 }
 
 export interface FileRelationship {
@@ -62,12 +72,26 @@ export interface RelatedFilesResolverInput {
   imports: ImportGraphImport[];
   importedBy: string[];
   retrievalChunks: ScoredChunk[];
+  exportedSymbols?: CodeSymbolScanResult[] | undefined;
+  typeReferences?: TypeReferenceScanResult[] | undefined;
+  maxRelatedFiles?: number | undefined;
+}
+
+export interface TargetExpansionSelection {
+  targetFilePath: string;
+  scannedFilePaths: string[];
+  selectedRelatedFilePaths: string[];
+  maxRelatedFiles: number;
+  maxFilesToScan: number;
+  reasons: string[];
 }
 
 export interface CodeIntelligenceReportInput {
   targetFilePath?: string | undefined;
   query?: string | undefined;
   maxChunks?: number | undefined;
+  maxRelatedFiles?: number | undefined;
+  maxFilesToScan?: number | undefined;
 }
 
 export interface CodeIntelligenceReportResult {
@@ -77,6 +101,7 @@ export interface CodeIntelligenceReportResult {
   relatedFiles: RelatedFile[];
   symbols: CodeSymbolScanResult[];
   typeReferences: TypeReferenceScanResult[];
+  targetExpansion?: TargetExpansionSelection | undefined;
   retrieval: RetrievalResult;
   createdAt: string;
 }

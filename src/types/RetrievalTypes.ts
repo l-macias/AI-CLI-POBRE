@@ -35,12 +35,19 @@ export interface RetrievalResult {
   createdAt: string;
 }
 
+export type ImportGraphImportKind =
+  | 'static_import'
+  | 'side_effect_import'
+  | 're_export'
+  | 'dynamic_import';
+
 export interface ImportGraphEdge {
   from: string;
   to: string;
   importPath?: string | undefined;
   isTypeOnly?: boolean | undefined;
   specifiers?: string[] | undefined;
+  importKind?: ImportGraphImportKind | undefined;
 }
 
 export interface ImportGraphImport {
@@ -49,6 +56,7 @@ export interface ImportGraphImport {
   resolvedPath?: string | undefined;
   isTypeOnly: boolean;
   specifiers: string[];
+  importKind: ImportGraphImportKind;
 }
 
 export interface ImportGraphResult {

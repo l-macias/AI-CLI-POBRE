@@ -2,10 +2,13 @@
 
 # Lista de archivos a incluir
 files=(
-  "src/examples/context-compression-test.ts"
-  "src/memory/ContextCompressor.ts"
-  "src/memory/SummaryMemory.ts"
-  "src/memory/MemoryCompactor.ts"
+  "package.json"
+  ".gitignore"
+  "src/cli.ts"
+  "src/cli/commands/helpCommand.ts"
+  "src/cli/commands/quickstartCommand.ts"
+  "src/cli/commands/demoCommand.ts"
+  "src/examples/release-readiness-check-test.ts"
 )
 echo "A continuación te presento el código fuente de los archivos solicitados para contexto:"
 echo "================================================================================"

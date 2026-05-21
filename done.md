@@ -2299,3 +2299,116 @@ agent full loop
 cli agent flow
 scaffold tests
 docs check
+
+SESIÓN 49 — Release Candidate v0.1.0 Final Pass
+
+Objetivo: no agregar features. Solo cerrar estabilidad, seguridad, limpieza y preparación de release.
+
+49.A — Git / repo hygiene final pass
+
+- revisar git status
+- confirmar .env no trackeado
+- confirmar .runtime basura no trackeada
+- revisar .gitignore
+- revisar archivos generados por quickstart/tests
+- limpiar outputs temporales
+- confirmar que docs sí estén trackeados
+  49.B — Package / scripts final audit
+- revisar package.json
+- confirmar name/version/license
+- confirmar scripts principales
+- confirmar rc:test
+- confirmar real-provider:test separado
+- confirmar que mvp:test no use provider real
+- confirmar que no haya scripts duplicados/confusos
+  49.C — README / docs final consistency
+- revisar README.md
+- revisar docs/index.md
+- revisar docs/quickstart.md
+- revisar docs/security-model.md
+- revisar docs/release-checklist.md
+- revisar docs/provider-openrouter.md
+- corregir inconsistencias de nombres/env vars/comandos
+- no crear docs enormes nuevos salvo necesidad
+  49.D — Release readiness report final polish
+- mejorar output de release-readiness-test si hace falta
+- validar checks semánticos mínimos
+- validar docs críticas
+- validar provider separation
+- validar quickstart/product-flow
+  49.E — Final RC gate
+- npm run typecheck
+- npm run lint
+- npm run release:readiness:test
+- npm run mvp:test
+- npm run rc:test
+  49.F — v0.1.0 release checklist
+- generar checklist final humano
+- listar qué está incluido en v0.1.0
+- listar qué NO está incluido
+- listar known limitations
+- listar comandos principales
+- listar próximos pasos post-v0.1.0
+  SESIÓN 50 — MVP Usability Pass / First External User Test
+
+Objetivo: probarlo como si fueras un usuario técnico externo.
+
+50.A — Fresh clone simulation
+
+- simular proyecto limpio
+- npm install
+- npm run check
+- npm run cli -- help
+- npm run cli -- quickstart
+- npm run rc:test
+  50.B — First real target project trial
+- usar un proyecto real pequeño
+- zero doctor
+- zero inspect
+- zero validate
+- zero repair con fake provider
+- patch dry-run
+- revisar diff
+- aplicar si corresponde
+  50.C — UX friction log
+- anotar errores incómodos
+- mensajes confusos
+- comandos largos
+- outputs ruidosos
+- docs insuficientes
+  50.D — Minor polish only
+- corregir mensajes
+- corregir docs
+- corregir comandos ambiguos
+- no features grandes
+
+SESIÓN 52 — Post-MVP Real Usability Upgrade
+
+Objetivo: empezar a hacerlo más cómodo y útil para uso real diario.
+
+52.A — Interactive mode real
+
+- zero scaffold module --interactive
+- zero repair --interactive
+- zero agent run --interactive
+- selección de proyecto
+- selección de target
+- selección de provider
+  52.B — Better project onboarding
+- zero project init
+- zero project current
+- zero project doctor
+- presets
+- workspace más cómodo
+  52.C — Better agent run modes
+- zero agent run --until approval
+- zero agent run --until report
+- mantener apply approval-gated
+- NO auto-approve todavía
+  52.D — Better reports
+- reportes más legibles
+- resumen ejecutivo
+- diff links/paths
+- decisiones tomadas
+- bloqueos
+- próximos pasos

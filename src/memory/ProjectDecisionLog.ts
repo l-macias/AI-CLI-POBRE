@@ -4,6 +4,7 @@ import type {
   ProjectMemoryDocument,
   ProjectMemoryImportance,
   ProjectMemoryQueryResult,
+  ProjectMemoryTrustLevel,
 } from './ProjectMemoryTypes.js';
 
 export interface ProjectDecisionLogOptions {
@@ -17,6 +18,7 @@ export interface ProjectDecisionInput {
   alternatives?: string[] | undefined;
   consequences?: string[] | undefined;
   importance?: ProjectMemoryImportance | undefined;
+  trustLevel?: ProjectMemoryTrustLevel | undefined;
   tags?: string[] | undefined;
   source?: string | undefined;
   metadata?: JsonObject | undefined;
@@ -40,6 +42,7 @@ export class ProjectDecisionLog {
       title: input.title,
       content: this.renderDecision(input),
       importance: input.importance ?? 'high',
+      trustLevel: input.trustLevel ?? 'runtime-generated',
       tags: this.normalizeTags(['decision', ...(input.tags ?? [])]),
       source: input.source,
       metadata: input.metadata,

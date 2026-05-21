@@ -4,6 +4,7 @@ import type {
   ProjectMemoryDocument,
   ProjectMemoryImportance,
   ProjectMemoryQueryResult,
+  ProjectMemoryTrustLevel,
 } from './ProjectMemoryTypes.js';
 
 export interface ArchitectureFactStoreOptions {
@@ -15,6 +16,7 @@ export interface ArchitectureFactInput {
   summary: string;
   details?: string[] | undefined;
   importance?: ProjectMemoryImportance | undefined;
+  trustLevel?: ProjectMemoryTrustLevel | undefined;
   tags?: string[] | undefined;
   source?: string | undefined;
   metadata?: JsonObject | undefined;
@@ -26,6 +28,7 @@ export interface ArchitectureConstraintInput {
   reason: string;
   enforcement?: string[] | undefined;
   importance?: ProjectMemoryImportance | undefined;
+  trustLevel?: ProjectMemoryTrustLevel | undefined;
   tags?: string[] | undefined;
   source?: string | undefined;
   metadata?: JsonObject | undefined;
@@ -35,6 +38,7 @@ export interface ArchitectureKnownFileInput {
   path: string;
   summary: string;
   importance?: ProjectMemoryImportance | undefined;
+  trustLevel?: ProjectMemoryTrustLevel | undefined;
   tags?: string[] | undefined;
   metadata?: JsonObject | undefined;
 }
@@ -57,6 +61,7 @@ export class ArchitectureFactStore {
       title: input.title,
       content: this.renderFact(input),
       importance: input.importance ?? 'medium',
+      trustLevel: input.trustLevel ?? 'runtime-generated',
       tags: this.normalizeTags(['architecture', 'fact', ...(input.tags ?? [])]),
       source: input.source,
       metadata: input.metadata,
@@ -70,6 +75,7 @@ export class ArchitectureFactStore {
       title: input.title,
       content: this.renderConstraint(input),
       importance: input.importance ?? 'critical',
+      trustLevel: input.trustLevel ?? 'runtime-generated',
       tags: this.normalizeTags(['architecture', 'constraint', ...(input.tags ?? [])]),
       source: input.source,
       metadata: input.metadata,
@@ -83,6 +89,7 @@ export class ArchitectureFactStore {
       path: input.path,
       summary: input.summary,
       importance: input.importance ?? 'medium',
+      trustLevel: input.trustLevel ?? 'runtime-generated',
       tags: this.normalizeTags(['architecture', 'known-file', ...(input.tags ?? [])]),
       metadata: input.metadata,
     });

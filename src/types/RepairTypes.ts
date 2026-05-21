@@ -2,9 +2,12 @@ import type { GitChangeBoundary, GitWorkingTreeGuardResult } from '../git/GitAwa
 import type { JsonObject } from './SharedTypes.js';
 import type { RealProjectTrialErrorFinding } from './RealProjectTrialTypes.js';
 import type { RepairModelPolicyDecision } from './RepairModelPolicyTypes.js';
+
 export type RepairRiskLevel = 'low' | 'medium' | 'high';
 
 export type RepairOperationKind = 'replace_file' | 'edit_file' | 'create_file' | 'delete_file';
+
+export type RepairTargetFileRole = 'primary_target' | 'related_context';
 
 export interface RepairTargetFile {
   relativePath: string;
@@ -13,6 +16,11 @@ export interface RepairTargetFile {
   bytes: number;
   relevantLineStart?: number | undefined;
   relevantLineEnd?: number | undefined;
+  role?: RepairTargetFileRole | undefined;
+  editable?: boolean | undefined;
+  contextScore?: number | undefined;
+  contextReasons?: string[] | undefined;
+  contextSelectionReason?: string | undefined;
 }
 
 export interface RepairRequest {
@@ -64,6 +72,24 @@ export interface PatchValidationIssue {
 export interface PatchValidationResult {
   valid: boolean;
   issues: PatchValidationIssue[];
+}
+
+export interface PatchQualityIssue {
+  code: string;
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+  targetFile?: string | undefined;
+  operationIndex?: number | undefined;
+}
+
+export interface PatchQualityEvaluationInput {
+  proposal: PatchProposal;
+  request?: RepairRequest | undefined;
+}
+
+export interface PatchQualityEvaluationResult {
+  acceptable: boolean;
+  issues: PatchQualityIssue[];
 }
 
 export type RepairAttemptStatus =

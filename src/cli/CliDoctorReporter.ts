@@ -5,7 +5,7 @@ import type {
   RuntimeBootstrapPlan,
   RuntimeBootstrapPlanIssue,
 } from '../bootstrap/BootstrapTypes.js';
-import type { WorkspaceConfig } from '../workspace/WorkspaceConfigTypes.js';
+import type { WorkspaceConfig, WorkspaceTargetProject } from '../workspace/WorkspaceConfigTypes.js';
 
 export type CliDoctorCheckStatus = 'passed' | 'warning' | 'failed';
 
@@ -24,12 +24,22 @@ export interface CliDoctorSummary {
   readonly total: number;
 }
 
+export interface CliDoctorWorkspaceSummary {
+  readonly workspaceRoot: string;
+  readonly currentProjectId: string | null;
+  readonly currentProject?: WorkspaceTargetProject | undefined;
+  readonly projectCount: number;
+  readonly configLoaded: boolean;
+  readonly configError?: string | undefined;
+}
+
 export interface CliDoctorReport {
   readonly projectRoot: string;
   readonly ready: boolean;
   readonly summary: CliDoctorSummary;
   readonly stack: RuntimeBootstrapPlan['stack'];
   readonly runtime: RuntimeBootstrapPlan['inspection'];
+  readonly workspace: CliDoctorWorkspaceSummary;
   readonly checks: Record<string, CliDoctorCheckStatus>;
   readonly checkDetails: CliDoctorCheck[];
   readonly issues: RuntimeBootstrapPlanIssue[];
@@ -52,6 +62,7 @@ export class CliDoctorReporter {
     const srcDirectoryExists = input.bootstrapPlan.stack.hasSrcDirectory;
     const runtimeExists = input.bootstrapPlan.inspection.runtimeExists;
     const runtimeFilesComplete = input.bootstrapPlan.inspection.missingFiles.length === 0;
+    const workspace = this.buildWorkspaceSummary(input);
 
     const checkDetails: CliDoctorCheck[] = [
       this.check({
@@ -115,7 +126,9 @@ export class CliDoctorReporter {
           input.workspaceConfig?.currentProjectId !== undefined
             ? input.workspaceConfig.currentProjectId !== null
             : true,
-        passedMessage: 'Workspace current project is configured or not required.',
+        passedMessage: workspace.currentProject
+          ? `Current target project: ${workspace.currentProject.name}.`
+          : 'Workspace current project is configured or not required.',
         failedMessage: 'Workspace config exists but no current project is selected.',
         required: false,
         failedStatus: 'warning',
@@ -152,10 +165,27 @@ export class CliDoctorReporter {
       summary,
       stack: input.bootstrapPlan.stack,
       runtime: input.bootstrapPlan.inspection,
+      workspace,
       checks,
       checkDetails,
       issues,
-      recommendations: this.buildRecommendations(checkDetails, input.bootstrapPlan),
+      recommendations: this.buildRecommendations(checkDetails, input.bootstrapPlan, workspace),
+    };
+  }
+
+  private buildWorkspaceSummary(input: CliDoctorReporterInput): CliDoctorWorkspaceSummary {
+    const currentProject =
+      input.workspaceConfig?.projects.find((project) => {
+        return project.id === input.workspaceConfig?.currentProjectId;
+      }) ?? undefined;
+
+    return {
+      workspaceRoot: input.projectRoot,
+      currentProjectId: input.workspaceConfig?.currentProjectId ?? null,
+      currentProject,
+      projectCount: input.workspaceConfig?.projects.length ?? 0,
+      configLoaded: input.workspaceConfigError === undefined,
+      configError: input.workspaceConfigError,
     };
   }
 
@@ -218,6 +248,7 @@ export class CliDoctorReporter {
   private buildRecommendations(
     checks: readonly CliDoctorCheck[],
     plan: RuntimeBootstrapPlan,
+    workspace: CliDoctorWorkspaceSummary,
   ): string[] {
     const recommendations: string[] = [];
 
@@ -243,9 +274,17 @@ export class CliDoctorReporter {
       recommendations.push('Add a src directory or point commands to explicit target files.');
     }
 
+    if (workspace.currentProject) {
+      recommendations.push(
+        `Current target project is "${workspace.currentProject.name}". Commands can omit --project when targeting it.`,
+      );
+    }
+
     for (const check of checks) {
       if (check.name === 'workspaceCurrentProject' && check.status === 'warning') {
-        recommendations.push('Run: zero project use <project-name>');
+        recommendations.push(
+          'Run: zero project add --interactive or zero project use <project-name>.',
+        );
       }
 
       if (check.name === 'envExample' && check.status === 'warning') {

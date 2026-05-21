@@ -26,6 +26,18 @@ export class RepairProviderFallback {
       };
     }
 
+    const blockingPremiumIssue = input.policyDecision.issues.find((issue) => {
+      return issue.code === 'PREMIUM_REPAIR_MODEL_REQUIRES_APPROVAL';
+    });
+
+    if (blockingPremiumIssue) {
+      return {
+        provider: input.fallback,
+        fallbackUsed: true,
+        reason: `Primary premium repair provider blocked without approval; selected configured safe fallback. ${blockingPremiumIssue.message}`,
+      };
+    }
+
     return {
       provider: input.fallback,
       fallbackUsed: true,

@@ -16,10 +16,11 @@ export type CliCommandName =
   | 'security'
   | 'scaffold'
   | 'demo'
-  | 'quickstart';
+  | 'quickstart'
+  | 'memory';
 
 export type CliProjectAction = 'add' | 'list' | 'use' | 'current' | 'remove';
-
+export type CliMemoryAction = 'list' | 'inspect' | 'clear';
 export type CliGitAction = 'status' | 'diff' | 'doctor';
 
 export type CliPatchAction = 'apply';
@@ -34,7 +35,10 @@ export type CliAgentAction =
   | 'actions'
   | 'approvals'
   | 'next'
+  | 'run'
   | 'reset';
+
+export type CliAgentRunUntil = 'approval';
 
 export type CliSecurityAction = 'review';
 export type CliScaffoldAction = 'module';
@@ -88,6 +92,7 @@ export interface CliRepairCommand extends CliBaseCommand {
   premiumApproved: boolean;
   allowRealProvider: boolean;
   includeProjectMemory: boolean;
+  interactive: boolean;
 }
 
 export interface CliStatusCommand extends CliBaseCommand {
@@ -105,8 +110,14 @@ export interface CliProjectCommand extends CliBaseCommand {
   targetPath?: string | undefined;
   targetName?: string | undefined;
   setCurrent?: boolean | undefined;
+  interactive: boolean;
 }
-
+export interface CliMemoryCommand extends CliBaseCommand {
+  name: 'memory';
+  action: CliMemoryAction;
+  entryId?: string | undefined;
+  confirmClear: boolean;
+}
 export interface CliGitCommand extends CliBaseCommand {
   name: 'git';
   action: CliGitAction;
@@ -138,6 +149,7 @@ export interface CliAgentCommand extends CliBaseCommand {
   stepKind?: AgentActionKind | undefined;
   approvalId?: string | undefined;
   reason?: string | undefined;
+  runUntil?: CliAgentRunUntil | undefined;
   confirmReset: boolean;
   includeProjectMemory: boolean;
   provider: CliRepairProvider;
@@ -147,6 +159,7 @@ export interface CliAgentCommand extends CliBaseCommand {
   allowRealProvider: boolean;
   allowPremium: boolean;
   premiumApproved: boolean;
+  interactive: boolean;
 }
 
 export interface CliSecurityCommand extends CliBaseCommand {
@@ -173,6 +186,7 @@ export interface CliScaffoldCommand extends CliBaseCommand {
   objective?: string | undefined;
   outputPath?: string | undefined;
   proposalOutputPath?: string | undefined;
+  interactive: boolean;
 }
 export interface CliDemoCommand extends CliBaseCommand {
   name: 'demo';
@@ -193,8 +207,8 @@ export type CliCommand =
   | CliAgentCommand
   | CliSecurityCommand
   | CliScaffoldCommand
-  | CliDemoCommand;
-
+  | CliDemoCommand
+  | CliMemoryCommand;
 export interface CliParseIssue {
   code: string;
   message: string;

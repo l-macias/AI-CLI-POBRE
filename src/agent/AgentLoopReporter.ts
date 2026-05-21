@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import type { AgentLoopReport, AgentLoopState } from './AgentTypes.js';
+import type { AgentAction, AgentLoopReport, AgentLoopState } from './AgentTypes.js';
 import { SensitiveDataRedactor } from '../observability/SensitiveDataRedactor.js';
 
 export interface AgentLoopReporterOptions {
@@ -45,6 +45,14 @@ export class AgentLoopReporter {
     const premiumApproved = this.booleanMetadata(state, 'premiumApproved');
     const includeProjectMemory = this.booleanMetadata(state, 'includeProjectMemory');
     const estimatedCompletionTokens = this.numberMetadata(state, 'estimatedCompletionTokens');
+
+    const executedActions = report.actions.filter((action) => action.status === 'executed');
+    const blockedActions = report.actions.filter((action) => action.status === 'blocked');
+    const pendingActions = report.actions.filter(
+      (action) => action.status === 'pending' || action.status === 'selected',
+    );
+    const pendingApprovals = report.approvals.filter((approval) => approval.status === 'pending');
+    const applyPatchAction = report.actions.find((action) => action.kind === 'apply_patch');
 
     const actions = report.actions
       .map((action) => {
@@ -93,6 +101,28 @@ export class AgentLoopReporter {
 
     const markdown = `# Zero Runtime Agent Loop
 
+## Executive summary
+
+- Status: ${report.status}
+- Project: ${report.projectName}
+- Objective: ${report.objective}
+- Executed actions: ${String(executedActions.length)}
+- Blocked actions: ${String(blockedActions.length)}
+- Pending actions: ${String(pendingActions.length)}
+- Pending approvals: ${String(pendingApprovals.length)}
+- Apply patch status: ${applyPatchAction?.status ?? 'unknown'}
+- Runtime authority: preserved
+- Patch applied: ${applyPatchAction?.status === 'executed' ? 'yes' : 'no'}
+
+## Next recommended commands
+
+${this.renderNextCommands({
+  state,
+  blockedActions,
+  pendingApprovals,
+  applyPatchAction,
+})}
+
 ## Status
 
 - ID: ${report.id}
@@ -116,6 +146,20 @@ ${report.objective}
 - Premium approved: ${this.yesNo(premiumApproved)}
 - Include project memory: ${this.yesNo(includeProjectMemory)}
 - Estimated completion tokens: ${estimatedCompletionTokens}
+
+## Action summary
+
+### Executed
+
+${this.renderActionList(executedActions)}
+
+### Blocked
+
+${this.renderActionList(blockedActions)}
+
+### Pending
+
+${this.renderActionList(pendingActions)}
 
 ## Actions
 
@@ -153,6 +197,57 @@ ${issues}
     await writeFile(this.outputPath, markdown, 'utf8');
 
     return this.outputPath;
+  }
+
+  private renderNextCommands(input: {
+    state: AgentLoopState;
+    blockedActions: readonly AgentAction[];
+    pendingApprovals: readonly {
+      readonly id: string;
+      readonly status: string;
+    }[];
+    applyPatchAction: AgentAction | undefined;
+  }): string {
+    if (input.state.status === 'completed') {
+      return '- No next command required. Agent loop is completed.';
+    }
+
+    if (input.pendingApprovals.length > 0) {
+      return [
+        `- Review approvals: zero agent approvals --project ${input.state.projectRoot}`,
+        `- Approve after reviewing diff: zero agent approve ${input.pendingApprovals[0]?.id ?? '<approval-id>'} --project ${input.state.projectRoot} --reason "Approved after reviewing diff"`,
+        `- Apply manually after approval: zero agent step apply_patch --project ${input.state.projectRoot}`,
+      ].join('\n');
+    }
+
+    if (input.blockedActions.length > 0) {
+      return [
+        `- Review blocked actions: zero agent actions --project ${input.state.projectRoot}`,
+        `- Review report: zero agent report --project ${input.state.projectRoot}`,
+        '- Fix the blocking reason, then rerun the relevant step.',
+      ].join('\n');
+    }
+
+    if (input.applyPatchAction?.status === 'pending') {
+      return [
+        `- Review approvals: zero agent approvals --project ${input.state.projectRoot}`,
+        `- Continue manually: zero agent next --project ${input.state.projectRoot}`,
+      ].join('\n');
+    }
+
+    return `- Continue: zero agent next --project ${input.state.projectRoot}`;
+  }
+
+  private renderActionList(actions: readonly AgentAction[]): string {
+    if (actions.length === 0) {
+      return '- none';
+    }
+
+    return actions
+      .map((action) => {
+        return `- ${action.kind}: ${action.label}${action.requiresApproval ? ' (approval required)' : ''}`;
+      })
+      .join('\n');
   }
 
   private stringMetadata(state: AgentLoopState, key: string): string {

@@ -1,9 +1,13 @@
 import { normalize } from 'node:path';
 import { SensitiveDataRedactor } from '../observability/SensitiveDataRedactor.js';
+import { MemoryPoisoningScanner } from '../security/MemoryPoisoningScanner.js';
+import type { SecurityFinding } from '../security/SecurityReviewTypes.js';
 import type { JsonObject, JsonValue } from '../types/SharedTypes.js';
+import type { ProjectMemoryTrustLevel } from './ProjectMemoryTypes.js';
 
 export interface ProjectMemorySanitizerOptions {
   redactor?: SensitiveDataRedactor | undefined;
+  memoryPoisoningScanner?: MemoryPoisoningScanner | undefined;
   blockedPathFragments?: string[] | undefined;
   blockedContentFragments?: string[] | undefined;
 }
@@ -12,6 +16,16 @@ export interface ProjectMemorySafetyInput {
   title: string;
   content: string;
   source?: string | undefined;
+  trustLevel?: ProjectMemoryTrustLevel | undefined;
+}
+
+export interface ProjectMemorySafetyEvaluation {
+  safe: boolean;
+  title: string;
+  content: string;
+  trustLevel: ProjectMemoryTrustLevel;
+  findings: SecurityFinding[];
+  metadata: JsonObject | undefined;
 }
 
 const defaultBlockedPathFragments = [
@@ -34,17 +48,27 @@ const defaultBlockedContentFragments = [
 
 export class ProjectMemorySanitizer {
   private readonly redactor: SensitiveDataRedactor;
+  private readonly memoryPoisoningScanner: MemoryPoisoningScanner;
   private readonly blockedPathFragments: readonly string[];
   private readonly blockedContentFragments: readonly string[];
 
   public constructor(options: ProjectMemorySanitizerOptions = {}) {
     this.redactor = options.redactor ?? new SensitiveDataRedactor();
+    this.memoryPoisoningScanner = options.memoryPoisoningScanner ?? new MemoryPoisoningScanner();
     this.blockedPathFragments = options.blockedPathFragments ?? defaultBlockedPathFragments;
     this.blockedContentFragments =
       options.blockedContentFragments ?? defaultBlockedContentFragments;
   }
 
   public assertSafeMemoryInput(input: ProjectMemorySafetyInput): void {
+    const evaluation = this.evaluateMemoryInput(input);
+
+    if (!evaluation.safe) {
+      throw new Error(this.formatMemoryPoisoningError(evaluation.findings));
+    }
+  }
+
+  public evaluateMemoryInput(input: ProjectMemorySafetyInput): ProjectMemorySafetyEvaluation {
     if (!input.title.trim()) {
       throw new Error('Project memory title must be non-empty.');
     }
@@ -62,6 +86,51 @@ export class ProjectMemorySanitizer {
     if (this.blockedContentFragments.some((fragment) => lowered.includes(fragment))) {
       throw new Error('Project memory must not store raw provider responses.');
     }
+
+    const title = this.sanitizeText(input.title);
+    const content = this.sanitizeText(input.content);
+    const requestedTrustLevel = input.trustLevel ?? 'runtime-generated';
+
+    const poisoningScan = this.memoryPoisoningScanner.scanMemory({
+      source: input.source ?? 'project-memory',
+      title,
+      content,
+    });
+
+    const hasBlockingFinding = poisoningScan.findings.some((finding) => {
+      return finding.severity === 'critical' || finding.severity === 'error';
+    });
+
+    if (!hasBlockingFinding) {
+      return {
+        safe: true,
+        title,
+        content,
+        trustLevel: requestedTrustLevel,
+        findings: poisoningScan.findings,
+        metadata: this.createPoisoningMetadata(poisoningScan.findings),
+      };
+    }
+
+    if (requestedTrustLevel === 'provider-suggested' || requestedTrustLevel === 'quarantined') {
+      return {
+        safe: true,
+        title,
+        content: poisoningScan.sanitizedContent,
+        trustLevel: 'quarantined',
+        findings: poisoningScan.findings,
+        metadata: this.createPoisoningMetadata(poisoningScan.findings),
+      };
+    }
+
+    return {
+      safe: false,
+      title,
+      content,
+      trustLevel: requestedTrustLevel,
+      findings: poisoningScan.findings,
+      metadata: this.createPoisoningMetadata(poisoningScan.findings),
+    };
   }
 
   public assertSafePath(path: string): void {
@@ -100,6 +169,23 @@ export class ProjectMemorySanitizer {
     return this.redactor.redactObject(value);
   }
 
+  public mergeMetadata(
+    left: JsonObject | undefined,
+    right: JsonObject | undefined,
+  ): JsonObject | undefined {
+    const sanitizedLeft = this.sanitizeMetadata(left);
+    const sanitizedRight = this.sanitizeMetadata(right);
+
+    if (!sanitizedLeft && !sanitizedRight) {
+      return undefined;
+    }
+
+    return {
+      ...(sanitizedLeft ?? {}),
+      ...(sanitizedRight ?? {}),
+    };
+  }
+
   public normalizeTags(tags: readonly string[] | undefined): string[] {
     return [
       ...new Set(
@@ -114,6 +200,47 @@ export class ProjectMemorySanitizer {
     }
 
     return value;
+  }
+
+  private createPoisoningMetadata(findings: readonly SecurityFinding[]): JsonObject | undefined {
+    if (findings.length === 0) {
+      return undefined;
+    }
+
+    return {
+      memoryPoisoningScan: {
+        findingCount: findings.length,
+        findings: findings.map((finding): JsonObject => {
+          const item: JsonObject = {
+            code: finding.code,
+            severity: finding.severity,
+            category: finding.category,
+            message: finding.message,
+            recommendation: finding.recommendation,
+          };
+
+          if (finding.evidence) {
+            item['evidence'] = finding.evidence;
+          }
+
+          return item;
+        }),
+      },
+    };
+  }
+
+  private formatMemoryPoisoningError(findings: readonly SecurityFinding[]): string {
+    const blocking = findings.filter((finding) => {
+      return finding.severity === 'critical' || finding.severity === 'error';
+    });
+
+    if (blocking.length === 0) {
+      return 'Project memory poisoning scan failed.';
+    }
+
+    return `Project memory poisoning blocked: ${blocking
+      .map((finding) => `${finding.code}: ${finding.message}`)
+      .join('; ')}`;
   }
 
   private normalizePathForComparison(path: string): string {
