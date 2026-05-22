@@ -1,5 +1,12 @@
 import type { SecurityFinding, SecuritySeverity } from './SecurityReviewTypes.js';
 
+export interface MemoryPoisoningScannerOptions {
+  // Backward-compatible placeholders.
+  // The scanner is intentionally self-contained now, but older callers may still inject these.
+  secretLeakDetector?: unknown;
+  promptInjectionScanner?: unknown;
+}
+
 export interface MemoryPoisoningScanInput {
   source: string;
   title?: string | undefined;
@@ -82,6 +89,15 @@ const memoryPoisoningPatterns: MemoryPoisoningPattern[] = [
 ];
 
 export class MemoryPoisoningScanner {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public constructor(_options: MemoryPoisoningScannerOptions = {}) {
+    // Options are accepted for backward compatibility with older security regression wiring.
+  }
+
+  public scan(input: MemoryPoisoningScanInput): MemoryPoisoningScanResult {
+    return this.scanMemory(input);
+  }
+
   public scanMemory(input: MemoryPoisoningScanInput): MemoryPoisoningScanResult {
     const content = [input.title ?? '', input.content].join('\n');
     const findings = this.scanContent({
@@ -134,7 +150,7 @@ export class MemoryPoisoningScanner {
       }
 
       findings.push({
-        id: `${item.code}_${findings.length + 1}`,
+        id: `${item.code}_${String(findings.length + 1)}`,
         code: item.code,
         category: 'memory_poisoning',
         severity: item.severity,

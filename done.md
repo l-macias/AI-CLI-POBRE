@@ -2412,3 +2412,742 @@ Objetivo: empezar a hacerlo más cómodo y útil para uso real diario.
 - decisiones tomadas
 - bloqueos
 - próximos pasos
+
+INTERFAZ
+
+FASE 1 — Base de plataforma interactiva
+SESIÓN 54 — Interactive Session Core
+
+Objetivo: crear el núcleo de sesiones vivas.
+
+Implementar:
+
+src/interactive/
+├── InteractiveSession.ts
+├── InteractiveSessionState.ts
+├── InteractiveSessionTypes.ts
+├── SessionGoalTracker.ts
+├── SessionTimeline.ts
+├── SessionDecisionLog.ts
+└── InteractiveSessionStore.ts
+
+Debe permitir:
+
+- iniciar sesión
+- pausar sesión
+- continuar sesión
+- guardar objetivo general
+- guardar mensajes del usuario
+- guardar decisiones
+- guardar acciones del runtime
+- guardar estado actual
+
+Estados:
+
+idle
+analyzing_project
+collecting_context
+planning
+waiting_user_input
+waiting_approval
+applying_patch
+verifying
+completed
+failed
+paused
+
+Resultado esperado:
+
+Zero ya no ejecuta tareas sueltas.
+Ahora trabaja dentro de una sesión persistente.
+SESIÓN 55 — Interactive Command Router
+
+Objetivo: que el usuario pueda dar órdenes durante una sesión.
+
+Implementar:
+
+src/interactive/
+├── InteractiveCommandRouter.ts
+├── InteractiveCommandParser.ts
+├── InteractiveCommandTypes.ts
+└── InteractiveCommandHandler.ts
+
+Comandos iniciales:
+
+/plan
+/context
+/files
+/diff
+/risks
+/apply
+/reject
+/revise
+/verify
+/report
+/pause
+/resume
+
+También debe aceptar texto natural:
+
+"Ahora revisá el backend"
+"No toques la base de datos todavía"
+"Aplicá solo el frontend"
+"Mostrame qué archivos pensás modificar"
+
+Resultado esperado:
+
+La sesión empieza a sentirse conversacional e interactiva.
+SESIÓN 56 — Project Registry + Project Picker
+
+Objetivo: registrar proyectos locales y elegirlos desde CLI/UI.
+
+Implementar:
+
+src/projects/
+├── ProjectRegistry.ts
+├── ProjectProfile.ts
+├── ProjectScanner.ts
+├── ProjectDetector.ts
+└── ProjectConfigStore.ts
+
+Debe detectar:
+
+- MERN
+- PERN
+- React
+- Express
+- Node
+- TypeScript
+- JavaScript
+- MongoDB
+- PostgreSQL
+- Prisma
+- Vite
+- Next.js
+
+Config local:
+
+.zero/project.json
+
+Ejemplo:
+
+{
+"name": "micafecito",
+"stack": ["react", "node", "express", "postgres"],
+"workingMode": "local_snapshot",
+"gitRequired": false
+}
+
+Resultado esperado:
+
+Zero puede abrir proyectos reales y recordar configuración.
+FASE 2 — Git opcional y snapshots locales
+SESIÓN 57 — Workspace Modes
+
+Objetivo: permitir trabajar con o sin Git.
+
+Implementar:
+
+src/workspace/
+├── WorkspaceMode.ts
+├── WorkspaceSession.ts
+├── LocalPatchlessWorkspace.ts
+├── LocalSnapshotWorkspace.ts
+├── GitWorkspace.ts
+└── WorkspaceModeResolver.ts
+
+Modos:
+
+local_patchless
+local_snapshot
+git_diff
+git_branch_pr
+
+Regla:
+
+Git nunca debe ser obligatorio.
+
+Resultado esperado:
+
+Zero puede trabajar en proyectos sin repositorio Git.
+SESIÓN 58 — Local Snapshot Manager
+
+Objetivo: revertir cambios aunque no haya Git.
+
+Implementar:
+
+src/workspace/
+├── LocalSnapshotManager.ts
+├── SnapshotManifest.ts
+├── SnapshotRestoreService.ts
+└── SnapshotDiffService.ts
+
+Debe guardar:
+
+.runtime/snapshots/session-id/
+├── manifest.json
+├── before/
+├── after/
+└── rollback.patch
+
+Resultado esperado:
+
+Antes de aplicar cambios, Zero guarda copia segura de los archivos afectados.
+SESIÓN 59 — Git Status + Diff Integration
+
+Objetivo: integrar Git solo si existe.
+
+Implementar:
+
+src/vcs/
+├── VcsProvider.ts
+├── GitStatusService.ts
+├── GitDiffService.ts
+├── GitBranchService.ts
+└── GitCommitService.ts
+
+Funciones:
+
+- detectar repo Git
+- ver branch actual
+- ver cambios pendientes
+- generar diff
+- crear branch opcional
+- crear commit opcional
+
+Reglas:
+
+- no commit automático sin aprobación
+- no push automático
+- no modificar repo si modo local está activo
+  SESIÓN 60 — GitHub CLI Integration
+
+Objetivo: conectar con GitHub usando gh, no tokens propios.
+
+Implementar:
+
+src/vcs/github/
+├── GitHubCliDetector.ts
+├── GitHubAuthStatus.ts
+├── GitHubPullRequestService.ts
+└── GitHubRemoteResolver.ts
+
+Debe permitir:
+
+- detectar si gh está instalado
+- detectar si gh está autenticado
+- mostrar estado GitHub
+- crear PR opcional
+
+Acciones futuras:
+
+[Crear branch]
+[Crear commit]
+[Subir cambios]
+[Crear Pull Request]
+
+Resultado esperado:
+
+Zero puede integrarse con GitHub sin manejar tokens directamente.
+FASE 3 — API local para plataforma visual
+
+SESIÓN 61 — Local Runtime API Server
+
+Objetivo: exponer el runtime a una interfaz gráfica local.
+
+Implementar:
+
+src/server/
+├── LocalRuntimeServer.ts
+├── RuntimeApiRouter.ts
+├── SessionApi.ts
+├── ProjectApi.ts
+├── WorkspaceApi.ts
+└── HealthApi.ts
+
+Endpoints:
+
+GET /api/health
+GET /api/projects
+POST /api/projects
+POST /api/sessions
+GET /api/sessions/:id
+POST /api/sessions/:id/message
+GET /api/sessions/:id/timeline
+GET /api/sessions/:id/context
+GET /api/sessions/:id/patches
+POST /api/sessions/:id/approve
+POST /api/sessions/:id/reject
+
+Resultado esperado:
+
+La futura UI puede controlar Zero Runtime.
+SESIÓN 62 — Realtime Session Events
+
+Objetivo: que la UI vea lo que pasa en vivo.
+
+Implementar:
+
+src/server/
+├── RuntimeEventBus.ts
+├── SessionEventStream.ts
+├── SessionEventTypes.ts
+└── WebSocketGateway.ts
+
+Eventos:
+
+session.started
+project.scanned
+context.collected
+plan.proposed
+patch.proposed
+risk.detected
+approval.required
+patch.applied
+verification.completed
+audit.generated
+
+Resultado esperado:
+
+La UI puede mostrar una línea de tiempo viva.
+FASE 4 — Frontend gráfico local
+SESIÓN 63 — Crear Web UI base
+
+Objetivo: crear interfaz visual.
+
+Estructura:
+
+ui/
+├── package.json
+├── vite.config.ts
+├── src/
+│ ├── main.tsx
+│ ├── App.tsx
+│ ├── api/
+│ ├── components/
+│ ├── pages/
+│ ├── layouts/
+│ └── types/
+
+Stack recomendado:
+
+React
+Vite
+TypeScript
+Tailwind
+shadcn/ui opcional
+
+Pantallas iniciales:
+
+ProjectsPage
+SessionPage
+SettingsPage
+
+Resultado esperado:
+
+localhost abre una UI básica de Zero Runtime.
+SESIÓN 64 — Project Picker UI
+
+Objetivo: seleccionar proyectos desde la interfaz.
+
+Componentes:
+
+ProjectPicker.tsx
+ProjectCard.tsx
+AddProjectDialog.tsx
+ProjectStackBadge.tsx
+WorkspaceModeSelector.tsx
+
+Debe mostrar:
+
+- nombre
+- ruta
+- stack detectado
+- Git disponible sí/no
+- modo de trabajo
+- última sesión
+
+Resultado esperado:
+
+Abrís Zero y elegís sobre qué proyecto trabajar.
+SESIÓN 65 — Interactive Session UI
+
+Objetivo: crear pantalla principal de trabajo.
+
+Layout:
+
+SessionPage
+├── ChatPanel
+├── RuntimeStatusBar
+├── TimelinePanel
+├── ContextPanel
+├── PlanPanel
+├── PatchPanel
+└── ApprovalPanel
+
+Debe permitir:
+
+- escribir instrucciones
+- ver respuesta del runtime
+- ver estado actual
+- seguir una sesión viva
+- enviar comandos
+
+Resultado esperado:
+
+Zero deja de parecer CLI y empieza a parecer plataforma.
+SESIÓN 66 — Context Viewer
+
+Objetivo: mostrar qué está leyendo Zero y por qué.
+
+Componentes:
+
+ContextViewer.tsx
+ContextFileCard.tsx
+RelatedFilesGraph.tsx
+ContextReasonBadge.tsx
+
+Debe mostrar:
+
+- archivos leídos
+- archivos sugeridos
+- razón de selección
+- archivos bloqueados
+- paths protegidos
+
+Ejemplo:
+
+ProfileEditForm.tsx
+Razón: componente principal afectado por la tarea.
+
+api/profile.ts
+Razón: cliente HTTP usado por el componente.
+
+Resultado esperado:
+
+El usuario entiende de dónde sale el contexto.
+SESIÓN 67 — Plan Proposal Viewer
+
+Objetivo: mostrar planes antes de generar patches.
+
+Componentes:
+
+PlanViewer.tsx
+PlanStepCard.tsx
+RiskBadge.tsx
+PlanActions.tsx
+
+Acciones:
+
+[Aprobar plan]
+[Pedir cambios]
+[Agregar restricción]
+[Ver contexto]
+[Cancelar]
+
+Resultado esperado:
+
+Zero pregunta antes de avanzar con cambios importantes.
+SESIÓN 68 — Patch Diff Viewer
+
+Objetivo: mostrar cambios visualmente.
+
+Componentes:
+
+PatchDiffViewer.tsx
+FileDiffTabs.tsx
+DiffLine.tsx
+PatchSummary.tsx
+
+Debe mostrar:
+
+- archivos creados
+- archivos modificados
+- archivos eliminados
+- líneas agregadas
+- líneas removidas
+- riesgo por archivo
+
+Resultado esperado:
+
+El usuario puede revisar el cambio antes de aprobar.
+SESIÓN 69 — Approval Panel
+
+Objetivo: aprobación clara y segura.
+
+Componentes:
+
+ApprovalPanel.tsx
+ApprovalRiskSummary.tsx
+ApprovalChecklist.tsx
+ApprovalActions.tsx
+
+Acciones:
+
+[Aprobar y aplicar]
+[Aplicar solo este archivo]
+[Rechazar]
+[Pedir revisión]
+[Guardar como propuesta]
+
+Reglas:
+
+- no aplicar sin aprobación
+- mostrar riesgo
+- mostrar modo workspace
+- mostrar si hay snapshot
+- mostrar si Git está activo
+
+Resultado esperado:
+
+El usuario controla exactamente qué se aplica.
+FASE 5 — Interactividad avanzada
+SESIÓN 70 — Runtime Suggestions
+
+Objetivo: que Zero sugiera próximos pasos.
+
+Implementar:
+
+src/suggestions/
+├── SuggestionEngine.ts
+├── SuggestionTypes.ts
+├── ProjectSuggestionScanner.ts
+├── ErrorSuggestionScanner.ts
+└── ArchitectureSuggestionScanner.ts
+
+Ejemplos:
+
+- “Detecté errores TypeScript. ¿Querés revisarlos?”
+- “Este proyecto parece MERN. ¿Querés que analice rutas backend?”
+- “Hay cambios sin snapshot. Recomiendo crear uno.”
+- “Este patch toca auth. Recomiendo revisión alta.”
+
+Resultado esperado:
+
+Zero no solo responde; también guía.
+SESIÓN 71 — Runtime Questions
+
+Objetivo: que Zero haga preguntas útiles antes de actuar.
+
+Implementar:
+
+src/interactive/
+├── RuntimeQuestion.ts
+├── RuntimeQuestionEngine.ts
+├── QuestionPriority.ts
+└── QuestionAnswerStore.ts
+
+Ejemplos:
+
+“¿Querés trabajar solo frontend o también backend?”
+“¿Puedo modificar package.json si hace falta?”
+“¿Preferís mantener este patrón actual o refactorizar?”
+“¿Querés modo local_snapshot o git_diff?”
+
+Regla:
+
+Preguntar solo cuando la respuesta cambie el resultado.
+
+Resultado esperado:
+
+Zero se vuelve colaborativo, no automático a ciegas.
+SESIÓN 72 — Multi-Step Task Queue
+
+Objetivo: permitir varias tareas dentro de una sesión.
+
+Implementar:
+
+src/tasks/
+├── SessionTask.ts
+├── SessionTaskQueue.ts
+├── TaskStatus.ts
+├── TaskDependencyResolver.ts
+└── TaskProgressReporter.ts
+
+Estados:
+
+pending
+in_progress
+waiting_user
+blocked
+completed
+cancelled
+
+Ejemplo:
+
+Objetivo: mejorar login
+
+Tareas:
+
+1. revisar auth backend
+2. revisar frontend login
+3. detectar validaciones faltantes
+4. proponer patch frontend
+5. proponer patch backend
+6. verificar build
+
+Resultado esperado:
+
+Zero puede trabajar por etapas, no solo una respuesta.
+SESIÓN 73 — Session Memory + Decisions
+
+Objetivo: recordar decisiones tomadas durante la sesión.
+
+Implementar:
+
+src/interactive/
+├── SessionDecision.ts
+├── SessionDecisionStore.ts
+├── DecisionApplier.ts
+└── DecisionConflictDetector.ts
+
+Ejemplos:
+
+- “No tocar backend en esta sesión”
+- “Usar archivos completos si son cortos”
+- “No usar any”
+- “Trabajar en modo local_snapshot”
+
+Resultado esperado:
+
+Zero mantiene coherencia durante sesiones largas.
+FASE 6 — MERN/PERN intelligence
+SESIÓN 74 — MERN/PERN Project Intelligence
+
+Objetivo: detectar arquitectura MERN/PERN.
+
+Implementar:
+
+src/languages/
+├── JavaScriptProfile.ts
+├── TypeScriptProfile.ts
+├── ReactProfile.ts
+├── ExpressProfile.ts
+├── MongoProfile.ts
+├── PostgresProfile.ts
+└── ProjectStackDetector.ts
+
+Detectar:
+
+- frontend React/Vite/Next
+- backend Express
+- Mongo/Mongoose
+- PostgreSQL/Prisma/pg
+- rutas API
+- controllers
+- services
+- middlewares
+- env usage
+
+Resultado esperado:
+
+Zero entiende mejor proyectos MERN/PERN reales.
+SESIÓN 75 — API Route Mapper
+
+Objetivo: mapear rutas backend.
+
+Implementar:
+
+src/intelligence/api/
+├── ExpressRouteScanner.ts
+├── ApiRouteMap.ts
+├── ControllerResolver.ts
+└── MiddlewareResolver.ts
+
+Resultado esperado:
+
+Zero puede decir:
+POST /api/profile usa profileController.updateProfile y authMiddleware.
+SESIÓN 76 — Frontend API Usage Mapper
+
+Objetivo: conectar frontend con backend.
+
+Implementar:
+
+src/intelligence/frontend/
+├── ApiClientScanner.ts
+├── FetchUsageScanner.ts
+├── AxiosUsageScanner.ts
+└── FrontendBackendLinker.ts
+
+Resultado esperado:
+
+Zero detecta qué componentes llaman qué endpoints.
+
+Esto es muy útil para /MERN/PERN.
+FASE 7 — Verificación y reportes visuales
+SESIÓN 77 — Safe Verify Commands
+
+Objetivo: correr comandos seguros opcionales.
+
+Implementar:
+
+src/verify/
+├── VerifyCommandPolicy.ts
+├── VerifyCommandRegistry.ts
+├── PackageScriptScanner.ts
+└── VerifyRunner.ts
+
+Comandos permitidos:
+
+npm run build
+npm run lint
+npm run typecheck
+tsc --noEmit
+
+Reglas:
+
+- siempre pedir aprobación antes de ejecutar
+- bloquear comandos peligrosos
+- mostrar salida resumida
+  SESIÓN 78 — Visual Audit Timeline
+
+Objetivo: convertir auditoría en línea de tiempo visual.
+
+Componentes:
+
+AuditTimeline.tsx
+AuditEventCard.tsx
+BlockedActionCard.tsx
+AppliedPatchCard.tsx
+RuntimeDecisionCard.tsx
+
+Debe mostrar:
+
+- qué pidió el usuario
+- qué leyó Zero
+- qué propuso
+- qué bloqueó
+- qué aprobaste
+- qué aplicó
+- qué quedó pendiente
+  SESIÓN 79 — Session Report Export
+
+Objetivo: exportar reporte final.
+
+Implementar:
+
+src/reports/
+├── SessionReportBuilder.ts
+├── MarkdownReportExporter.ts
+├── JsonReportExporter.ts
+└── ReportStorage.ts
+
+Formatos:
+
+.runtime/reports/session-id.md
+.runtime/reports/session-id.json
+FASE 8 — Producto local usable
+SESIÓN 80 — Local App Launcher
+
+Objetivo: levantar backend + UI con un comando.
+
+Comando:
+
+zero runtime
+
+Debe iniciar:
+
+- runtime API server
+- UI local
+- abrir navegador opcional

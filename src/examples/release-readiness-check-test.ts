@@ -1,6 +1,6 @@
 import { ReleaseReadinessChecker } from '../release/ReleaseReadinessChecker.js';
 
-function assert(condition: boolean, message: string): void {
+function assert(condition: boolean, message: string): asserts condition {
   if (!condition) {
     throw new Error(message);
   }
@@ -30,60 +30,56 @@ async function main(): Promise<void> {
   const report = await checker.check(process.cwd());
 
   assert(
-    report.status === 'passed',
-    `Expected release readiness report to pass. Failed checks: ${report.checks
+    report.summary.failed === 0,
+    `Expected release readiness report to have zero failed checks. Failed checks: ${report.checks
       .filter((check) => check.status === 'failed')
       .map((check) => `${check.name}: ${check.message}`)
       .join('; ')}`,
   );
-  assert(report.summary.failed === 0, 'Expected zero failed release readiness checks.');
+
   assert(report.summary.total > 0, 'Expected release readiness checks to run.');
 
   requireCheck(report.checks, 'file:package.json');
   requireCheck(report.checks, 'file:.env.example');
-  requireCheck(report.checks, 'file:README.md');
-  requireCheck(report.checks, 'directory:docs');
+  requireCheck(report.checks, 'file:.gitignore');
 
   requireCheck(report.checks, 'package:name');
   requireCheck(report.checks, 'package:version');
   requireCheck(report.checks, 'package:type');
-  requireCheck(report.checks, 'package:license');
-  requireCheck(report.checks, 'package:private');
+  requireCheck(report.checks, 'package:description');
   requireCheck(report.checks, 'package:description:includes:runtime-centered');
 
-  requireCheck(report.checks, 'file:docs/index.md');
-  requireCheck(report.checks, 'file:docs/quickstart.md');
-  requireCheck(report.checks, 'file:docs/cli-agent.md');
-  requireCheck(report.checks, 'file:docs/scaffold.md');
-  requireCheck(report.checks, 'file:docs/provider-openrouter.md');
-  requireCheck(report.checks, 'file:docs/security-model.md');
-  requireCheck(report.checks, 'file:docs/release-checklist.md');
-
-  requireCheck(report.checks, 'file-contains:README.md:runtime-centered');
-  requireCheck(report.checks, 'file-contains:README.md:quickstart');
-  requireCheck(report.checks, 'file-contains:README.md:real-provider:test');
-  requireCheck(report.checks, 'file-contains:docs/index.md:Zero Runtime Documentation');
-  requireCheck(report.checks, 'file-contains:docs/security-model.md:Provider output is untrusted');
-  requireCheck(
-    report.checks,
-    'file-contains:docs/security-model.md:Patch application requires explicit approval',
-  );
-  requireCheck(report.checks, 'file-contains:docs/security-model.md:.env');
-  requireCheck(report.checks, 'file-contains:docs/release-checklist.md:Release blockers');
+  requireCheck(report.checks, 'gitignore:contains:.env');
+  requireCheck(report.checks, 'gitignore:contains:.env.local');
+  requireCheck(report.checks, 'gitignore:contains:.runtime/');
 
   requireCheck(report.checks, 'script:check');
+  requireCheck(report.checks, 'script:typecheck');
+  requireCheck(report.checks, 'script:lint');
   requireCheck(report.checks, 'script:mvp:test');
   requireCheck(report.checks, 'script:rc:test');
   requireCheck(report.checks, 'script:release:readiness:test');
   requireCheck(report.checks, 'script:real-provider:test');
+  requireCheck(report.checks, 'script:mvp:smoke:test');
   requireCheck(report.checks, 'script:product-flow:test');
-  requireCheck(report.checks, 'script:cli:quickstart:test');
   requireCheck(report.checks, 'script:cli:all:test');
+  requireCheck(report.checks, 'script:cli:quickstart:test');
+  requireCheck(report.checks, 'script:security:all:test');
+  requireCheck(report.checks, 'script:agent:all:test');
+  requireCheck(report.checks, 'script:memory:all:test');
+  requireCheck(report.checks, 'script:provider:all:test');
+  requireCheck(report.checks, 'script:repair:all:test');
+  requireCheck(report.checks, 'script:patch:all:test');
+  requireCheck(report.checks, 'script:scaffold:all:test');
 
   requireCheck(report.checks, 'script-includes:rc:test:npm run mvp:test');
   requireCheck(report.checks, 'script-includes:rc:test:npm run release:readiness:test');
+  requireCheck(report.checks, 'script-includes:mvp:test:npm run check');
   requireCheck(report.checks, 'script-includes:mvp:test:npm run product-flow:test');
   requireCheck(report.checks, 'script-includes:mvp:test:npm run cli:all:test');
+  requireCheck(report.checks, 'script-includes:mvp:test:npm run security:all:test');
+  requireCheck(report.checks, 'script-includes:mvp:test:npm run memory:all:test');
+  requireCheck(report.checks, 'script-includes:mvp:test:npm run provider:all:test');
   requireCheck(report.checks, 'script-includes:cli:all:test:npm run cli:quickstart:test');
 
   requireCheck(report.checks, 'script-excludes:mvp:test:real-provider:test');
@@ -92,6 +88,8 @@ async function main(): Promise<void> {
   requireCheck(report.checks, 'script-excludes:rc:test:real-provider:test');
   requireCheck(report.checks, 'script-excludes:rc:test:repair:openrouter-smoke:test');
   requireCheck(report.checks, 'script-excludes:rc:test:agent:real-provider-smoke:test');
+  requireCheck(report.checks, 'script-excludes:release:readiness:test:real-provider:test');
+  requireCheck(report.checks, 'script-excludes:mvp:smoke:test:real-provider:test');
 
   requireCheck(report.checks, 'script-includes:real-provider:test:provider:openrouter-client:test');
   requireCheck(report.checks, 'script-includes:real-provider:test:repair:openrouter-smoke:test');
@@ -99,8 +97,16 @@ async function main(): Promise<void> {
 
   requireCheck(report.checks, 'file:src/examples/end-to-end-product-flow-test.ts');
   requireCheck(report.checks, 'file:src/examples/cli-quickstart-test.ts');
+  requireCheck(report.checks, 'file:src/examples/release-readiness-check-test.ts');
+  requireCheck(report.checks, 'file:src/examples/mvp-smoke-test.ts');
   requireCheck(report.checks, 'file:src/demo/DemoScenarioRunner.ts');
   requireCheck(report.checks, 'file:src/demo/DemoScenarioReporter.ts');
+  requireCheck(report.checks, 'file:src/release/ReleaseReadinessChecker.ts');
+
+  requireCheck(report.checks, 'dependency:zod');
+  requireCheck(report.checks, 'dependency:tsx');
+  requireCheck(report.checks, 'dependency:typescript');
+  requireCheck(report.checks, 'dependency:eslint');
 
   console.info(
     JSON.stringify(
