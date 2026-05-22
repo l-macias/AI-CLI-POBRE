@@ -17,6 +17,9 @@ import {
   transitionSessionTask,
   prepareRuntimeWorkflow,
   createSnapshot,
+  generateRuntimePlan,
+  getRuntimeSettings,
+  generatePatchProposal,
 } from '../api/runtimeApi';
 import { AuditTimeline } from '../components/audit/AuditTimeline';
 import { ProjectIntelligencePanel } from '../components/intelligence/ProjectIntelligencePanel';
@@ -49,6 +52,9 @@ import type {
   VerifyCommandDefinition,
   VerifyRunResult,
   CreateSnapshotResult,
+  RuntimePlanGenerateResult,
+  RuntimeSettingsViewModel,
+  RuntimePatchProposalGenerateResult,
 } from '../types/runtime';
 
 interface SessionPageProps {
@@ -84,6 +90,16 @@ export function SessionPage({ runtimeEvents = [] }: SessionPageProps) {
   const [intelligenceLoading, setIntelligenceLoading] = useState(false);
   const [workflowLoading, setWorkflowLoading] = useState(false);
 
+  const [runtimePlan, setRuntimePlan] = useState<RuntimePlanGenerateResult | null>(null);
+  const [runtimePlanLoading, setRuntimePlanLoading] = useState(false);
+
+  const [runtimeSettings, setRuntimeSettings] = useState<RuntimeSettingsViewModel | null>(null);
+
+  const [patchProposal, setPatchProposal] = useState<RuntimePatchProposalGenerateResult | null>(
+    null,
+  );
+  const [patchProposalLoading, setPatchProposalLoading] = useState(false);
+
   const [reportExport, setReportExport] = useState<ReportExportResult | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
 
@@ -103,6 +119,7 @@ export function SessionPage({ runtimeEvents = [] }: SessionPageProps) {
     void refreshQuestions(created);
     void refreshTasks(created);
     void refreshVerify(created);
+    void refreshRuntimeSettings();
   }
 
   async function routeCommand(input = command) {
@@ -386,7 +403,114 @@ export function SessionPage({ runtimeEvents = [] }: SessionPageProps) {
       setWorkflowLoading(false);
     }
   }
+  function collectKnownFiles(): string[] {
+    const files = new Set<string>();
 
+    for (const route of apiRoutes?.routes ?? []) {
+      files.add(route.sourceFile);
+
+      if (route.controller?.resolvedFile) {
+        files.add(route.controller.resolvedFile);
+      }
+
+      for (const middleware of route.middlewares) {
+        if (middleware.resolvedFile) {
+          files.add(middleware.resolvedFile);
+        }
+      }
+    }
+
+    for (const usage of frontendBackendLinks?.usages ?? []) {
+      files.add(usage.sourceFile);
+    }
+
+    for (const link of frontendBackendLinks?.links ?? []) {
+      files.add(link.usage.sourceFile);
+
+      if (link.route?.sourceFile) {
+        files.add(link.route.sourceFile);
+      }
+    }
+
+    return [...files].filter((file) => file.trim().length > 0);
+  }
+  async function generatePlan(useProvider = false) {
+    if (!session) {
+      return;
+    }
+
+    setRuntimePlanLoading(true);
+
+    try {
+      const settings = runtimeSettings ?? (await getRuntimeSettings());
+
+      setRuntimeSettings(settings);
+
+      const result = await generateRuntimePlan({
+        sessionId: session.id,
+        instruction: session.goal.current,
+        workspaceMode: 'local_snapshot',
+        useProvider,
+        model: settings.model.defaultModel,
+        ...(stackIntelligence?.stack ? { stack: stackIntelligence.stack } : {}),
+        ...(collectKnownFiles().length > 0 ? { knownFiles: collectKnownFiles() } : {}),
+      });
+
+      setRuntimePlan(result);
+
+      const refreshed = await sendSessionCommand({
+        sessionId: session.id,
+        command:
+          result.source === 'provider'
+            ? 'Plan runtime generado con provider y registrado.'
+            : result.source === 'fallback'
+              ? 'Plan runtime generado con fallback determinístico y registrado.'
+              : 'Plan runtime determinístico generado y registrado.',
+      });
+
+      setSession(refreshed);
+    } finally {
+      setRuntimePlanLoading(false);
+    }
+  }
+  async function generatePatch() {
+    if (!session || !runtimePlan || !runtimePlan.validation.valid) {
+      return;
+    }
+
+    setPatchProposalLoading(true);
+
+    try {
+      const result = await generatePatchProposal({
+        sessionId: session.id,
+        planId: runtimePlan.plan.id,
+        summary: runtimePlan.plan.objective,
+        riskLevel: runtimePlan.plan.riskLevel,
+        candidateFiles: runtimePlan.plan.scope.candidateFiles.map((file) => ({
+          path: file.path,
+          existsKnown: file.existsKnown,
+          reason: file.reason,
+        })),
+        verifyCommands: runtimePlan.plan.verifyCommands,
+      });
+
+      setPatchProposal(result);
+
+      const refreshed = await sendSessionCommand({
+        sessionId: session.id,
+        command: 'Patch proposal generado y registrado. No se aplicaron archivos.',
+      });
+
+      setSession(refreshed);
+    } finally {
+      setPatchProposalLoading(false);
+    }
+  }
+  async function refreshRuntimeSettings() {
+    const settings = await getRuntimeSettings();
+
+    setRuntimeSettings(settings);
+  }
   async function createSessionSnapshot(targetFiles: string[]) {
     if (!session) {
       return;
@@ -464,8 +588,22 @@ export function SessionPage({ runtimeEvents = [] }: SessionPageProps) {
 
       <section className="session-panels-grid">
         <ContextPanel session={session} />
-        <PlanPanel session={session} onCommand={(input) => void routeCommand(input)} />
-        <PatchPanel session={session} onCommand={(input) => void routeCommand(input)} />
+        <PlanPanel
+          session={session}
+          runtimePlan={runtimePlan}
+          loading={runtimePlanLoading}
+          onGeneratePlan={() => void generatePlan(false)}
+          onGenerateProviderPlan={() => void generatePlan(true)}
+          onCommand={(input) => void routeCommand(input)}
+        />
+        <PatchPanel
+          session={session}
+          runtimePlan={runtimePlan}
+          patchProposal={patchProposal}
+          loading={patchProposalLoading}
+          onGeneratePatchProposal={() => void generatePatch()}
+          onCommand={(input) => void routeCommand(input)}
+        />
         <IntelligentContextPanel routes={apiRoutes} links={frontendBackendLinks} />
         <SnapshotPanel
           session={session}

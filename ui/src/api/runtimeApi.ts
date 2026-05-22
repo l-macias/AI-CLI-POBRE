@@ -21,6 +21,8 @@ import type {
   CreateSnapshotResult,
   QuestionDecisionBridgeResult,
   ProviderStatusReport,
+  RuntimePlanGenerateResult,
+  RuntimePatchProposalGenerateResult,
 } from '../types/runtime';
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -429,4 +431,65 @@ export async function getProviderStatus(): Promise<ProviderStatusReport> {
   const parsed = await readJson<{ providers: ProviderStatusReport }>(response);
 
   return parsed.providers;
+}
+export async function generateRuntimePlan(input: {
+  sessionId: string;
+  instruction: string;
+  workspaceMode?: string;
+  stack?: string[];
+  knownFiles?: string[];
+  useProvider?: boolean;
+  model?: string;
+}): Promise<RuntimePlanGenerateResult> {
+  const response = await fetch('/api/plans/generate', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      sessionId: input.sessionId,
+      instruction: input.instruction,
+      ...(input.workspaceMode ? { workspaceMode: input.workspaceMode } : {}),
+      ...(input.stack ? { stack: input.stack } : {}),
+      ...(input.knownFiles ? { knownFiles: input.knownFiles } : {}),
+      ...(input.useProvider !== undefined ? { useProvider: input.useProvider } : {}),
+      ...(input.model ? { model: input.model } : {}),
+    }),
+  });
+
+  return readJson<RuntimePlanGenerateResult>(response);
+}
+export async function generatePatchProposal(input: {
+  sessionId: string;
+  planId: string;
+  summary: string;
+  riskLevel?: 'low' | 'medium' | 'high';
+  candidateFiles: {
+    path: string;
+    existsKnown: boolean;
+    reason: string;
+  }[];
+  verifyCommands?: {
+    command: 'npm' | 'tsc';
+    args: string[];
+    reason: string;
+    requiresApproval: true;
+  }[];
+}): Promise<RuntimePatchProposalGenerateResult> {
+  const response = await fetch('/api/patches/propose', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      sessionId: input.sessionId,
+      planId: input.planId,
+      summary: input.summary,
+      ...(input.riskLevel ? { riskLevel: input.riskLevel } : {}),
+      candidateFiles: input.candidateFiles,
+      ...(input.verifyCommands ? { verifyCommands: input.verifyCommands } : {}),
+    }),
+  });
+
+  return readJson<RuntimePatchProposalGenerateResult>(response);
 }

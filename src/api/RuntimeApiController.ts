@@ -29,6 +29,15 @@ import { VerifyRunStore } from '../verify/VerifyRunStore.js';
 import { RuntimeQuestionDecisionMapper } from '../interactive/RuntimeQuestionDecisionMapper.js';
 import { SessionDecisionStore } from '../interactive/SessionDecisionStore.js';
 import { ProviderStatusService } from '../providers/ProviderStatusService.js';
+import { RuntimePlanGenerator } from '../planning/RuntimePlanGenerator.js';
+import { PlanStorage } from '../planning/PlanStorage.js';
+import { ProviderManager } from '../providers/ProviderManager.js';
+import { OpenRouterProvider } from '../providers/OpenRouterProvider.js';
+import { RuntimePlanProviderBridge } from '../planning/RuntimePlanProviderBridge.js';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { PatchProposalGenerator } from '../patches/PatchProposalGenerator.js';
+import { PatchStorage } from '../patches/PatchStorage.js';
 
 export interface RuntimeApiControllerOptions {
   session: InteractiveSession;
@@ -60,6 +69,11 @@ export interface RuntimeApiControllerOptions {
   questionDecisionMapper?: RuntimeQuestionDecisionMapper | undefined;
   sessionDecisionStore?: SessionDecisionStore | undefined;
   providerStatusService?: ProviderStatusService | undefined;
+  runtimePlanGenerator?: RuntimePlanGenerator | undefined;
+  planStorage?: PlanStorage | undefined;
+  providerManager?: ProviderManager | undefined;
+  patchProposalGenerator?: PatchProposalGenerator | undefined;
+  patchStorage?: PatchStorage | undefined;
 }
 
 export class RuntimeApiController {
@@ -92,6 +106,11 @@ export class RuntimeApiController {
   private readonly questionDecisionMapper: RuntimeQuestionDecisionMapper;
   private readonly sessionDecisionStore: SessionDecisionStore;
   private readonly providerStatusService: ProviderStatusService;
+  private readonly runtimePlanGenerator: RuntimePlanGenerator;
+  private readonly planStorage: PlanStorage;
+  private readonly providerManager: ProviderManager;
+  private readonly patchProposalGenerator: PatchProposalGenerator;
+  private readonly patchStorage: PatchStorage;
 
   public constructor(options: RuntimeApiControllerOptions) {
     this.session = options.session;
@@ -124,6 +143,11 @@ export class RuntimeApiController {
       options.questionDecisionMapper ?? new RuntimeQuestionDecisionMapper();
     this.sessionDecisionStore = options.sessionDecisionStore ?? new SessionDecisionStore();
     this.providerStatusService = options.providerStatusService ?? new ProviderStatusService();
+    this.runtimePlanGenerator = options.runtimePlanGenerator ?? new RuntimePlanGenerator();
+    this.planStorage = options.planStorage ?? new PlanStorage();
+    this.providerManager = options.providerManager ?? this.createDefaultProviderManager();
+    this.patchProposalGenerator = options.patchProposalGenerator ?? new PatchProposalGenerator();
+    this.patchStorage = options.patchStorage ?? new PatchStorage();
   }
 
   public health(): RuntimeApiRouteResult {
@@ -408,6 +432,341 @@ export class RuntimeApiController {
       workflow: result as unknown as JsonObject,
     });
   }
+  public async generateRuntimePlan(body: JsonValue | null): Promise<RuntimeApiRouteResult> {
+    const input = this.asObject(body);
+    const sessionId = this.requiredString(input, 'sessionId');
+    const instruction = this.requiredString(input, 'instruction');
+    const state = await this.session.load(sessionId);
+    const useProvider = this.optionalBoolean(input, 'useProvider') === true;
+    const model =
+      this.optionalString(input, 'model') ??
+      (await this.runtimeSettingsStore.load()).model.defaultModel;
+
+    const baseInput = {
+      sessionId,
+      projectRoot: this.optionalString(input, 'projectRoot') ?? state.projectRoot,
+      projectName: this.optionalString(input, 'projectName') ?? state.projectName,
+      instruction,
+      workspaceMode: this.optionalString(input, 'workspaceMode') ?? 'local_snapshot',
+      stack: this.optionalStringArray(input, 'stack'),
+      knownFiles: this.optionalStringArray(input, 'knownFiles'),
+    };
+
+    const envelope = await this.generateRuntimePlanEnvelope({
+      useProvider,
+      model,
+      baseInput,
+    });
+
+    const files = await this.planStorage.save(envelope.result);
+
+    await this.session.addRuntimeAction(state, {
+      title: 'Runtime plan generated',
+      description: `Runtime generated a ${envelope.result.plan.riskLevel}-risk plan with ${envelope.result.plan.steps.length} step(s) from ${envelope.source}.`,
+      status: envelope.result.validation.valid ? 'completed' : 'blocked',
+      metadata: {
+        source: envelope.source,
+        planId: envelope.result.plan.id,
+        riskLevel: envelope.result.plan.riskLevel,
+        needsSnapshot: envelope.result.plan.needsSnapshot,
+        requiresApproval: envelope.result.plan.requiresApproval,
+        validation: envelope.result.validation as unknown as JsonObject,
+        files: files as unknown as JsonObject,
+        ...(envelope.providerAudit
+          ? { providerAudit: envelope.providerAudit as unknown as JsonObject }
+          : {}),
+        ...(envelope.fallbackReason ? { fallbackReason: envelope.fallbackReason } : {}),
+      },
+    });
+
+    this.eventBus.publish({
+      name: 'audit.generated',
+      sessionId,
+      projectRoot: envelope.result.plan.projectRoot,
+      message: `Runtime plan generated: ${envelope.result.plan.id}`,
+      payload: {
+        source: envelope.source,
+        plan: envelope.result.plan as unknown as JsonObject,
+        validation: envelope.result.validation as unknown as JsonObject,
+        files: files as unknown as JsonObject,
+        ...(envelope.providerAudit
+          ? { providerAudit: envelope.providerAudit as unknown as JsonObject }
+          : {}),
+        ...(envelope.fallbackReason ? { fallbackReason: envelope.fallbackReason } : {}),
+      },
+    });
+
+    return this.response.created({
+      source: envelope.source,
+      plan: envelope.result.plan as unknown as JsonObject,
+      validation: envelope.result.validation as unknown as JsonObject,
+      files: files as unknown as JsonObject,
+      ...(envelope.providerAudit
+        ? { providerAudit: envelope.providerAudit as unknown as JsonObject }
+        : {}),
+      ...(envelope.fallbackReason ? { fallbackReason: envelope.fallbackReason } : {}),
+    });
+  }
+  public async generatePatchProposal(body: JsonValue | null): Promise<RuntimeApiRouteResult> {
+    const input = this.asObject(body);
+    const sessionId = this.requiredString(input, 'sessionId');
+    const planId = this.requiredString(input, 'planId');
+    const summary = this.requiredString(input, 'summary');
+    const state = await this.session.load(sessionId);
+
+    const candidateFiles = await this.readPatchCandidateFiles({
+      projectRoot: this.optionalString(input, 'projectRoot') ?? state.projectRoot,
+      files: this.requiredPatchCandidateFiles(input, 'candidateFiles'),
+    });
+
+    const result = this.patchProposalGenerator.generate({
+      planId,
+      sessionId,
+      projectRoot: this.optionalString(input, 'projectRoot') ?? state.projectRoot,
+      summary,
+      riskLevel: this.optionalPatchRiskLevel(input, 'riskLevel') ?? 'medium',
+      candidateFiles,
+      verifyCommands: this.optionalPatchVerifyCommands(input, 'verifyCommands') ?? [
+        {
+          command: 'npm',
+          args: ['run', 'typecheck'],
+          reason: 'Validate TypeScript correctness after reviewed changes.',
+          requiresApproval: true,
+        },
+      ],
+    });
+
+    const files = await this.patchStorage.save(result);
+
+    await this.session.addRuntimeAction(state, {
+      title: 'Patch proposal generated',
+      description: `Runtime generated a ${result.proposal.riskLevel}-risk patch proposal with ${result.proposal.files.length} file change(s). No files were applied.`,
+      status: result.validation.valid ? 'completed' : 'blocked',
+      metadata: {
+        proposalId: result.proposal.id,
+        planId,
+        riskLevel: result.proposal.riskLevel,
+        validation: result.validation as unknown as JsonObject,
+        files: files as unknown as JsonObject,
+      },
+    });
+
+    this.eventBus.publish({
+      name: 'audit.generated',
+      sessionId,
+      projectRoot: result.proposal.projectRoot,
+      message: `Patch proposal generated: ${result.proposal.id}`,
+      payload: {
+        proposal: result.proposal as unknown as JsonObject,
+        validation: result.validation as unknown as JsonObject,
+        files: files as unknown as JsonObject,
+      },
+    });
+
+    return this.response.created({
+      proposal: result.proposal as unknown as JsonObject,
+      validation: result.validation as unknown as JsonObject,
+      files: files as unknown as JsonObject,
+    });
+  }
+  private async readPatchCandidateFiles(input: {
+    projectRoot: string;
+    files: {
+      path: string;
+      existsKnown: boolean;
+      reason: string;
+    }[];
+  }): Promise<
+    {
+      path: string;
+      content?: string | undefined;
+      existsKnown: boolean;
+      reason: string;
+    }[]
+  > {
+    const result = [];
+
+    for (const file of input.files) {
+      if (!file.existsKnown) {
+        result.push(file);
+        continue;
+      }
+
+      try {
+        const content = await readFile(path.join(input.projectRoot, file.path), 'utf8');
+
+        result.push({
+          ...file,
+          content,
+        });
+      } catch {
+        result.push({
+          ...file,
+          existsKnown: false,
+        });
+      }
+    }
+
+    return result;
+  }
+
+  private requiredPatchCandidateFiles(
+    input: JsonObject,
+    key: string,
+  ): {
+    path: string;
+    existsKnown: boolean;
+    reason: string;
+  }[] {
+    const value = input[key];
+
+    if (!Array.isArray(value)) {
+      throw new Error(`"${key}" must be an array.`);
+    }
+
+    return value.map((item, index) => {
+      if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+        throw new Error(`"${key}" item ${String(index)} must be an object.`);
+      }
+
+      const record = item as Record<string, unknown>;
+      const pathValue = record['path'];
+      const existsKnown = record['existsKnown'];
+      const reason = record['reason'];
+
+      if (typeof pathValue !== 'string' || pathValue.trim().length === 0) {
+        throw new Error(`"${key}" item ${String(index)} path must be a non-empty string.`);
+      }
+
+      if (typeof existsKnown !== 'boolean') {
+        throw new Error(`"${key}" item ${String(index)} existsKnown must be boolean.`);
+      }
+
+      if (typeof reason !== 'string' || reason.trim().length === 0) {
+        throw new Error(`"${key}" item ${String(index)} reason must be a non-empty string.`);
+      }
+
+      return {
+        path: pathValue,
+        existsKnown,
+        reason,
+      };
+    });
+  }
+
+  private optionalPatchRiskLevel(
+    input: JsonObject,
+    key: string,
+  ): 'low' | 'medium' | 'high' | undefined {
+    const value = input[key];
+
+    if (value === 'low' || value === 'medium' || value === 'high') {
+      return value;
+    }
+
+    return undefined;
+  }
+
+  private optionalPatchVerifyCommands(
+    input: JsonObject,
+    key: string,
+  ):
+    | {
+        command: 'npm' | 'tsc';
+        args: string[];
+        reason: string;
+        requiresApproval: true;
+      }[]
+    | undefined {
+    const value = input[key];
+
+    if (!Array.isArray(value)) {
+      return undefined;
+    }
+
+    return value.flatMap((item) => {
+      if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+        return [];
+      }
+
+      const record = item as Record<string, unknown>;
+      const command = record['command'];
+      const args = record['args'];
+      const reason = record['reason'];
+      const requiresApproval = record['requiresApproval'];
+
+      if (command !== 'npm' && command !== 'tsc') {
+        return [];
+      }
+
+      if (!Array.isArray(args) || !args.every((arg) => typeof arg === 'string')) {
+        return [];
+      }
+
+      if (typeof reason !== 'string' || reason.trim().length === 0) {
+        return [];
+      }
+
+      if (requiresApproval !== true) {
+        return [];
+      }
+
+      return [
+        {
+          command,
+          args,
+          reason,
+          requiresApproval,
+        },
+      ];
+    });
+  }
+  private async generateRuntimePlanEnvelope(input: {
+    useProvider: boolean;
+    model: string;
+    baseInput: {
+      sessionId: string;
+      projectRoot: string;
+      projectName: string;
+      instruction: string;
+      workspaceMode: string;
+      stack?: string[] | undefined;
+      knownFiles?: string[] | undefined;
+    };
+  }): Promise<{
+    source: 'runtime' | 'provider' | 'fallback';
+    result: ReturnType<RuntimePlanGenerator['generate']>;
+    providerAudit?: Awaited<ReturnType<RuntimePlanProviderBridge['generate']>>['audit'] | undefined;
+    fallbackReason?: string | undefined;
+  }> {
+    if (!input.useProvider) {
+      return {
+        source: 'runtime',
+        result: this.runtimePlanGenerator.generate(input.baseInput),
+      };
+    }
+
+    try {
+      const bridge = new RuntimePlanProviderBridge({
+        providerManager: this.providerManager,
+        model: input.model,
+      });
+
+      const generated = await bridge.generate(input.baseInput);
+
+      return {
+        source: 'provider',
+        result: generated.result,
+        providerAudit: generated.audit,
+      };
+    } catch (error) {
+      return {
+        source: 'fallback',
+        result: this.runtimePlanGenerator.generate(input.baseInput),
+        fallbackReason: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
   private async getGeneratedQuestionsForSession(input: { sessionId: string; input: JsonObject }) {
     const state = await this.session.load(input.sessionId);
 
@@ -436,6 +795,18 @@ export class RuntimeApiController {
     return this.response.ok({
       providers: status as unknown as JsonObject,
     });
+  }
+  private createDefaultProviderManager(): ProviderManager {
+    const manager = new ProviderManager();
+
+    manager.register(
+      new OpenRouterProvider({
+        apiKey: process.env['OPENROUTER_API_KEY'],
+        baseUrl: process.env['OPENROUTER_BASE_URL'] ?? 'https://openrouter.ai/api/v1',
+      }),
+    );
+
+    return manager;
   }
   private asObject(value: JsonValue | null): JsonObject {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {

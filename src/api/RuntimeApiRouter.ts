@@ -140,6 +140,12 @@ export class RuntimeApiRouter {
       if (request.method === 'POST' && this.isPath(request.path, '/workflow/prepare')) {
         return this.controller.prepareWorkflow(request.body);
       }
+      if (request.method === 'POST' && this.isPath(request.path, '/plans/generate')) {
+        return this.controller.generateRuntimePlan(request.body);
+      }
+      if (request.method === 'POST' && this.isPath(request.path, '/patches/propose')) {
+        return this.controller.generatePatchProposal(request.body);
+      }
       if (request.method === 'GET' && this.isPath(request.path, '/providers/status')) {
         return this.controller.getProviderStatus();
       }
