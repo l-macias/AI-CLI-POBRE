@@ -79,7 +79,9 @@ export function PlanViewer({
               <Badge tone="blue">{plan.steps.length} steps</Badge>
             </div>
           </article>
-          {runtimePlan?.providerAudit || runtimePlan?.fallbackReason ? (
+          {runtimePlan?.providerAudit ||
+          runtimePlan?.fallbackReason ||
+          runtimePlan?.providerFailure ? (
             <article className="plan-summary-card">
               <div>
                 <strong>Provider audit</strong>
@@ -118,6 +120,32 @@ export function PlanViewer({
                         <Badge tone="yellow">fallback</Badge>
                       </div>
                       <p>{runtimePlan.fallbackReason}</p>
+                    </div>
+                  </article>
+                </div>
+              ) : null}
+              {runtimePlan.providerFailure ? (
+                <div className="plan-step-list">
+                  <article className="plan-step-card">
+                    <div className="plan-step-content">
+                      <div className="plan-step-header">
+                        <strong>Provider failure details</strong>
+                        <Badge tone="red">debug</Badge>
+                      </div>
+
+                      <p>
+                        {runtimePlan.providerFailure.name}: {runtimePlan.providerFailure.message}
+                      </p>
+
+                      {runtimePlan.providerFailure.code ? (
+                        <span className="plan-step-target">{runtimePlan.providerFailure.code}</span>
+                      ) : null}
+
+                      {runtimePlan.providerFailure.cause ? (
+                        <pre className="provider-debug-preview">
+                          {JSON.stringify(runtimePlan.providerFailure.cause, null, 2)}
+                        </pre>
+                      ) : null}
                     </div>
                   </article>
                 </div>

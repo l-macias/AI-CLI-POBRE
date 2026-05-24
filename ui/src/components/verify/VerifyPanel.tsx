@@ -24,7 +24,7 @@ export function VerifyPanel({
   onRun,
 }: VerifyPanelProps) {
   return (
-    <section className="panel integration-panel">
+    <section id="verify-panel" className="panel integration-panel">
       <div className="panel-header">
         <div className="panel-title-row">
           <PlayCircle size={18} />

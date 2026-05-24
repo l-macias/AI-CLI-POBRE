@@ -1,42 +1,40 @@
-import { Camera, ShieldCheck } from 'lucide-react';
-import { useState } from 'react';
-import type { CreateSnapshotResult, InteractiveSessionState } from '../../types/runtime';
+import { useMemo, useState } from 'react';
 import { Badge } from '../Badge';
+import type { CreateSnapshotResult, InteractiveSessionState } from '../../types/runtime';
 
 interface SnapshotPanelProps {
   session: InteractiveSessionState | null;
   snapshot: CreateSnapshotResult | null;
-  loading: boolean;
+  loading?: boolean;
   onCreateSnapshot: (targetFiles: string[]) => void;
 }
 
 export function SnapshotPanel({
   session,
   snapshot,
-  loading,
+  loading = false,
   onCreateSnapshot,
 }: SnapshotPanelProps) {
   const [targetFilesText, setTargetFilesText] = useState('package.json');
 
-  const targetFiles = targetFilesText
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+  const targetFiles = useMemo(() => {
+    return targetFilesText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+  }, [targetFilesText]);
+
+  const snapshotTargetFiles = snapshot?.snapshot?.targetFiles ?? [];
 
   return (
     <section className="panel snapshot-panel">
       <div className="panel-header">
-        <div className="panel-title-row">
-          <Camera size={18} />
-          <div>
-            <h2>Local Snapshot</h2>
-            <p className="muted">
-              Create a rollback point before enabling controlled apply actions.
-            </p>
-          </div>
+        <div>
+          <h2>Local Snapshot</h2>
+          <p className="muted">Create a rollback point before enabling controlled apply actions.</p>
         </div>
 
-        <Badge tone={snapshot ? 'green' : 'yellow'}>{snapshot ? 'ready' : 'missing'}</Badge>
+        <Badge tone={snapshot ? 'green' : 'yellow'}>{snapshot ? 'available' : 'missing'}</Badge>
       </div>
 
       <label>
@@ -44,6 +42,7 @@ export function SnapshotPanel({
         <textarea
           rows={4}
           value={targetFilesText}
+          disabled={!session || loading}
           onChange={(event) => setTargetFilesText(event.target.value)}
         />
       </label>
@@ -52,26 +51,24 @@ export function SnapshotPanel({
         disabled={!session || loading || targetFiles.length === 0}
         onClick={() => onCreateSnapshot(targetFiles)}
       >
-        <ShieldCheck size={16} />
         {loading ? 'Creating snapshot...' : 'Create snapshot'}
       </button>
 
       {snapshot ? (
         <article className="snapshot-result-card">
-          <strong>Snapshot created</strong>
-          <p className="muted">Snapshot ID:</p>
-          <code>{snapshot.snapshot.snapshotId}</code>
+          <strong>{snapshot.snapshot.snapshotId}</strong>
+          <p className="muted">{snapshot.snapshot.snapshotRoot}</p>
 
-          <p className="muted">Manifest:</p>
-          <code>{snapshot.manifestPath}</code>
-
-          <p className="muted">Files:</p>
           <div className="snapshot-file-list">
-            {snapshot.snapshot.targetFiles.map((file) => (
-              <Badge key={file} tone="blue">
-                {file}
-              </Badge>
-            ))}
+            {snapshotTargetFiles.length === 0 ? (
+              <span className="muted">No target files recorded.</span>
+            ) : (
+              snapshotTargetFiles.map((filePath) => (
+                <Badge key={filePath} tone="blue">
+                  {filePath}
+                </Badge>
+              ))
+            )}
           </div>
         </article>
       ) : null}

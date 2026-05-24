@@ -1,50 +1,38 @@
-import { ShieldAlert, ShieldCheck } from 'lucide-react';
 import { Badge } from '../Badge';
-import type { ApprovalViewModel } from './ApprovalTypes';
+import type { ApprovalCenterResult } from './ApprovalTypes';
 
 interface ApprovalRiskSummaryProps {
-  approval: ApprovalViewModel;
+  center: ApprovalCenterResult | null;
 }
 
-export function ApprovalRiskSummary({ approval }: ApprovalRiskSummaryProps) {
-  const highRisk = approval.riskLevel === 'high';
+export function ApprovalRiskSummary({ center }: ApprovalRiskSummaryProps) {
+  if (!center) {
+    return (
+      <section className="approval-risk-summary">
+        <Badge tone="slate">No approval center</Badge>
+      </section>
+    );
+  }
 
   return (
-    <article
-      className={highRisk ? 'approval-risk-card approval-risk-card-high' : 'approval-risk-card'}
-    >
-      <div className="approval-risk-icon">
-        {highRisk ? <ShieldAlert size={22} /> : <ShieldCheck size={22} />}
-      </div>
-
-      <div>
-        <strong>{approval.title}</strong>
-        <p>
-          Runtime approval gate is active. Patch application remains blocked until explicit user
-          approval.
-        </p>
-
-        <div className="approval-risk-badges">
-          <Badge
-            tone={
-              approval.riskLevel === 'high'
-                ? 'red'
-                : approval.riskLevel === 'medium'
-                  ? 'yellow'
-                  : 'green'
-            }
-          >
-            {approval.riskLevel} risk
-          </Badge>
-          <Badge tone="blue">{approval.workspaceMode}</Badge>
-          <Badge tone={approval.gitActive ? 'green' : 'slate'}>
-            Git {approval.gitActive ? 'active' : 'inactive'}
-          </Badge>
-          <Badge tone={approval.snapshotAvailable ? 'green' : 'yellow'}>
-            Snapshot {approval.snapshotAvailable ? 'ready' : 'missing'}
-          </Badge>
-        </div>
-      </div>
-    </article>
+    <section className="approval-risk-summary">
+      <Badge tone={toneForRisk(center.highestRisk)}>{center.highestRisk} max risk</Badge>
+      <Badge tone={center.pendingCount > 0 ? 'yellow' : 'green'}>
+        {center.pendingCount} pending
+      </Badge>
+      <Badge tone="blue">{center.requests.length} request(s)</Badge>
+    </section>
   );
+}
+
+function toneForRisk(riskLevel: ApprovalCenterResult['highestRisk']) {
+  if (riskLevel === 'high') {
+    return 'red';
+  }
+
+  if (riskLevel === 'medium') {
+    return 'yellow';
+  }
+
+  return 'green';
 }

@@ -1,8 +1,8 @@
-import { Code2, FolderKanban, Settings, TerminalSquare } from 'lucide-react';
+import { Code2, FolderKanban, LayoutDashboard, Settings, TerminalSquare } from 'lucide-react';
 import type { RuntimeHealth } from '../types/runtime';
 import { RuntimeStatus } from '../components/RuntimeStatus';
 
-export type AppPage = 'projects' | 'session' | 'settings';
+export type AppPage = 'dashboard' | 'projects' | 'session' | 'settings';
 
 interface AppLayoutProps {
   page: AppPage;
@@ -27,12 +27,21 @@ export function AppLayout({ page, health, children, onNavigate }: AppLayoutProps
 
         <nav>
           <button
+            className={page === 'dashboard' ? 'active' : ''}
+            onClick={() => onNavigate('dashboard')}
+          >
+            <LayoutDashboard size={18} />
+            Dashboard
+          </button>
+
+          <button
             className={page === 'projects' ? 'active' : ''}
             onClick={() => onNavigate('projects')}
           >
             <FolderKanban size={18} />
             Projects
           </button>
+
           <button
             className={page === 'session' ? 'active' : ''}
             onClick={() => onNavigate('session')}
@@ -40,6 +49,7 @@ export function AppLayout({ page, health, children, onNavigate }: AppLayoutProps
             <TerminalSquare size={18} />
             Session
           </button>
+
           <button
             className={page === 'settings' ? 'active' : ''}
             onClick={() => onNavigate('settings')}

@@ -69,7 +69,20 @@ export class SessionDecisionStore {
       appliedContext,
     };
   }
+  public async inspect(sessionId: string): Promise<SessionDecisionAddResult> {
+    const state = await this.loadOrCreate(sessionId);
+    const conflicts = this.conflictDetector.detect(state.decisions);
+    const appliedContext = this.decisionApplier.apply({
+      sessionId: state.sessionId,
+      decisions: state.decisions,
+    });
 
+    return {
+      state,
+      conflicts,
+      appliedContext,
+    };
+  }
   public async loadOrCreate(sessionId: string): Promise<SessionDecisionState> {
     try {
       return await this.load(sessionId);

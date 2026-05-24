@@ -1,40 +1,17 @@
-import type { InteractiveSessionState } from '../../types/runtime';
+import type { ApprovalCenterResult } from '../../types/runtime';
 import { ApprovalPanel as ApprovalGatePanel } from '../approval/ApprovalPanel';
+import type { ApprovalDecisionViewInput } from '../approval/ApprovalTypes';
 
 interface ApprovalPanelProps {
-  session: InteractiveSessionState | null;
-  snapshotAvailable?: boolean;
-  onApproveIntent: () => void;
-  onRejectIntent: () => void;
-  onCommand?: (command: string) => void;
+  center: ApprovalCenterResult | null;
+  loading?: boolean;
+  onDecision: (input: ApprovalDecisionViewInput) => void;
 }
 
-export function ApprovalPanel({
-  session,
-  snapshotAvailable = false,
-  onApproveIntent,
-  onRejectIntent,
-  onCommand,
-}: ApprovalPanelProps) {
+export function ApprovalPanel({ center, loading = false, onDecision }: ApprovalPanelProps) {
   return (
     <section className="panel session-approval-panel">
-      <ApprovalGatePanel
-        session={session}
-        snapshotAvailable={snapshotAvailable}
-        onCommand={(command) => {
-          if (command === '/apply') {
-            onApproveIntent();
-            return;
-          }
-
-          if (command === '/reject') {
-            onRejectIntent();
-            return;
-          }
-
-          onCommand?.(command);
-        }}
-      />
+      <ApprovalGatePanel center={center} loading={loading} onDecision={onDecision} />
     </section>
   );
 }

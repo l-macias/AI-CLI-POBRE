@@ -26,7 +26,7 @@ export function ProjectIntelligencePanel({
   onPrepareWorkflow,
 }: ProjectIntelligencePanelProps) {
   return (
-    <section className="panel integration-panel">
+    <section id="project-intelligence-panel" className="panel integration-panel">
       <div className="panel-header">
         <div className="panel-title-row">
           <Network size={18} />

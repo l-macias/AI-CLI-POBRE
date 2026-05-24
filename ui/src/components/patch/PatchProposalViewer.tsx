@@ -2,18 +2,37 @@ import { GitPullRequestDraft, ShieldAlert } from 'lucide-react';
 import { Badge } from '../Badge';
 import { PatchFileCard } from './PatchFileCard';
 import { PatchSummary } from './PatchSummary';
+import { PatchDiffPreview } from './PatchDiffPreview';
+import { PatchApplyPanel } from './PatchApplyPanel';
+import { PatchRollbackPanel } from './PatchRollbackPanel';
 import type {
   InteractiveSessionState,
   RuntimePatchProposalGenerateResult,
   RuntimePlanGenerateResult,
+  RuntimePatchDiffGenerateResult,
+  RuntimePatchApplyResult,
+  SnapshotManifest,
+  RuntimePatchRollbackResult,
 } from '../../types/runtime';
 
 interface PatchProposalViewerProps {
   session: InteractiveSessionState | null;
   runtimePlan: RuntimePlanGenerateResult | null;
   patchProposal: RuntimePatchProposalGenerateResult | null;
+  patchDiff: RuntimePatchDiffGenerateResult | null;
+  snapshot: { snapshot: SnapshotManifest } | null;
+  applyResult: RuntimePatchApplyResult | null;
+  rollbackResult: RuntimePatchRollbackResult | null;
   loading: boolean;
+  diffLoading: boolean;
+  applyLoading: boolean;
+  rollbackLoading: boolean;
   onGeneratePatchProposal: () => void;
+  onGeneratePatchDiff: () => void;
+  onDryRunApply: () => void;
+  onApplyPatch: (input: { confirmedText: string; allowDirtyWorkingTree: boolean }) => void;
+  onDryRunRollback: () => void;
+  onRollbackPatch: (input: { confirmedText: string }) => void;
   onCommand: (command: string) => void;
 }
 
@@ -21,14 +40,28 @@ export function PatchProposalViewer({
   session,
   runtimePlan,
   patchProposal,
+  patchDiff,
+  snapshot,
+  applyResult,
+  rollbackResult,
   loading,
+  diffLoading,
+  applyLoading,
+  rollbackLoading,
   onGeneratePatchProposal,
+  onGeneratePatchDiff,
+  onDryRunApply,
+  onApplyPatch,
+  onDryRunRollback,
+  onRollbackPatch,
   onCommand,
 }: PatchProposalViewerProps) {
   const canGenerate = Boolean(
     session && runtimePlan?.validation.valid && runtimePlan.plan.status === 'validated',
   );
-
+  const canGenerateDiff = Boolean(
+    session && patchProposal?.validation.valid && patchProposal.proposal.status === 'validated',
+  );
   return (
     <section className="plan-viewer">
       <div className="panel-header">
@@ -49,13 +82,40 @@ export function PatchProposalViewer({
         ) : (
           <Badge tone="slate">empty</Badge>
         )}
+        {patchDiff ? <PatchDiffPreview result={patchDiff} /> : null}
+        {patchDiff ? (
+          <PatchApplyPanel
+            patchProposal={patchProposal}
+            patchDiff={patchDiff}
+            snapshot={snapshot}
+            applyResult={applyResult}
+            loading={applyLoading}
+            onDryRun={onDryRunApply}
+            onApply={onApplyPatch}
+          />
+        ) : null}
+        {applyResult ? (
+          <PatchRollbackPanel
+            applyResult={applyResult}
+            rollbackResult={rollbackResult}
+            loading={rollbackLoading}
+            onDryRunRollback={onDryRunRollback}
+            onRollback={onRollbackPatch}
+          />
+        ) : null}
       </div>
 
       <div className="plan-actions">
         <button disabled={!canGenerate || loading} onClick={onGeneratePatchProposal}>
           {loading ? 'Generating...' : 'Generate Patch Proposal'}
         </button>
-
+        <button
+          disabled={!canGenerateDiff || diffLoading}
+          className="secondary-button"
+          onClick={onGeneratePatchDiff}
+        >
+          {diffLoading ? 'Generating diff...' : 'Generate Diff Preview'}
+        </button>
         <button
           disabled={!session}
           className="secondary-button"

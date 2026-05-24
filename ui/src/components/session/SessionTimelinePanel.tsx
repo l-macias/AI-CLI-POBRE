@@ -6,6 +6,8 @@ interface SessionTimelinePanelProps {
 }
 
 export function SessionTimelinePanel({ session }: SessionTimelinePanelProps) {
+  const timeline = session?.timeline.slice().reverse() ?? [];
+
   return (
     <section className="panel session-side-panel">
       <div className="panel-header">
@@ -14,17 +16,17 @@ export function SessionTimelinePanel({ session }: SessionTimelinePanelProps) {
       </div>
 
       <div className="mini-timeline">
-        {session?.timeline.length ? (
-          session.timeline
-            .slice()
-            .reverse()
-            .map((event) => (
-              <article className="mini-timeline-item" key={event.id}>
-                <strong>{event.kind}</strong>
-                <p>{event.message}</p>
-                <time>{new Date(event.createdAt).toLocaleTimeString()}</time>
-              </article>
-            ))
+        {timeline.length > 0 ? (
+          timeline.map((event, index) => (
+            <article
+              className="mini-timeline-item"
+              key={`${event.id}-${event.kind}-${event.createdAt}-${String(index)}`}
+            >
+              <strong>{event.kind}</strong>
+              <p>{event.message}</p>
+              <time>{new Date(event.createdAt).toLocaleTimeString()}</time>
+            </article>
+          ))
         ) : (
           <p className="muted">No timeline events yet.</p>
         )}

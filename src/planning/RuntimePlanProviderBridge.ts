@@ -5,12 +5,66 @@ import type {
   RuntimePlan,
   RuntimePlanGenerationInput,
   RuntimePlanGenerationResult,
-  RuntimePlanRiskLevel,
   RuntimePlanStatus,
 } from './RuntimePlan.js';
 import { PlanPolicyValidator } from './PlanPolicyValidator.js';
 
 const riskLevelSchema = z.enum(['low', 'medium', 'high']);
+
+type ProviderStepKind =
+  | 'inspect'
+  | 'context'
+  | 'question'
+  | 'snapshot'
+  | 'plan'
+  | 'patch'
+  | 'approval'
+  | 'verify'
+  | 'report';
+
+const providerStepKindValues = [
+  'inspect',
+  'context',
+  'question',
+  'snapshot',
+  'plan',
+  'patch',
+  'approval',
+  'verify',
+  'report',
+] as const;
+
+const providerStepKindAliasValues = [
+  'analyze',
+  'analysis',
+  'ask',
+  'propose',
+  'proposal',
+  'approve',
+  'validate',
+  'test',
+  'summarize',
+] as const;
+
+type ProviderStepKindAlias = (typeof providerStepKindAliasValues)[number];
+type ProviderStepKindInput = ProviderStepKind | ProviderStepKindAlias;
+
+const stepKindAliases: Record<ProviderStepKindAlias, ProviderStepKind> = {
+  analyze: 'inspect',
+  analysis: 'inspect',
+  ask: 'question',
+  propose: 'patch',
+  proposal: 'patch',
+  approve: 'approval',
+  validate: 'verify',
+  test: 'verify',
+  summarize: 'report',
+};
+
+const providerStepKindSchema = z.union([
+  z.enum(providerStepKindValues),
+  z.enum(providerStepKindAliasValues),
+]);
 
 const candidateFileSchema = z
   .object({
@@ -32,17 +86,7 @@ const riskSchema = z
 const stepSchema = z
   .object({
     id: z.string().min(1).max(80),
-    kind: z.enum([
-      'inspect',
-      'context',
-      'question',
-      'snapshot',
-      'plan',
-      'patch',
-      'approval',
-      'verify',
-      'report',
-    ]),
+    kind: providerStepKindSchema,
     title: z.string().min(3).max(160),
     description: z.string().min(5).max(700),
     requiresApproval: z.boolean(),
@@ -66,7 +110,7 @@ const providerRuntimePlanSchema = z
         summary: z.string().min(10).max(900),
         includedAreas: z.array(z.string().min(1).max(160)).min(1).max(20),
         excludedAreas: z.array(z.string().min(1).max(180)).min(1).max(20),
-        candidateFiles: z.array(candidateFileSchema).min(1).max(30),
+        candidateFiles: z.array(candidateFileSchema).max(30),
       })
       .strict(),
     steps: z.array(stepSchema).min(1).max(10),
@@ -175,17 +219,113 @@ export class RuntimePlanProviderBridge {
       projectRoot: input.input.projectRoot,
       projectName: input.input.projectName,
       objective: input.output.objective.trim(),
-      scope: input.output.scope,
-      steps: input.output.steps,
+      scope: this.normalizeProviderScope(input),
+      steps: input.output.steps.map((step) => ({
+        ...step,
+        kind: this.normalizeProviderStepKind(step.kind),
+      })),
       risks: input.output.risks,
       verifyCommands: input.output.verifyCommands,
       needsSnapshot: input.output.needsSnapshot,
       requiresApproval: input.output.requiresApproval,
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      riskLevel: input.output.riskLevel as RuntimePlanRiskLevel,
+      riskLevel: input.output.riskLevel,
       status: 'generated',
       createdAt: new Date().toISOString(),
     };
+  }
+
+  private normalizeProviderStepKind(kind: ProviderStepKindInput): ProviderStepKind {
+    const alias = this.resolveProviderStepKindAlias(kind);
+
+    if (alias) {
+      return alias;
+    }
+
+    if (this.isProviderStepKind(kind)) {
+      return kind;
+    }
+
+    throw new Error(`Unsupported provider step kind: ${kind}`);
+  }
+  private normalizeProviderScope(input: {
+    input: RuntimePlanProviderBridgeInput;
+    output: ProviderRuntimePlanOutput;
+  }): RuntimePlan['scope'] {
+    return {
+      ...input.output.scope,
+      candidateFiles:
+        input.output.scope.candidateFiles.length > 0
+          ? input.output.scope.candidateFiles
+          : this.buildFallbackCandidateFiles(input.input),
+    };
+  }
+
+  private buildFallbackCandidateFiles(
+    input: RuntimePlanProviderBridgeInput,
+  ): RuntimePlan['scope']['candidateFiles'] {
+    const knownFiles = (input.knownFiles ?? [])
+      .map((file) => file.trim().replaceAll('\\', '/'))
+      .filter((file) => file.length > 0)
+      .filter((file) => !this.isProtectedPath(file))
+      .slice(0, 12);
+
+    if (knownFiles.length > 0) {
+      return knownFiles.map((file) => ({
+        path: file,
+        reason:
+          'Provider returned no candidate files. Runtime selected this known file from validated context.',
+        existsKnown: true,
+      }));
+    }
+
+    const normalizedInstruction = input.instruction.toLowerCase();
+    const fallbackFiles: string[] = [];
+
+    if (
+      normalizedInstruction.includes('ui') ||
+      normalizedInstruction.includes('frontend') ||
+      normalizedInstruction.includes('react') ||
+      normalizedInstruction.includes('next') ||
+      normalizedInstruction.includes('component')
+    ) {
+      fallbackFiles.push('src/components');
+      fallbackFiles.push('src/app');
+      fallbackFiles.push('src/pages');
+      fallbackFiles.push('src/styles');
+    }
+
+    if (
+      normalizedInstruction.includes('api') ||
+      normalizedInstruction.includes('backend') ||
+      normalizedInstruction.includes('route')
+    ) {
+      fallbackFiles.push('src/routes');
+      fallbackFiles.push('src/controllers');
+    }
+
+    if (fallbackFiles.length === 0) {
+      fallbackFiles.push('src');
+    }
+
+    return [...new Set(fallbackFiles)].map((file) => ({
+      path: file,
+      reason:
+        'Provider returned no candidate files. Runtime selected a conservative inferred fallback path.',
+      existsKnown: false,
+    }));
+  }
+  private resolveProviderStepKindAlias(kind: ProviderStepKindInput): ProviderStepKind | undefined {
+    for (const [alias, normalized] of Object.entries(stepKindAliases)) {
+      if (alias === kind) {
+        return normalized;
+      }
+    }
+
+    return undefined;
+  }
+
+  private isProviderStepKind(kind: ProviderStepKindInput): kind is ProviderStepKind {
+    return providerStepKindValues.some((value) => value === kind);
   }
 
   private buildSystemPrompt(): string {
@@ -199,6 +339,13 @@ export class RuntimePlanProviderBridge {
       'Never propose touching .env, .git, node_modules, dist, build or .next.',
       'Never propose applying patches directly.',
       'Never propose shell execution beyond safe verify command suggestions.',
+      'candidateFiles must contain at least one safe frontend/project file or directory.',
+      'If exact files are unknown, use conservative paths like src/components, src/app, src/pages, or src/styles.',
+      'Never return an empty candidateFiles array.',
+      'Allowed step.kind values are only: inspect, context, question, snapshot, plan, patch, approval, verify, report.',
+      'Do not use analyze, propose, validate, test, summarize, or approve as step.kind.',
+      'Use inspect for analysis steps.',
+      'Use patch for proposal/change generation steps.',
       'Verify commands must require approval.',
       'Patch, approval and snapshot steps must require approval.',
     ].join('\n');
@@ -283,8 +430,8 @@ export class RuntimePlanProviderBridge {
       .slice(0, 2500);
   }
 
-  private isProtectedPath(path: string): boolean {
-    const normalized = path.toLowerCase().replaceAll('\\', '/');
+  private isProtectedPath(filePath: string): boolean {
+    const normalized = filePath.toLowerCase().replaceAll('\\', '/');
     const segments = normalized.split('/');
 
     return (

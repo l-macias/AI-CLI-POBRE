@@ -21,7 +21,13 @@ export class RuntimeApiRouter {
       if (request.method === 'GET' && this.isPath(request.path, '/health')) {
         return this.controller.health();
       }
+      if (request.method === 'GET' && this.isPath(request.path, '/artifacts')) {
+        return this.controller.listRuntimeArtifacts();
+      }
 
+      if (request.method === 'GET' && this.isPath(request.path, '/artifacts/read')) {
+        return this.controller.readRuntimeArtifact(request.query.get('path'));
+      }
       if (request.method === 'GET' && this.isPath(request.path, '/filesystem/roots')) {
         return this.controller.listFilesystemRoots();
       }
@@ -29,7 +35,9 @@ export class RuntimeApiRouter {
       if (request.method === 'GET' && this.isPath(request.path, '/filesystem/children')) {
         return this.controller.listFilesystemChildren(request.query.get('path'));
       }
-
+      if (request.method === 'GET' && this.isPath(request.path, '/sessions')) {
+        return this.controller.listSessions();
+      }
       if (request.method === 'POST' && this.isPath(request.path, '/sessions')) {
         return this.controller.startSession(request.body);
       }
@@ -118,7 +126,9 @@ export class RuntimeApiRouter {
       ) {
         return this.controller.linkFrontendBackend(request.body);
       }
-
+      if (request.method === 'POST' && this.isPath(request.path, '/intelligence/context-graph')) {
+        return this.controller.generateContextGraph(request.body);
+      }
       if (request.method === 'POST' && this.isPath(request.path, '/snapshots')) {
         return this.controller.createSnapshot(request.body);
       }
@@ -140,11 +150,41 @@ export class RuntimeApiRouter {
       if (request.method === 'POST' && this.isPath(request.path, '/workflow/prepare')) {
         return this.controller.prepareWorkflow(request.body);
       }
+      if (request.method === 'POST' && this.isPath(request.path, '/workflow/state')) {
+        return this.controller.buildWorkflowState(request.body);
+      }
+      if (request.method === 'POST' && this.isPath(request.path, '/approvals/center')) {
+        return this.controller.buildApprovalCenter(request.body);
+      }
+
+      if (request.method === 'POST' && this.isPath(request.path, '/approvals/resolve')) {
+        return this.controller.resolveApproval(request.body);
+      }
+      if (request.method === 'POST' && this.isPath(request.path, '/memory/session')) {
+        return this.controller.getSessionMemory(request.body);
+      }
+
+      if (request.method === 'POST' && this.isPath(request.path, '/memory/session/decisions')) {
+        return this.controller.addSessionMemoryDecision(request.body);
+      }
+
+      if (request.method === 'POST' && this.isPath(request.path, '/memory/project/entries')) {
+        return this.controller.addProjectMemoryEntry(request.body);
+      }
       if (request.method === 'POST' && this.isPath(request.path, '/plans/generate')) {
         return this.controller.generateRuntimePlan(request.body);
       }
       if (request.method === 'POST' && this.isPath(request.path, '/patches/propose')) {
         return this.controller.generatePatchProposal(request.body);
+      }
+      if (request.method === 'POST' && this.isPath(request.path, '/patches/diff')) {
+        return this.controller.generatePatchDiff(request.body);
+      }
+      if (request.method === 'POST' && this.isPath(request.path, '/patches/apply')) {
+        return this.controller.applyRuntimePatch(request.body);
+      }
+      if (request.method === 'POST' && this.isPath(request.path, '/patches/rollback')) {
+        return this.controller.rollbackRuntimePatch(request.body);
       }
       if (request.method === 'GET' && this.isPath(request.path, '/providers/status')) {
         return this.controller.getProviderStatus();

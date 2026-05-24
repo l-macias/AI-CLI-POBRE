@@ -1,19 +1,22 @@
-export type ApprovalRiskLevel = 'low' | 'medium' | 'high';
+import type {
+  ApprovalActionKind,
+  ApprovalCenterResult,
+  ApprovalChecklistItem,
+  ApprovalRequest,
+  ApprovalRiskLevel,
+} from '../../types/runtime';
 
-export interface ApprovalChecklistItem {
-  id: string;
-  label: string;
-  description: string;
-  status: 'passed' | 'warning' | 'blocked';
-}
+export type {
+  ApprovalActionKind,
+  ApprovalCenterResult,
+  ApprovalChecklistItem,
+  ApprovalRequest,
+  ApprovalRiskLevel,
+};
 
-export interface ApprovalViewModel {
-  id: string;
-  title: string;
-  riskLevel: ApprovalRiskLevel;
-  workspaceMode: string;
-  gitActive: boolean;
-  snapshotAvailable: boolean;
-  pendingActions: number;
-  checklist: ApprovalChecklistItem[];
+export interface ApprovalDecisionViewInput {
+  requestId: string;
+  action: ApprovalActionKind;
+  selectedFilePaths?: string[];
+  reason?: string;
 }

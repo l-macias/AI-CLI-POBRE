@@ -1,219 +1,89 @@
-FASE 9 — Plan real + patch real
-SESIÓN 83 — Runtime Plan Generator
+FASE 10 — UX real tipo plataforma
+SESIÓN 91 — Pending Approval Center
 
-Objetivo: convertir una instrucción del usuario en un plan estructurado real.
+Objetivo: centralizar aprobaciones en un solo lugar.
 
-Implementar:
+Implementar recomendado:
 
-src/planning/
-├── RuntimePlan.ts
-├── RuntimePlanGenerator.ts
-├── PlanPolicyValidator.ts
-├── PlanRiskAnalyzer.ts
-└── PlanStorage.ts
+src/approval/
+├── ApprovalRequest.ts
+├── ApprovalRequestStore.ts
+├── ApprovalPolicy.ts
+├── ApprovalDecisionRecorder.ts
+└── ApprovalRequestBuilder.ts
 
-Debe generar:
+UI:
 
-- objetivo
-- alcance
-- archivos candidatos
-- pasos
-- riesgos
-- comandos verify sugeridos
-- necesita snapshot sí/no
-- requiere approval sí/no
-
-Regla:
-
-LLM puede proponer, runtime valida.
-SESIÓN 84 — LLM Provider Bridge para Plan
-
-Objetivo: usar OpenRouter para generar planes, pero con salida estructurada validada.
-
-Implementar:
-
-src/providers/
-├── LlmProvider.ts
-├── OpenRouterProvider.ts
-├── ProviderRequestPolicy.ts
-├── ProviderResponseValidator.ts
-└── ProviderUsageTracker.ts
-
-Reglas:
-
-- no mandar .env
-- no mandar archivos protegidos
-- no aceptar texto libre como decisión final
-- validar JSON/schema
-- registrar modelo, tokens/costo si está disponible
-
-Resultado:
-
-Zero usa OpenRouter para proponer planes, no para decidir.
-SESIÓN 85 — Patch Proposal Generator
-
-Objetivo: generar una propuesta de patch controlada.
-
-Implementar:
-
-src/patches/
-├── PatchProposal.ts
-├── PatchProposalGenerator.ts
-├── PatchProposalValidator.ts
-├── PatchFileChange.ts
-├── PatchRiskAnalyzer.ts
-└── PatchStorage.ts
-
-Formato:
-
-{
-"summary": "...",
-"files": [
-{
-"path": "src/...",
-"operation": "modify|create|delete",
-"beforeHash": "...",
-"content": "..."
-}
-],
-"risks": [],
-"verifyCommands": []
-}
-
-Regla:
-
-No aplicar nada todavía.
-SESIÓN 86 — Diff Builder real
-
-Objetivo: convertir patch proposal en diff visual real para UI.
-
-Implementar:
-
-src/patches/
-├── UnifiedDiffBuilder.ts
-├── FileDiffBuilder.ts
-├── DiffLineClassifier.ts
-└── PatchPreviewBuilder.ts
-
-Conectar con:
-
-ui/src/components/patch/PatchDiffViewer.tsx
-
-Resultado:
-
-El usuario ve cambios reales antes de aprobar.
-SESIÓN 87 — Apply Orchestrator seguro
-
-Objetivo: aplicar patch solo con aprobación + snapshot + validaciones.
-
-Implementar:
-
-src/apply/
-├── ApplyOrchestrator.ts
-├── ApplyPolicy.ts
-├── ProtectedPathGuard.ts
-├── SnapshotRequiredGuard.ts
-├── PatchApplyService.ts
-└── ApplyResultStore.ts
-
-Flujo:
-
-1. validar approval
-2. validar paths protegidos
-3. validar snapshot
-4. aplicar cambios
-5. capturar after
-6. registrar diff
-7. sugerir verify
-
-Reglas:
-
-- no tocar .env
-- no tocar node_modules
-- no delete riesgoso sin hard approval
-- no apply si high risk y settings lo bloquea
-  FASE 10 — UX real tipo plataforma
-  SESIÓN 88 — Guided Workflow UI
-
-Objetivo: que la UI guíe al usuario paso a paso.
-
-Componentes:
-
-WorkflowStepper.tsx
-WorkflowStepCard.tsx
-WorkflowProgressHeader.tsx
-NextBestActionPanel.tsx
-
-Pasos:
-
-Project
-Session
-Prepare Workflow
-Questions
-Plan
-Patch
-Snapshot
-Approval
-Apply
-Verify
-Report
-
-Resultado:
-
-Zero deja de ser una colección de paneles y se vuelve flujo guiado.
-SESIÓN 89 — Pending Approval Center
-
-Objetivo: centralizar todas las aprobaciones.
-
-Componentes:
-
-ApprovalCenter.tsx
-ApprovalRequestCard.tsx
-VerifyApprovalCard.tsx
-PatchApprovalCard.tsx
-RiskApprovalCard.tsx
+ui/src/components/approval/
+├── ApprovalCenter.tsx
+├── ApprovalRequestCard.tsx
+├── PlanApprovalCard.tsx
+├── PatchApprovalCard.tsx
+├── VerifyApprovalCard.tsx
+├── RiskApprovalCard.tsx
+└── RollbackApprovalCard.tsx
 
 Debe manejar:
 
-- approve plan
-- approve verify
-- approve patch
-- reject
-- ask revision
-- approve only selected files
-  SESIÓN 90 — Session Memory UI
+approve plan
+approve patch
+approve verify
+approve dirty working tree
+approve rollback
+reject
+ask revision
+approve selected files
 
-Objetivo: ver y editar decisiones activas.
+Resultado esperado:
 
-Componentes:
+Las aprobaciones dejan de estar repartidas.
+Zero muestra todo lo que requiere intervención humana en un centro único.
+SESIÓN 92 — Session Memory UI
 
-DecisionMemoryPanel.tsx
-DecisionCard.tsx
-DecisionConflictPanel.tsx
-AppliedContextViewer.tsx
+Objetivo: ver y editar decisiones activas de la sesión.
+
+Backend/runtime si falta:
+
+src/interactive/SessionDecision.ts
+src/interactive/SessionDecisionStore.ts
+src/interactive/DecisionConflictDetector.ts
+src/interactive/DecisionApplier.ts
+
+UI:
+
+ui/src/components/memory/
+├── DecisionMemoryPanel.tsx
+├── DecisionCard.tsx
+├── DecisionConflictPanel.tsx
+└── AppliedContextViewer.tsx
 
 Mostrar:
 
-- no tocar backend
-- usar local_snapshot
-- no usar any
-- permitir package.json solo con aprobación
-- conflictos activos
+no tocar backend
+usar local_snapshot
+no usar any
+no tocar database
+permitir package.json solo con aprobación
+conflictos activos
+reglas aplicadas al contexto
 
-Esto va a ser muy valioso visualmente.
+Resultado esperado:
 
-SESIÓN 91 — Context Graph UI
+El usuario puede ver qué reglas/decisiones están afectando al runtime.
+SESIÓN 93 — Context Graph UI
 
-Objetivo: mostrar relaciones entre frontend/backend.
+Objetivo: visualizar relaciones reales frontend/backend.
 
-Componentes:
+UI:
 
-ContextGraph.tsx
-ContextNode.tsx
-ContextEdge.tsx
-EndpointRelationshipGraph.tsx
+ui/src/components/context-graph/
+├── ContextGraph.tsx
+├── ContextNode.tsx
+├── ContextEdge.tsx
+├── EndpointRelationshipGraph.tsx
+└── ContextGraphLegend.tsx
 
-Ejemplo:
+Ejemplo visual:
 
 ProfileEditForm.tsx
 -> profileApi.ts
@@ -222,98 +92,383 @@ ProfileEditForm.tsx
 -> authMiddleware.ts
 -> profileController.ts
 
-Esto haría que el producto se sienta muy moderno.
+Resultado esperado:
 
-FASE 11 — Producto usable diariamente
-SESIÓN 92 — Project Dashboard
+Zero se siente más moderno y útil para entender proyectos MERN/PERN.
+FASE 11 — Persistencia y continuidad
+SESIÓN 94 — Runtime Artifact Store
 
-Objetivo: pantalla inicial útil.
+Objetivo: unificar almacenamiento de artefactos por sesión.
+
+Implementar:
+
+src/artifacts/
+├── RuntimeArtifact.ts
+├── RuntimeArtifactStore.ts
+├── RuntimeArtifactIndex.ts
+├── RuntimeArtifactReader.ts
+└── RuntimeArtifactWriter.ts
+
+Artefactos:
+
+runtime_plan
+patch_proposal
+diff_preview
+apply_result
+rollback_result
+snapshot
+verify_result
+report
+
+Resultado esperado:
+
+Cada sesión puede recuperar su último plan, patch, diff, apply, rollback y report.
+SESIÓN 95 — Resume Session / Restore UI State
+
+Objetivo: poder cerrar y abrir la UI sin perder el estado.
+
+Endpoints:
+
+GET /api/sessions/:id/artifacts
+GET /api/sessions/:id/workflow-state
+POST /api/sessions/:id/resume
+
+UI:
+
+restaurar runtimePlan
+restaurar patchProposal
+restaurar patchDiff
+restaurar applyResult
+restaurar rollbackResult
+restaurar reportExport
+recalcular Guided Workflow
+
+Resultado esperado:
+
+Zero puede continuar una sesión previa donde quedó.
+SESIÓN 96 — Project Dashboard
+
+Objetivo: pantalla inicial útil para uso diario.
+
+UI:
+
+ui/src/pages/ProjectDashboardPage.tsx
+ui/src/components/dashboard/
+├── ProjectDashboard.tsx
+├── RecentProjectCard.tsx
+├── RecentSessionCard.tsx
+├── ProviderStatusWidget.tsx
+├── SnapshotStatusWidget.tsx
+├── RecentReportsWidget.tsx
+└── RecommendedActionsWidget.tsx
 
 Mostrar:
 
-- proyectos recientes
-- última sesión
-- estado provider
-- errores recientes
-- reports recientes
-- snapshots recientes
-- acciones recomendadas
-  SESIÓN 93 — Reports Browser
+proyectos recientes
+última sesión
+estado provider
+último plan
+último patch
+último apply
+último rollback
+reports recientes
+snapshots recientes
+acciones recomendadas
+SESIÓN 97 — Reports Browser
 
-Objetivo: ver reportes desde UI, no solo exportarlos.
+Objetivo: ver reportes desde UI.
 
-Componentes:
+UI:
 
-ReportsPage.tsx
-ReportCard.tsx
-ReportViewer.tsx
-ReportDiffSummary.tsx
-SESIÓN 94 — Snapshot Manager UI
+ui/src/pages/ReportsPage.tsx
+ui/src/components/reports/
+├── ReportsBrowser.tsx
+├── ReportCard.tsx
+├── ReportViewer.tsx
+├── ReportDiffSummary.tsx
+└── ReportTimelineSummary.tsx
 
-Objetivo: administrar rollback.
+Backend si falta:
 
-Componentes:
+src/reports/ReportIndex.ts
+src/reports/ReportReader.ts
 
-SnapshotManager.tsx
-SnapshotCard.tsx
-SnapshotDiffViewer.tsx
-RestoreSnapshotDialog.tsx
+Resultado esperado:
 
-Acciones:
+El usuario puede revisar reportes sin abrir archivos manualmente.
+FASE 12 — Provider real para edición
+SESIÓN 98 — Provider Patch Bridge
 
-- ver snapshot
-- ver archivos afectados
-- ver diff before/after
-- restaurar snapshot
-  SESIÓN 95 — Verify Results UI avanzada
+Objetivo: permitir que el provider proponga patches reales, no solo planes.
 
-Objetivo: mostrar build/lint/typecheck de forma clara.
+Implementar:
 
-Componentes:
+src/patches/provider/
+├── RuntimePatchProviderBridge.ts
+├── PatchProviderSchema.ts
+├── PatchProviderPromptBuilder.ts
+├── PatchProviderSanitizer.ts
+└── PatchProviderResponseParser.ts
 
-VerifyRunTimeline.tsx
-VerifyOutputViewer.tsx
-VerifyIssueParser.tsx
-VerifyCommandSelector.tsx
-FASE 12 — Calidad, seguridad y MVP
-SESIÓN 96 — Runtime Settings Enforcement
+Flujo:
 
-Objetivo: que settings gobiernen el runtime real.
+Runtime Plan validado
 
-Aplicar:
+- Context Pack seguro
+  -> provider propone patch JSON
+  -> runtime valida schema
+  -> PatchProposalValidator
+  -> Diff Preview
+  -> Approval
+  -> Apply controlado
 
-- protectedPaths
-- requireSnapshotBeforeApply
-- requireApprovalForVerify
-- blockHighRiskApply
-- provider/model
-- allowPaidModels
-- default workspace mode
-  SESIÓN 97 — Security Regression Suite Final
+Regla central:
 
-Objetivo: testear seguridad antes de MVP.
+LLM propone.
+Runtime valida.
+Runtime decide.
+Usuario aprueba.
+SESIÓN 99 — Context Pack Builder
 
-Casos:
+Objetivo: construir contexto seguro antes de llamar al provider.
 
-- prompt injection
-- path traversal
-- protected path write
-- .env leakage
-- unsafe verify command
-- unsafe patch delete
-- provider sends protected content
-- apply without snapshot
-  SESIÓN 98 — MVP Polish
+Implementar:
 
-Objetivo: que se vea como producto serio.
+src/context-pack/
+├── ContextPack.ts
+├── ContextPackBuilder.ts
+├── ContextFileReader.ts
+├── ContextBudgetManager.ts
+├── SecretRedactor.ts
+├── ContextRiskScanner.ts
+└── ContextPackReporter.ts
 
-Pulir:
+Debe incluir:
 
-- navegación
-- empty states
-- loaders
-- errores legibles
-- diseño responsive
-- onboarding
-- copywriting
-- botones principales
+archivos candidatos
+rutas relacionadas
+stack detectado
+API map
+frontend/backend links
+decisiones de sesión
+restricciones activas
+plan actual
+sin secrets
+sin .env
+límite de tokens
+
+Resultado esperado:
+
+OpenRouter/provider recibe contexto útil, acotado y seguro.
+SESIÓN 100 — Provider Patch E2E
+
+Objetivo: probar flujo completo con provider fake y OpenRouter opcional.
+
+Test:
+
+plan
+context pack
+provider patch proposal
+validation
+diff
+dry-run
+apply
+rollback
+report
+
+Reglas:
+
+si no hay OPENROUTER_API_KEY -> skipped
+si hay key -> smoke test real
+runtime nunca aplica sin aprobación
+FASE 13 — Verificación y reporte profesional
+SESIÓN 101 — Post Apply Verify Workflow
+
+Objetivo: después de apply, sugerir/verificar comandos seguros.
+
+Implementar:
+
+src/verify/
+├── PostApplyVerifyPlanner.ts
+├── PostApplyVerifyWorkflow.ts
+├── VerifyResultStore.ts
+└── VerifyResultSummarizer.ts
+
+Flujo:
+
+apply ok
+-> sugerir npm run typecheck
+-> sugerir npm run build si existe
+-> ejecutar solo con aprobación
+-> guardar resultado
+SESIÓN 102 — Full Workflow Report Upgrade
+
+Objetivo: reportes completos de flujo.
+
+Implementar:
+
+src/reports/
+├── WorkflowReportBuilder.ts
+├── PatchWorkflowReportSection.ts
+├── SecurityWorkflowReportSection.ts
+├── ProviderWorkflowReportSection.ts
+├── VerifyWorkflowReportSection.ts
+└── RollbackWorkflowReportSection.ts
+
+Debe incluir:
+
+plan
+provider usado
+patch proposal
+diff summary
+snapshot
+dry-run result
+apply result
+rollback result
+verify result
+archivos tocados
+backups
+riesgos
+decisiones
+acciones bloqueadas
+timeline
+SESIÓN 103 — Visual Workflow Timeline Upgrade
+
+Objetivo: timeline más profesional.
+
+UI:
+
+ui/src/components/workflow-timeline/
+├── WorkflowTimeline.tsx
+├── WorkflowTimelineStep.tsx
+├── WorkflowTimelineEventCard.tsx
+├── WorkflowBlockedEvent.tsx
+├── WorkflowApplyEvent.tsx
+└── WorkflowRollbackEvent.tsx
+
+Mostrar:
+
+Project loaded
+Workflow prepared
+Plan generated
+Patch proposed
+Diff preview generated
+Snapshot created
+Dry-run completed
+Patch applied
+Rollback available/completed
+Verify completed
+Report exported
+FASE 14 — Hardening y MVP público/técnico
+SESIÓN 104 — Security Hardening Pass
+
+Objetivo: auditar seguridad antes de seguir creciendo.
+
+Checklist:
+
+protected paths
+.env leakage
+path traversal
+dangerous deletes
+dirty working tree
+snapshot requirement
+high risk apply block
+provider prompt injection
+context poisoning
+secret redaction
+backup integrity
+rollback integrity
+SESIÓN 105 — Code Quality Hardening
+
+Objetivo: limpieza técnica.
+
+Checklist:
+
+no any
+strict TypeScript
+imports muertos
+helpers duplicados
+errores legibles
+tipos compartidos
+nombres consistentes
+scripts ordenados
+tests agrupados
+SESIÓN 106 — MVP Daily Use Test
+
+Objetivo: probar Zero en un proyecto real MERN/PERN.
+
+Flujo:
+
+abrir proyecto real
+prepare workflow
+plan
+provider plan
+patch proposal
+provider patch si ya existe
+diff
+snapshot
+dry-run
+apply
+verify
+rollback si hace falta
+report
+resume session
+
+Resultado esperado:
+
+Validar si Zero ya sirve para uso diario técnico.
+FASE 15 — Producto avanzado
+SESIÓN 107 — GitHub Integration Base
+detectar repo
+branch actual
+working tree status
+crear branch segura
+preparar commit
+preparar PR futuro
+SESIÓN 108 — Pull Request Proposal Flow
+patch aplicado
+verify ok
+crear branch
+commit
+generar PR draft
+reportar cambios
+SESIÓN 109 — Settings Pro
+provider
+modelo
+workspace mode
+protected paths
+approval behavior
+GitHub
+verify commands
+high-risk policy
+SESIÓN 110 — Project Creation Mode
+crear proyecto desde cero
+sugerir arquitectura
+generar estructura inicial
+planificar módulos
+scaffold controlado
+apply por aprobación
+SESIÓN 111 — RAG/Knowledge Integration Design
+
+Probablemente convenga como proyecto separado, pero Zero puede integrarlo después.
+
+embeddings
+vector store
+project knowledge base
+business docs
+chatbots
+external docs
+Recomendación de orden inmediato
+
+Yo seguiría así:
+
+91 — Pending Approval Center
+92 — Session Memory UI
+93 — Context Graph UI
+94 — Runtime Artifact Store
+95 — Resume Session
+96 — Project Dashboard
+97 — Reports Browser
+98 — Provider Patch Bridge
+99 — Context Pack Builder
+100 — Provider Patch E2E

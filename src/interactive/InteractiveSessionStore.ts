@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path, { dirname, resolve } from 'node:path';
 import type { InteractiveSessionState } from './InteractiveSessionTypes.js';
 import { InteractiveSessionStateValidator } from './InteractiveSessionState.js';
@@ -39,7 +39,35 @@ export class InteractiveSessionStore {
 
     return parsed;
   }
+  public async list(): Promise<InteractiveSessionState[]> {
+    try {
+      const entries = await readdir(this.rootDir, {
+        withFileTypes: true,
+      });
 
+      const sessions: InteractiveSessionState[] = [];
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) {
+          continue;
+        }
+
+        try {
+          sessions.push(await this.load(entry.name));
+        } catch {
+          continue;
+        }
+      }
+
+      return sessions.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        return [];
+      }
+
+      throw error;
+    }
+  }
   public getSessionStatePath(sessionId: string): string {
     return path.join(this.rootDir, sessionId, 'session-state.json');
   }

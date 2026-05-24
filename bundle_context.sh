@@ -2,13 +2,20 @@
 
 # Lista de archivos a incluir
 files=(
-  "ui/src/api/runtimeApi.ts"
-  "ui/src/types/runtime.ts"
-  "ui/src/pages/SessionPage.tsx"
+  "src/patches/PatchProposalGenerator.ts"
+  "src/patches/PatchProposalValidator.ts"
+  "src/patches/PatchRiskAnalyzer.ts"
+  "src/patches/PatchProposal.ts"
+  "src/patches/PatchStorage.ts"
+  "src/patches/RuntimePatchApplyBridge.ts"
+  "src/diff/PatchDiffBuilder.ts"
+  "src/diff/PatchDiffTypes.ts"
+  "src/api/RuntimeApiController.ts"
+  "src/api/RuntimeApiRouter.ts"
   "ui/src/components/session/PatchPanel.tsx"
   "ui/src/components/patch/PatchDiffViewer.tsx"
-  "ui/src/components/patch/PatchFileCard.tsx"
-  "ui/src/components/patch/PatchSummary.tsx"
+  "ui/src/components/patch/PatchActions.tsx"
+  "ui/src/types/runtime.ts"
 )
 echo "A continuación te presento el código fuente de los archivos solicitados para contexto:"
 echo "================================================================================"

@@ -57,7 +57,10 @@ export class ProviderManager {
         code: 'PROVIDER_INVALID_STRUCTURED_OUTPUT',
         cause: {
           error: this.serializeParserError(parsed.error),
-          rawContent: response.content,
+          rawContentPreview: this.previewProviderContent(response.content),
+          rawContentLength: response.content.length,
+          model: response.model,
+          providerResponseId: response.id,
         },
       });
     }
@@ -71,7 +74,12 @@ export class ProviderManager {
   public async completeWithFallback(request: ProviderRequest): Promise<ProviderResponse> {
     return this.fallback.completeWithFallback([...this.providers.values()], request);
   }
-
+  private previewProviderContent(content: string): string {
+    return content
+      .replace(/sk-or-v1-[A-Za-z0-9._~:/+=-]+/g, 'sk-or-v1-[redacted]')
+      .replace(/Bearer\s+[A-Za-z0-9._~:/+=-]+/gi, 'Bearer [redacted]')
+      .slice(0, 1200);
+  }
   private serializeParserError(error: unknown): Record<string, unknown> {
     if (error instanceof z.ZodError) {
       return {

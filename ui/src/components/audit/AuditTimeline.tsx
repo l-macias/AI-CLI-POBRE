@@ -52,7 +52,9 @@ export function AuditTimeline({ session, runtimeEvents }: AuditTimelineProps) {
 
       <div className="audit-timeline-list">
         {audit.events.length > 0 ? (
-          audit.events.map((event) => renderAuditEvent(event))
+          audit.events.map((event, index) =>
+            renderAuditEvent(event, `${event.id}-${String(index)}`),
+          )
         ) : (
           <p className="muted">No audit events yet. Start a session and send commands.</p>
         )}
@@ -61,20 +63,20 @@ export function AuditTimeline({ session, runtimeEvents }: AuditTimelineProps) {
   );
 }
 
-function renderAuditEvent(event: AuditTimelineEvent) {
+function renderAuditEvent(event: AuditTimelineEvent, key: string) {
   if (event.kind === 'blocked_action') {
-    return <BlockedActionCard event={event} key={event.id} />;
+    return <BlockedActionCard event={event} key={key} />;
   }
 
   if (event.kind === 'patch_applied') {
-    return <AppliedPatchCard event={event} key={event.id} />;
+    return <AppliedPatchCard event={event} key={key} />;
   }
 
   if (event.kind === 'runtime_decision') {
-    return <RuntimeDecisionCard event={event} key={event.id} />;
+    return <RuntimeDecisionCard event={event} key={key} />;
   }
 
-  return <AuditEventCard event={event} key={event.id} />;
+  return <AuditEventCard event={event} key={key} />;
 }
 
 function buildAuditTimeline(input: AuditTimelineInput): AuditTimelineViewModel {

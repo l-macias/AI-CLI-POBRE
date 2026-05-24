@@ -1,16 +1,19 @@
 import type { z } from 'zod';
 import { safeJsonParse } from '../utils/safeJson.js';
 import type { JsonValue, Result } from '../types/SharedTypes.js';
+import { JsonObjectExtractor } from './JsonObjectExtractor.js';
 import { JsonRepair } from './JsonRepair.js';
 import { ResponseSanitizer } from './ResponseSanitizer.js';
 
 export class StructuredOutputParser {
   private readonly sanitizer = new ResponseSanitizer();
   private readonly jsonRepair = new JsonRepair();
+  private readonly jsonObjectExtractor = new JsonObjectExtractor();
 
   public parseJson(content: string): Result<JsonValue> {
     const sanitized = this.sanitizer.sanitizeJsonLikeContent(content);
-    const repaired = this.jsonRepair.repair(sanitized);
+    const extracted = this.jsonObjectExtractor.extract(sanitized);
+    const repaired = this.jsonRepair.repair(extracted.content);
 
     return safeJsonParse(repaired);
   }

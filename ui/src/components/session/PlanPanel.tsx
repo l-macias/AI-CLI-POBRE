@@ -19,7 +19,7 @@ export function PlanPanel({
   onCommand,
 }: PlanPanelProps) {
   return (
-    <section className="panel session-plan-panel">
+    <section id="runtime-plan-panel" className="panel session-plan-panel">
       <PlanViewer
         session={session}
         runtimePlan={runtimePlan}

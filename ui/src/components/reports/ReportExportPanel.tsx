@@ -11,7 +11,7 @@ interface ReportExportPanelProps {
 
 export function ReportExportPanel({ result, loading, disabled, onExport }: ReportExportPanelProps) {
   return (
-    <section className="panel integration-panel">
+    <section id="report-export-panel" className="panel integration-panel">
       <div className="panel-header">
         <div className="panel-title-row">
           <FileDown size={18} />

@@ -7,7 +7,6 @@ import type {
   PackageScriptScanResult,
   ProjectRegistry,
   ProjectStackIntelligence,
-  QuestionAnswerState,
   ReportExportResult,
   RuntimeEvent,
   RuntimeHealth,
@@ -23,6 +22,25 @@ import type {
   ProviderStatusReport,
   RuntimePlanGenerateResult,
   RuntimePatchProposalGenerateResult,
+  RuntimePatchDiffGenerateResult,
+  RuntimePatchApplyResponse,
+  RuntimePatchRollbackResponse,
+  RuntimeWorkflowArtifactState,
+  RuntimeWorkflowStateResponse,
+  ApprovalCenterArtifactState,
+  ApprovalCenterResponse,
+  ApprovalDecisionInput,
+  ApprovalDecisionResponse,
+  ProjectMemoryEntryCreateRequest,
+  ProjectMemoryEntryCreateResponse,
+  ProjectProfile,
+  SessionDecisionCreateRequest,
+  SessionDecisionCreateResponse,
+  SessionMemoryResponse,
+  ContextGraphResponse,
+  RuntimeArtifactIndexResponse,
+  RuntimeArtifactReadResponse,
+  InteractiveSessionListResponse,
 } from '../types/runtime';
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -42,6 +60,12 @@ export async function listProjects(): Promise<ProjectRegistry> {
   const parsed = await readJson<{ registry: ProjectRegistry }>(response);
 
   return parsed.registry;
+}
+export async function getCurrentProject(): Promise<ProjectProfile | null> {
+  const response = await fetch('/api/projects/current');
+  const parsed = await readJson<{ project: ProjectProfile | null }>(response);
+
+  return parsed.project;
 }
 
 export async function scanProject(input: {
@@ -79,7 +103,11 @@ export async function startSession(input: {
 
   return parsed.session;
 }
+export async function listSessions(): Promise<InteractiveSessionListResponse> {
+  const response = await fetch('/api/sessions');
 
+  return readJson<InteractiveSessionListResponse>(response);
+}
 export async function sendSessionCommand(input: {
   sessionId: string;
   command: string;
@@ -464,6 +492,8 @@ export async function generatePatchProposal(input: {
   planId: string;
   summary: string;
   riskLevel?: 'low' | 'medium' | 'high';
+  useProvider?: boolean;
+  model?: string;
   candidateFiles: {
     path: string;
     existsKnown: boolean;
@@ -486,10 +516,206 @@ export async function generatePatchProposal(input: {
       planId: input.planId,
       summary: input.summary,
       ...(input.riskLevel ? { riskLevel: input.riskLevel } : {}),
+      ...(input.useProvider !== undefined ? { useProvider: input.useProvider } : {}),
+      ...(input.model ? { model: input.model } : {}),
       candidateFiles: input.candidateFiles,
       ...(input.verifyCommands ? { verifyCommands: input.verifyCommands } : {}),
     }),
   });
 
   return readJson<RuntimePatchProposalGenerateResult>(response);
+}
+export async function generatePatchDiff(input: {
+  proposal: RuntimePatchProposalGenerateResult['proposal'];
+}): Promise<RuntimePatchDiffGenerateResult> {
+  const response = await fetch('/api/patches/diff', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      proposal: input.proposal,
+    }),
+  });
+
+  return readJson<RuntimePatchDiffGenerateResult>(response);
+}
+export async function applyRuntimePatch(input: {
+  proposal: RuntimePatchProposalGenerateResult['proposal'];
+  diff: RuntimePatchDiffGenerateResult['diff'];
+  applyConfirmed: boolean;
+  dryRun?: boolean;
+  snapshotId?: string;
+  allowDirtyWorkingTree?: boolean;
+  allowMissingRepository?: boolean;
+  backupEnabled?: boolean;
+}): Promise<RuntimePatchApplyResponse> {
+  const response = await fetch('/api/patches/apply', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      proposal: input.proposal,
+      diff: input.diff,
+      applyConfirmed: input.applyConfirmed,
+      ...(input.dryRun !== undefined ? { dryRun: input.dryRun } : {}),
+      ...(input.snapshotId ? { snapshotId: input.snapshotId } : {}),
+      ...(input.allowDirtyWorkingTree !== undefined
+        ? { allowDirtyWorkingTree: input.allowDirtyWorkingTree }
+        : {}),
+      ...(input.allowMissingRepository !== undefined
+        ? { allowMissingRepository: input.allowMissingRepository }
+        : {}),
+      ...(input.backupEnabled !== undefined ? { backupEnabled: input.backupEnabled } : {}),
+    }),
+  });
+
+  return readJson<RuntimePatchApplyResponse>(response);
+}
+export async function rollbackRuntimePatch(input: {
+  applyResult: RuntimePatchApplyResponse['apply'];
+  rollbackConfirmed: boolean;
+  dryRun?: boolean;
+}): Promise<RuntimePatchRollbackResponse> {
+  const response = await fetch('/api/patches/rollback', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      applyResult: input.applyResult,
+      rollbackConfirmed: input.rollbackConfirmed,
+      ...(input.dryRun !== undefined ? { dryRun: input.dryRun } : {}),
+    }),
+  });
+
+  return readJson<RuntimePatchRollbackResponse>(response);
+}
+export async function buildRuntimeWorkflowState(input: {
+  artifactState: RuntimeWorkflowArtifactState;
+}): Promise<RuntimeWorkflowStateResponse> {
+  const response = await fetch('/api/workflow/state', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      artifactState: input.artifactState,
+    }),
+  });
+
+  return readJson<RuntimeWorkflowStateResponse>(response);
+}
+export async function buildApprovalCenter(input: {
+  artifactState: ApprovalCenterArtifactState;
+}): Promise<ApprovalCenterResponse> {
+  const response = await fetch('/api/approvals/center', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      artifactState: input.artifactState,
+    }),
+  });
+
+  return readJson<ApprovalCenterResponse>(response);
+}
+
+export async function resolveApproval(input: {
+  artifactState: ApprovalCenterArtifactState;
+  decision: ApprovalDecisionInput;
+}): Promise<ApprovalDecisionResponse> {
+  const response = await fetch('/api/approvals/resolve', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      artifactState: input.artifactState,
+      decision: input.decision,
+    }),
+  });
+
+  return readJson<ApprovalDecisionResponse>(response);
+}
+export async function getSessionMemory(input: {
+  sessionId: string;
+  projectRoot: string;
+  projectName?: string;
+}): Promise<SessionMemoryResponse> {
+  const response = await fetch('/api/memory/session', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  });
+
+  return readJson<SessionMemoryResponse>(response);
+}
+
+export async function addSessionMemoryDecision(
+  input: SessionDecisionCreateRequest,
+): Promise<SessionDecisionCreateResponse> {
+  const response = await fetch('/api/memory/session/decisions', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  });
+
+  return readJson<SessionDecisionCreateResponse>(response);
+}
+
+export async function addProjectMemoryEntry(
+  input: ProjectMemoryEntryCreateRequest,
+): Promise<ProjectMemoryEntryCreateResponse> {
+  const response = await fetch('/api/memory/project/entries', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  });
+
+  return readJson<ProjectMemoryEntryCreateResponse>(response);
+}
+export async function generateContextGraph(input: {
+  projectRoot: string;
+  query?: string;
+  targetFilePath?: string;
+  maxChunks?: number;
+  maxRelatedFiles?: number;
+  maxFilesToScan?: number;
+}): Promise<ContextGraphResponse> {
+  const response = await fetch('/api/intelligence/context-graph', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      projectRoot: input.projectRoot,
+      ...(input.query ? { query: input.query } : {}),
+      ...(input.targetFilePath ? { targetFilePath: input.targetFilePath } : {}),
+      ...(input.maxChunks ? { maxChunks: input.maxChunks } : {}),
+      ...(input.maxRelatedFiles ? { maxRelatedFiles: input.maxRelatedFiles } : {}),
+      ...(input.maxFilesToScan ? { maxFilesToScan: input.maxFilesToScan } : {}),
+    }),
+  });
+
+  return readJson<ContextGraphResponse>(response);
+}
+export async function listRuntimeArtifacts(): Promise<RuntimeArtifactIndexResponse> {
+  const response = await fetch('/api/artifacts');
+
+  return readJson<RuntimeArtifactIndexResponse>(response);
+}
+
+export async function readRuntimeArtifact(path: string): Promise<RuntimeArtifactReadResponse> {
+  const response = await fetch(`/api/artifacts/read?path=${encodeURIComponent(path)}`);
+
+  return readJson<RuntimeArtifactReadResponse>(response);
 }

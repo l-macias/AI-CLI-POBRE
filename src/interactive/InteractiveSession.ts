@@ -77,7 +77,9 @@ export class InteractiveSession {
   public async load(sessionId: string): Promise<InteractiveSessionState> {
     return this.store.load(sessionId);
   }
-
+  public async list(): Promise<InteractiveSessionState[]> {
+    return this.store.list();
+  }
   public async setStatus(
     state: InteractiveSessionState,
     status: InteractiveSessionStatus,

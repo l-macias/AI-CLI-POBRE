@@ -9,10 +9,14 @@ import { Badge } from '../components/Badge';
 import type {
   LocalDirectoryEntry,
   LocalDirectoryListResult,
+  ProjectProfile,
   ProjectRegistry,
 } from '../types/runtime';
-
-export function ProjectsPage() {
+interface ProjectsPageProps {
+  selectedProject: ProjectProfile | null;
+  onProjectSelected: (project: ProjectProfile) => void;
+}
+export function ProjectsPage({ selectedProject, onProjectSelected }: ProjectsPageProps) {
   const [registry, setRegistry] = useState<ProjectRegistry | null>(null);
   const [roots, setRoots] = useState<LocalDirectoryEntry[]>([]);
   const [directory, setDirectory] = useState<LocalDirectoryListResult | null>(null);
@@ -23,7 +27,21 @@ export function ProjectsPage() {
   >('local_snapshot');
 
   async function refreshProjects() {
-    setRegistry(await listProjects());
+    const updated = await listProjects();
+
+    setRegistry(updated);
+
+    const current =
+      updated.projects.find((project) => project.id === updated.currentProjectId) ??
+      updated.projects.at(0) ??
+      null;
+
+    if (current) {
+      onProjectSelected(current);
+      setRootPath(current.rootPath);
+      setName(current.name);
+      setWorkingMode(current.workingMode as typeof workingMode);
+    }
   }
 
   async function refreshRoots() {
@@ -49,11 +67,30 @@ export function ProjectsPage() {
     });
 
     setRegistry(updated);
+
+    const selected =
+      updated.projects.find((project) => project.id === updated.currentProjectId) ??
+      updated.projects.find((project) => project.rootPath === rootPath) ??
+      null;
+
+    if (selected) {
+      onProjectSelected(selected);
+      setRootPath(selected.rootPath);
+      setName(selected.name);
+      setWorkingMode(selected.workingMode as typeof workingMode);
+    }
   }
 
   function selectProjectPath(path: string) {
     setRootPath(path);
     setName(defaultNameFromPath(path));
+  }
+
+  function selectRegisteredProject(project: ProjectProfile) {
+    onProjectSelected(project);
+    setRootPath(project.rootPath);
+    setName(project.name);
+    setWorkingMode(project.workingMode as typeof workingMode);
   }
 
   useEffect(() => {
@@ -124,7 +161,17 @@ export function ProjectsPage() {
 
       <article className="panel">
         <h2>Add selected project</h2>
+        {selectedProject ? (
+          <div className="selected-project-banner">
+            <div>
+              <strong>Current project</strong>
+              <p>{selectedProject.name}</p>
+              <small>{selectedProject.rootPath}</small>
+            </div>
 
+            <Badge tone="green">selected</Badge>
+          </div>
+        ) : null}
         <label>
           Project root
           <input value={rootPath} onChange={(event) => setRootPath(event.target.value)} />
@@ -179,6 +226,11 @@ export function ProjectsPage() {
                 <div className="project-meta">
                   <span>Mode: {project.workingMode}</span>
                   <span>Git required: {project.gitRequired ? 'yes' : 'no'}</span>
+                </div>
+                <div className="project-card-actions">
+                  {selectedProject?.id === project.id ? <Badge tone="green">Current</Badge> : null}
+
+                  <button onClick={() => selectRegisteredProject(project)}>Use project</button>
                 </div>
               </div>
             ))

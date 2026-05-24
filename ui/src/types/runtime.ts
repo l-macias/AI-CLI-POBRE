@@ -501,6 +501,13 @@ export interface RuntimePlanProviderAudit {
   generatedAt: string;
 }
 
+export interface RuntimePlanProviderFailure {
+  name: string;
+  message: string;
+  code?: string;
+  cause?: Record<string, unknown>;
+}
+
 export interface RuntimePlanGenerateResult {
   source: RuntimePlanSource;
   plan: RuntimePlan;
@@ -510,6 +517,7 @@ export interface RuntimePlanGenerateResult {
     activePlanPath: string;
   };
   providerAudit?: RuntimePlanProviderAudit;
+  providerFailure?: RuntimePlanProviderFailure;
   fallbackReason?: string;
 }
 export type RuntimePatchOperation = 'modify' | 'create' | 'delete';
@@ -574,4 +582,582 @@ export interface RuntimePatchProposalGenerateResult {
     proposalPath: string;
     activeProposalPath: string;
   };
+}
+export type RuntimePatchDiffFileStatus = 'added' | 'modified' | 'deleted' | 'unchanged';
+
+export interface RuntimePatchDiffLine {
+  lineNumber: number;
+  type: 'context' | 'added' | 'removed';
+  content: string;
+}
+
+export interface RuntimePatchDiffFile {
+  path: string;
+  status: RuntimePatchDiffFileStatus;
+  beforeHash: string | null;
+  afterHash: string | null;
+  additions: number;
+  deletions: number;
+  beforeContent: string | null;
+  afterContent: string | null;
+  lines: RuntimePatchDiffLine[];
+}
+
+export interface RuntimePatchDiffPreview {
+  id: string;
+  proposalId: string;
+  planId: string;
+  sessionId: string;
+  projectRoot: string;
+  files: RuntimePatchDiffFile[];
+  summary: {
+    filesChanged: number;
+    additions: number;
+    deletions: number;
+  };
+  safeToPreview: boolean;
+  createdAt: string;
+}
+
+export interface RuntimePatchDiffGenerateResult {
+  diff: RuntimePatchDiffPreview;
+  files: {
+    diffPath: string;
+    activeDiffPath: string;
+  };
+}
+export type RuntimePatchApplyStatus = 'applied' | 'blocked' | 'failed' | 'dry_run';
+
+export interface RuntimePatchApplyIssue {
+  code: string;
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+}
+
+export interface RuntimePatchApplyOperationResult {
+  targetFile: string;
+  kind: 'replace_file' | 'edit_file' | 'create_file' | 'delete_file';
+  status: 'applied' | 'skipped' | 'failed';
+  backup?: {
+    targetFile: string;
+    backupPath: string;
+    existed: boolean;
+    createdAt: string;
+  };
+  message: string;
+}
+
+export interface RuntimePatchApplyResult {
+  id: string;
+  status: RuntimePatchApplyStatus;
+  projectRoot: string;
+  proposalId: string;
+  operationResults: RuntimePatchApplyOperationResult[];
+  issues: RuntimePatchApplyIssue[];
+  createdAt: string;
+  completedAt: string;
+  [key: string]: unknown;
+}
+
+export interface RuntimePatchApplyResponse {
+  apply: RuntimePatchApplyResult;
+}
+export type RuntimePatchRollbackStatus = 'rolled_back' | 'blocked' | 'dry_run' | 'failed';
+
+export interface RuntimePatchRollbackIssue {
+  code: string;
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+}
+
+export interface RuntimePatchRollbackOperationResult {
+  targetFile: string;
+  status: 'restored' | 'deleted_created_file' | 'skipped' | 'failed';
+  message: string;
+  backupPath?: string;
+}
+
+export interface RuntimePatchRollbackResult {
+  id: string;
+  status: RuntimePatchRollbackStatus;
+  projectRoot: string;
+  applyId: string;
+  proposalId: string;
+  operationResults: RuntimePatchRollbackOperationResult[];
+  issues: RuntimePatchRollbackIssue[];
+  createdAt: string;
+  completedAt: string;
+}
+
+export interface RuntimePatchRollbackResponse {
+  rollback: RuntimePatchRollbackResult;
+}
+export type RuntimeWorkflowStepId =
+  | 'session'
+  | 'prepare_workflow'
+  | 'runtime_plan'
+  | 'patch_proposal'
+  | 'diff_preview'
+  | 'snapshot'
+  | 'dry_run'
+  | 'apply'
+  | 'rollback'
+  | 'verify'
+  | 'report';
+
+export type RuntimeWorkflowStepStatus = 'locked' | 'available' | 'active' | 'completed' | 'blocked';
+
+export interface RuntimeWorkflowArtifactState {
+  sessionStarted: boolean;
+  workflowPrepared: boolean;
+  planValid: boolean;
+  planRejected: boolean;
+  patchProposalValid: boolean;
+  patchProposalRejected: boolean;
+  diffReady: boolean;
+  diffBlocked: boolean;
+  snapshotAvailable: boolean;
+  dryRunCompleted: boolean;
+  applyApplied: boolean;
+  applyBlocked: boolean;
+  applyFailed: boolean;
+  rollbackDryRunCompleted: boolean;
+  rollbackCompleted: boolean;
+  rollbackBlocked: boolean;
+  rollbackFailed: boolean;
+  verifyCompleted: boolean;
+  reportExported: boolean;
+  riskLevel: 'low' | 'medium' | 'high' | null;
+}
+
+export interface RuntimeWorkflowStep {
+  id: RuntimeWorkflowStepId;
+  title: string;
+  description: string;
+  status: RuntimeWorkflowStepStatus;
+  required: boolean;
+  blockedReason?: string;
+}
+
+export interface RuntimeWorkflowState {
+  steps: RuntimeWorkflowStep[];
+  currentStepId: RuntimeWorkflowStepId;
+  completed: number;
+  total: number;
+  percentage: number;
+  snapshotRequired: boolean;
+  canContinue: boolean;
+  blockedReasons: string[];
+}
+
+export type RuntimeWorkflowActionId =
+  | 'start_session'
+  | 'prepare_workflow'
+  | 'generate_runtime_plan'
+  | 'generate_patch_proposal'
+  | 'generate_diff_preview'
+  | 'create_snapshot'
+  | 'dry_run_apply'
+  | 'apply_patch'
+  | 'rollback_patch'
+  | 'run_verify'
+  | 'export_report'
+  | 'none';
+
+export interface RuntimeActionAvailability {
+  actionId: RuntimeWorkflowActionId;
+  title: string;
+  description: string;
+  enabled: boolean;
+  blockedReason?: string;
+  relatedStepId?: RuntimeWorkflowStepId;
+}
+
+export interface RuntimeWorkflowStateResponse {
+  workflow: RuntimeWorkflowState;
+  nextAction: RuntimeActionAvailability;
+}
+export type ApprovalRiskLevel = 'low' | 'medium' | 'high';
+
+export type ApprovalRequestKind =
+  | 'plan'
+  | 'patch'
+  | 'verify'
+  | 'risk'
+  | 'dirty_working_tree'
+  | 'rollback';
+
+export type ApprovalRequestStatus = 'pending' | 'approved' | 'rejected' | 'revision_requested';
+
+export type ApprovalActionKind = 'approve' | 'reject' | 'ask_revision' | 'approve_selected_files';
+
+export interface ApprovalChecklistItem {
+  id: string;
+  label: string;
+  description: string;
+  status: 'passed' | 'warning' | 'blocked';
+}
+
+export interface ApprovalAction {
+  kind: ApprovalActionKind;
+  label: string;
+  enabled: boolean;
+  blockedReason?: string;
+}
+
+export interface ApprovalRequest {
+  id: string;
+  sessionId: string;
+  kind: ApprovalRequestKind;
+  title: string;
+  description: string;
+  riskLevel: ApprovalRiskLevel;
+  status: ApprovalRequestStatus;
+  target: {
+    type: ApprovalRequestKind;
+    id: string;
+  };
+  checklist: ApprovalChecklistItem[];
+  actions: ApprovalAction[];
+  filePaths: string[];
+  createdAt: string;
+}
+
+export interface ApprovalCenterArtifactState {
+  sessionId: string;
+  projectRoot: string;
+  plan?: RuntimePlan | null;
+  proposal?: RuntimePatchProposal | null;
+  diff?: RuntimePatchDiffPreview | null;
+  applyResult?: RuntimePatchApplyResult | null;
+  lastVerifyRun?: VerifyRunResult | null;
+  snapshotAvailable: boolean;
+  dirtyWorkingTree: boolean;
+}
+
+export interface ApprovalCenterResult {
+  sessionId: string;
+  projectRoot: string;
+  pendingCount: number;
+  highestRisk: ApprovalRiskLevel;
+  requests: ApprovalRequest[];
+  generatedAt: string;
+}
+
+export interface ApprovalDecisionInput {
+  requestId: string;
+  action: ApprovalActionKind;
+  selectedFilePaths?: string[];
+  reason?: string;
+}
+
+export interface ApprovalDecisionResult {
+  requestId: string;
+  action: ApprovalActionKind;
+  accepted: boolean;
+  blockedReason?: string;
+  selectedFilePaths: string[];
+  reason?: string;
+  decidedAt: string;
+}
+
+export interface ApprovalCenterResponse {
+  approvalCenter: ApprovalCenterResult;
+}
+
+export interface ApprovalDecisionResponse {
+  decision: ApprovalDecisionResult;
+  approvalCenter: ApprovalCenterResult;
+}
+export type SessionDecisionCategory =
+  | 'scope'
+  | 'coding_style'
+  | 'workspace'
+  | 'permission'
+  | 'architecture'
+  | 'security'
+  | 'workflow';
+
+export type SessionDecisionStrength = 'preference' | 'constraint' | 'hard_rule';
+
+export interface SessionDecision {
+  id: string;
+  sessionId: string;
+  category: SessionDecisionCategory;
+  strength: SessionDecisionStrength;
+  statement: string;
+  normalizedStatement: string;
+  source: 'user' | 'runtime' | 'system';
+  createdAt: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SessionDecisionState {
+  version: 1;
+  sessionId: string;
+  decisions: SessionDecision[];
+  updatedAt: string;
+}
+
+export interface AppliedDecisionContext {
+  sessionId: string;
+  blockedScopes: string[];
+  allowedScopes: string[];
+  codingRules: string[];
+  workspaceMode?: string;
+  requiresApproval: boolean;
+  securityStrict: boolean;
+  notes: string[];
+}
+
+export interface DecisionConflict {
+  id: string;
+  decisionA: SessionDecision;
+  decisionB: SessionDecision;
+  reason: string;
+  severity: 'warning' | 'error';
+}
+
+export type ProjectMemoryEntryKind =
+  | 'fact'
+  | 'decision'
+  | 'constraint'
+  | 'session_note'
+  | 'known_file';
+
+export type ProjectMemoryImportance = 'critical' | 'high' | 'medium' | 'low';
+
+export type ProjectMemoryTrustLevel =
+  | 'user-approved'
+  | 'runtime-generated'
+  | 'provider-suggested'
+  | 'quarantined';
+
+export interface ProjectMemoryEntry {
+  id: string;
+  kind: ProjectMemoryEntryKind;
+  title: string;
+  content: string;
+  importance: ProjectMemoryImportance;
+  trustLevel: ProjectMemoryTrustLevel;
+  tags: string[];
+  source?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectKnownFileMemory {
+  path: string;
+  summary: string;
+  importance: ProjectMemoryImportance;
+  trustLevel: ProjectMemoryTrustLevel;
+  tags: string[];
+  lastSeenAt: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ProjectMemoryDocument {
+  version: 1;
+  projectName: string;
+  projectRoot: string;
+  entries: ProjectMemoryEntry[];
+  knownFiles: ProjectKnownFileMemory[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SessionMemoryView {
+  sessionId: string;
+  projectRoot: string;
+  sessionDecisions: SessionDecisionState;
+  appliedContext: AppliedDecisionContext;
+  conflicts: DecisionConflict[];
+  projectMemory: ProjectMemoryDocument;
+}
+
+export interface SessionMemoryResponse {
+  memory: SessionMemoryView;
+}
+
+export interface SessionDecisionCreateRequest {
+  sessionId: string;
+  category: SessionDecisionCategory;
+  strength: SessionDecisionStrength;
+  statement: string;
+}
+
+export interface SessionDecisionCreateResponse {
+  sessionDecisions: SessionDecisionState;
+  conflicts: DecisionConflict[];
+  appliedContext: AppliedDecisionContext;
+}
+
+export interface ProjectMemoryEntryCreateRequest {
+  projectRoot: string;
+  projectName?: string;
+  kind: ProjectMemoryEntryKind;
+  title: string;
+  content: string;
+  importance?: ProjectMemoryImportance;
+  trustLevel?: ProjectMemoryTrustLevel;
+  tags?: string[];
+  source?: string;
+}
+
+export interface ProjectMemoryEntryCreateResponse {
+  projectMemory: ProjectMemoryDocument;
+}
+export type ContextGraphRelatedFileReason =
+  | 'direct_import'
+  | 'importer'
+  | 'retrieval_match'
+  | 'shared_symbol'
+  | 'shared_type_reference'
+  | 'same_directory'
+  | 'nearby_index_file';
+
+export interface ContextGraphImport {
+  sourceFilePath: string;
+  importedPath: string;
+  resolvedPath?: string;
+  isTypeOnly: boolean;
+  specifiers: string[];
+  importKind: 'static_import' | 'side_effect_import' | 're_export' | 'dynamic_import';
+}
+
+export interface ContextGraphRelatedFile {
+  filePath: string;
+  score: number;
+  reasons: ContextGraphRelatedFileReason[];
+}
+
+export interface ContextGraphRelationship {
+  filePath: string;
+  imports: ContextGraphImport[];
+  importedBy: string[];
+  relatedFiles: ContextGraphRelatedFile[];
+}
+
+export interface ContextGraphSymbol {
+  name: string;
+  kind: string;
+  filePath: string;
+  line: number;
+  sourceText: string;
+}
+
+export interface ContextGraphSymbolScanResult {
+  filePath: string;
+  exports: ContextGraphSymbol[];
+  imports: ContextGraphSymbol[];
+}
+
+export interface ContextGraphTypeReference {
+  name: string;
+  filePath: string;
+  line: number;
+  sourceText: string;
+}
+
+export interface ContextGraphTypeReferenceScanResult {
+  filePath: string;
+  references: ContextGraphTypeReference[];
+}
+
+export interface ContextGraphChunk {
+  chunk: {
+    filePath: string;
+    startLine: number;
+    endLine: number;
+    content: string;
+  };
+  score: number;
+  matchedTerms: string[];
+}
+
+export interface ContextGraphRetrievalResult {
+  query: string;
+  chunks: ContextGraphChunk[];
+  filesScanned: number;
+  chunksScanned: number;
+  createdAt: string;
+}
+
+export interface ContextGraphTargetExpansion {
+  targetFilePath: string;
+  scannedFilePaths: string[];
+  selectedRelatedFilePaths: string[];
+  maxRelatedFiles: number;
+  maxFilesToScan: number;
+  reasons: string[];
+}
+
+export interface ContextGraphReport {
+  input: {
+    query?: string;
+    targetFilePath?: string;
+    maxChunks?: number;
+    maxRelatedFiles?: number;
+    maxFilesToScan?: number;
+  };
+  targetFilePath?: string;
+  relationship?: ContextGraphRelationship;
+  relatedFiles: ContextGraphRelatedFile[];
+  symbols: ContextGraphSymbolScanResult[];
+  typeReferences: ContextGraphTypeReferenceScanResult[];
+  retrieval: ContextGraphRetrievalResult;
+  targetExpansion?: ContextGraphTargetExpansion;
+  createdAt: string;
+}
+
+export interface ContextGraphResponse {
+  contextGraph: ContextGraphReport;
+}
+export type RuntimeArtifactKind =
+  | 'runtime_plan'
+  | 'patch_proposal'
+  | 'patch_diff'
+  | 'apply_report'
+  | 'session_state'
+  | 'task_state'
+  | 'verify_runs'
+  | 'session_decisions'
+  | 'report_markdown'
+  | 'report_json'
+  | 'active_plan'
+  | 'active_patch_proposal'
+  | 'active_patch_diff'
+  | 'unknown';
+
+export interface RuntimeArtifactSummary {
+  id: string;
+  kind: RuntimeArtifactKind;
+  label: string;
+  path: string;
+  sessionId?: string;
+  projectRoot?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  sizeBytes: number;
+  metadata: Record<string, unknown>;
+}
+
+export interface RuntimeArtifactIndex {
+  version: 1;
+  rootDir: string;
+  artifacts: RuntimeArtifactSummary[];
+  generatedAt: string;
+}
+
+export interface RuntimeArtifactIndexResponse {
+  artifactIndex: RuntimeArtifactIndex;
+}
+
+export interface RuntimeArtifactReadResponse {
+  artifact: RuntimeArtifactSummary;
+  content: string;
+}
+export interface InteractiveSessionListResponse {
+  sessions: InteractiveSessionState[];
 }
