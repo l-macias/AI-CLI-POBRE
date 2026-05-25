@@ -6,9 +6,11 @@ import type { PatchApplyResult } from '../patch-apply/PatchApplyTypes.js';
 import type { PatchDiffPreview } from '../diff/PatchDiffTypes.js';
 import type { PatchOperation, PatchProposal } from '../types/RepairTypes.js';
 import type { RuntimePatchProposal } from './PatchProposal.js';
+import { PatchApplySafetyGuard } from './PatchApplySafetyGuard.js';
 
 export interface RuntimePatchApplyBridgeOptions {
   runner?: PatchApplyRunner | undefined;
+  safetyGuard?: PatchApplySafetyGuard | undefined;
 }
 
 export interface RuntimePatchApplyBridgeInput {
@@ -24,9 +26,11 @@ export interface RuntimePatchApplyBridgeInput {
 
 export class RuntimePatchApplyBridge {
   private readonly runner: PatchApplyRunner;
+  private readonly safetyGuard: PatchApplySafetyGuard;
 
   public constructor(options: RuntimePatchApplyBridgeOptions = {}) {
     this.runner = options.runner ?? new PatchApplyRunner();
+    this.safetyGuard = options.safetyGuard ?? new PatchApplySafetyGuard();
   }
 
   public async apply(input: RuntimePatchApplyBridgeInput): Promise<PatchApplyResult> {
@@ -46,16 +50,17 @@ export class RuntimePatchApplyBridge {
   }
 
   private validateRuntimeGates(input: RuntimePatchApplyBridgeInput): void {
-    if (input.proposal.status !== 'validated') {
-      throw new Error('Runtime patch apply requires a validated patch proposal.');
-    }
+    const guard = this.safetyGuard.validate({
+      proposal: input.proposal,
+      diff: input.diff,
+    });
 
-    if (input.diff.proposalId !== input.proposal.id) {
-      throw new Error('Runtime patch apply requires a diff preview for the same proposal.');
-    }
-
-    if (!input.diff.safeToPreview) {
-      throw new Error('Runtime patch apply requires a safe diff preview.');
+    if (!guard.allowed) {
+      throw new Error(
+        `Runtime patch apply safety guard blocked apply: ${guard.issues
+          .map((issue) => `${issue.code}: ${issue.message}`)
+          .join(' | ')}`,
+      );
     }
 
     if (input.dryRun !== true && input.applyConfirmed !== true) {
@@ -123,6 +128,7 @@ export class RuntimePatchApplyBridge {
       explanation: [
         'Generated from a validated RuntimePatchProposal.',
         'Apply was delegated through RuntimePatchApplyBridge after diff preview and runtime gates.',
+        'PatchApplySafetyGuard validated proposal, risk policy and diff/proposal consistency before apply.',
       ].join('\n'),
     };
   }

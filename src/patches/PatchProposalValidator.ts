@@ -1,12 +1,24 @@
 import type {
+  PatchProposalRiskLevel,
   PatchProposalValidationIssue,
   PatchProposalValidationResult,
   RuntimePatchProposal,
 } from './PatchProposal.js';
+import { PatchRiskPolicy } from './PatchRiskPolicy.js';
 
 const protectedSegments = ['.env', '.git', 'node_modules', 'dist', 'build', '.next'];
 
+export interface PatchProposalValidatorOptions {
+  riskPolicy?: PatchRiskPolicy | undefined;
+}
+
 export class PatchProposalValidator {
+  private readonly riskPolicy: PatchRiskPolicy;
+
+  public constructor(options: PatchProposalValidatorOptions = {}) {
+    this.riskPolicy = options.riskPolicy ?? new PatchRiskPolicy();
+  }
+
   public validate(proposal: RuntimePatchProposal): PatchProposalValidationResult {
     const issues: PatchProposalValidationIssue[] = [];
 
@@ -26,10 +38,35 @@ export class PatchProposalValidator {
       });
     }
 
+    const policyResult = this.riskPolicy.analyze(proposal.files);
+
+    if (this.riskRank(proposal.riskLevel) < this.riskRank(policyResult.highestRisk)) {
+      issues.push({
+        code: 'PATCH_PROPOSAL_RISK_UNDERSTATED',
+        message: `Patch proposal riskLevel is ${proposal.riskLevel}, but policy requires ${policyResult.highestRisk}.`,
+        severity: 'error',
+      });
+    }
+
+    for (const policyRisk of policyResult.risks) {
+      if (!proposal.risks.some((risk) => risk.code === policyRisk.code)) {
+        issues.push({
+          code: 'PATCH_POLICY_RISK_MISSING',
+          message: `Patch proposal risks are missing policy risk: ${policyRisk.code}.`,
+          severity: policyRisk.level === 'high' ? 'error' : 'warning',
+        });
+      }
+    }
+
     const seenPaths = new Set<string>();
 
     for (const file of proposal.files) {
       const normalizedPath = this.normalizePath(file.path);
+      const policyRiskLevel = this.riskPolicy.riskForFile({
+        path: file.path,
+        operation: file.operation,
+        totalFiles: proposal.files.length,
+      });
 
       if (seenPaths.has(normalizedPath)) {
         issues.push({
@@ -81,7 +118,7 @@ export class PatchProposalValidator {
       if (file.operation === 'delete') {
         issues.push({
           code: 'PATCH_DELETE_BLOCKED',
-          message: 'Delete operations are blocked in Session 85 proposal flow.',
+          message: 'Delete operations are blocked in this proposal flow.',
           path: file.path,
           severity: 'error',
         });
@@ -93,6 +130,42 @@ export class PatchProposalValidator {
           message: 'Patch file change reason is too short.',
           path: file.path,
           severity: 'warning',
+        });
+      }
+
+      if (file.changesSummary.length === 0) {
+        issues.push({
+          code: 'PATCH_FILE_SUMMARY_REQUIRED',
+          message: 'Patch file change must include at least one changesSummary item.',
+          path: file.path,
+          severity: 'warning',
+        });
+      }
+
+      if (!file.userSelectable) {
+        issues.push({
+          code: 'PATCH_FILE_NOT_SELECTABLE',
+          message: 'Patch file changes must remain selectable for file-level approval.',
+          path: file.path,
+          severity: 'error',
+        });
+      }
+
+      if (!this.isValidRiskLevel(file.riskLevel)) {
+        issues.push({
+          code: 'PATCH_FILE_RISK_INVALID',
+          message: 'Patch file change has an invalid risk level.',
+          path: file.path,
+          severity: 'error',
+        });
+      }
+
+      if (this.riskRank(file.riskLevel) < this.riskRank(policyRiskLevel)) {
+        issues.push({
+          code: 'PATCH_FILE_RISK_UNDERSTATED',
+          message: `Patch file riskLevel is ${file.riskLevel}, but policy requires ${policyRiskLevel}.`,
+          path: file.path,
+          severity: 'error',
         });
       }
     }
@@ -156,5 +229,21 @@ export class PatchProposalValidator {
       commandLine === 'npm run typecheck' ||
       commandLine === 'tsc --noEmit'
     );
+  }
+
+  private isValidRiskLevel(value: string): value is PatchProposalRiskLevel {
+    return value === 'low' || value === 'medium' || value === 'high';
+  }
+
+  private riskRank(riskLevel: PatchProposalRiskLevel): number {
+    if (riskLevel === 'high') {
+      return 3;
+    }
+
+    if (riskLevel === 'medium') {
+      return 2;
+    }
+
+    return 1;
   }
 }

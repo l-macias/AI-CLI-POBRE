@@ -1,6 +1,6 @@
 import type { PatchDiffPreview } from '../diff/PatchDiffTypes.js';
 import type { PatchApplyResult } from '../patch-apply/PatchApplyTypes.js';
-import type { RuntimePatchProposal } from '../patches/PatchProposal.js';
+import type { PatchProposalOperation, RuntimePatchProposal } from '../patches/PatchProposal.js';
 import type { RuntimePlan } from '../planning/RuntimePlan.js';
 import type { VerifyRunResult } from '../verify/VerifyRunner.js';
 
@@ -37,6 +37,16 @@ export interface ApprovalAction {
   blockedReason?: string | undefined;
 }
 
+export interface ApprovalFileReview {
+  path: string;
+  operation: PatchProposalOperation;
+  reason: string;
+  changesSummary: string[];
+  riskLevel: ApprovalRiskLevel;
+  userSelectable: true;
+  selectedByDefault: boolean;
+}
+
 export interface ApprovalRequest {
   id: string;
   sessionId: string;
@@ -49,6 +59,7 @@ export interface ApprovalRequest {
   checklist: ApprovalChecklistItem[];
   actions: ApprovalAction[];
   filePaths: string[];
+  fileReviews: ApprovalFileReview[];
   createdAt: string;
 }
 

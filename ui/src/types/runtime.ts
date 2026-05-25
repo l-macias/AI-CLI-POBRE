@@ -532,6 +532,9 @@ export interface RuntimePatchFileChange {
   beforeHash: string | null;
   content: string | null;
   reason: string;
+  changesSummary: string[];
+  riskLevel: RuntimePatchRiskLevel;
+  userSelectable: true;
 }
 
 export interface RuntimePatchRisk {
@@ -659,6 +662,135 @@ export interface RuntimePatchApplyResult {
   [key: string]: unknown;
 }
 
+export type RuntimePatchSandboxStatus = 'passed' | 'failed' | 'blocked';
+
+export interface RuntimePatchSandboxIssue {
+  code: string;
+  message: string;
+  severity: 'warning' | 'error';
+}
+
+export interface RuntimePatchSandboxWorkspace {
+  sandboxId: string;
+  sessionId: string;
+  sourceProjectRoot: string;
+  sandboxRoot: string;
+  workspaceRoot: string;
+  createdAt: string;
+}
+
+export interface RuntimePatchSandboxResult {
+  id: string;
+  status: RuntimePatchSandboxStatus;
+  proposalId: string;
+  sessionId: string;
+  projectRoot: string;
+  workspace: RuntimePatchSandboxWorkspace | null;
+  applyResult: RuntimePatchApplyResult | null;
+  verifyRuns: VerifyRunResult[];
+  issues: RuntimePatchSandboxIssue[];
+  startedAt: string;
+  completedAt: string;
+}
+
+export interface RuntimePatchSandboxResponse {
+  sandbox: RuntimePatchSandboxResult;
+  files: {
+    resultPath: string;
+    activeResultPath: string;
+  };
+}
+export type RuntimePatchRecoveryStatus =
+  | 'repair_prompt_ready'
+  | 'max_attempts_reached'
+  | 'not_recoverable';
+
+export interface RuntimePatchFailureVerifyFailure {
+  command: string;
+  status: 'executed' | 'blocked' | 'failed';
+  exitCode?: number;
+  stdoutSummary: string;
+  stderrSummary: string;
+  issues: {
+    code: string;
+    message: string;
+    severity: 'warning' | 'error';
+  }[];
+}
+
+export interface RuntimePatchFailureReport {
+  id: string;
+  status: 'failed' | 'blocked';
+  proposalId: string;
+  planId: string;
+  sessionId: string;
+  projectRoot: string;
+  summary: string;
+  failedFiles: string[];
+  sandboxResultId: string;
+  sandboxStatus: RuntimePatchSandboxStatus;
+  sandboxIssues: RuntimePatchSandboxIssue[];
+  applyStatus: RuntimePatchApplyStatus | 'not_applied';
+  verifyFailures: RuntimePatchFailureVerifyFailure[];
+  originalPatchSummary: {
+    fileCount: number;
+    riskLevel: RuntimePatchRiskLevel;
+    files: {
+      path: string;
+      operation: RuntimePatchOperation;
+      riskLevel: RuntimePatchRiskLevel;
+      reason: string;
+      changesSummary: string[];
+    }[];
+  };
+  createdAt: string;
+}
+
+export interface RuntimePatchRepairPrompt {
+  system: string;
+  user: string;
+  constraints: string[];
+  metadata: {
+    proposalId: string;
+    failureReportId: string;
+    sessionId: string;
+    currentAttempt: number;
+    maxAttempts: number;
+  };
+}
+
+export interface RuntimePatchRecoveryAttempt {
+  attemptNumber: number;
+  proposalId: string;
+  sandboxResultId: string;
+  failureReport: RuntimePatchFailureReport;
+  repairPrompt: RuntimePatchRepairPrompt;
+  createdAt: string;
+}
+
+export interface RuntimePatchRecoveryResult {
+  id: string;
+  status: RuntimePatchRecoveryStatus;
+  proposalId: string;
+  sessionId: string;
+  currentAttempt: number;
+  maxAttempts: number;
+  attempts: RuntimePatchRecoveryAttempt[];
+  issues: {
+    code: string;
+    message: string;
+    severity: 'warning' | 'error';
+  }[];
+  createdAt: string;
+}
+
+export interface RuntimePatchRecoveryResponse {
+  recovery: RuntimePatchRecoveryResult;
+  files: {
+    recoveryPath: string;
+    activeRecoveryPath: string;
+  };
+}
 export interface RuntimePatchApplyResponse {
   apply: RuntimePatchApplyResult;
 }
@@ -805,6 +937,16 @@ export interface ApprovalAction {
   blockedReason?: string;
 }
 
+export interface ApprovalFileReview {
+  path: string;
+  operation: RuntimePatchOperation;
+  reason: string;
+  changesSummary: string[];
+  riskLevel: ApprovalRiskLevel;
+  userSelectable: true;
+  selectedByDefault: boolean;
+}
+
 export interface ApprovalRequest {
   id: string;
   sessionId: string;
@@ -820,6 +962,7 @@ export interface ApprovalRequest {
   checklist: ApprovalChecklistItem[];
   actions: ApprovalAction[];
   filePaths: string[];
+  fileReviews: ApprovalFileReview[];
   createdAt: string;
 }
 

@@ -5,6 +5,7 @@ import type {
   ApprovalChecklistItem,
   ApprovalDecisionInput,
   ApprovalDecisionResult,
+  ApprovalFileReview,
   ApprovalRequest,
   ApprovalRiskLevel,
 } from './ApprovalRequest.js';
@@ -134,6 +135,7 @@ export class ApprovalCenter {
           allowApprove: true,
         }),
         filePaths: input.plan.scope.candidateFiles.map((file) => file.path),
+        fileReviews: [],
         createdAt,
       },
     ];
@@ -147,7 +149,10 @@ export class ApprovalCenter {
       return [];
     }
 
-    const diffReady = input.diff?.proposalId === input.proposal.id;
+    const diffReady = this.isDiffReadyForProposal({
+      proposalId: input.proposal.id,
+      diffProposalId: input.diff?.proposalId,
+    });
     const highRisk = input.proposal.riskLevel === 'high';
 
     const patchRequest: ApprovalRequest = {
@@ -202,6 +207,7 @@ export class ApprovalCenter {
         allowApprove: diffReady && (!highRisk || input.snapshotAvailable),
       }),
       filePaths: input.proposal.files.map((file) => file.path),
+      fileReviews: this.buildPatchFileReviews(input.proposal),
       createdAt,
     };
 
@@ -242,6 +248,7 @@ export class ApprovalCenter {
           allowApprove: input.snapshotAvailable,
         }),
         filePaths: input.proposal.files.map((file) => file.path),
+        fileReviews: this.buildPatchFileReviews(input.proposal),
         createdAt,
       },
     ];
@@ -288,6 +295,7 @@ export class ApprovalCenter {
           allowApprove: true,
         }),
         filePaths: [],
+        fileReviews: [],
         createdAt,
       },
     ];
@@ -327,6 +335,7 @@ export class ApprovalCenter {
           allowApprove: true,
         }),
         filePaths: [],
+        fileReviews: [],
         createdAt,
       },
     ];
@@ -372,11 +381,24 @@ export class ApprovalCenter {
           allowApprove: true,
         }),
         filePaths: input.applyResult.operationResults.map((operation) => operation.targetFile),
+        fileReviews: [],
         createdAt,
       },
     ];
   }
+  private isDiffReadyForProposal(input: {
+    proposalId: string;
+    diffProposalId?: string | undefined;
+  }): boolean {
+    if (!input.diffProposalId) {
+      return false;
+    }
 
+    return (
+      input.diffProposalId === input.proposalId ||
+      input.diffProposalId.startsWith(`${input.proposalId}-selected-`)
+    );
+  }
   private defaultActions(input: {
     allowSelectedFiles: boolean;
     allowApprove: boolean;
@@ -425,6 +447,27 @@ export class ApprovalCenter {
     const selected = input.selectedFilePaths ?? [];
 
     return selected.filter((filePath) => input.availableFilePaths.includes(filePath));
+  }
+
+  private buildPatchFileReviews(proposal: {
+    files: {
+      path: string;
+      operation: ApprovalFileReview['operation'];
+      reason: string;
+      changesSummary: string[];
+      riskLevel: ApprovalFileReview['riskLevel'];
+      userSelectable: true;
+    }[];
+  }): ApprovalFileReview[] {
+    return proposal.files.map((file) => ({
+      path: file.path,
+      operation: file.operation,
+      reason: file.reason,
+      changesSummary: file.changesSummary,
+      riskLevel: file.riskLevel,
+      userSelectable: file.userSelectable,
+      selectedByDefault: file.riskLevel !== 'high',
+    }));
   }
 
   private highestRisk(requests: ApprovalRequest[]): ApprovalRiskLevel {

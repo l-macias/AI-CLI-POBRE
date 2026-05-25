@@ -109,6 +109,9 @@ const proposal: RuntimePatchProposal = {
       beforeHash: hashContent(currentContent),
       content: 'export const value = 2;\n',
       reason: 'The runtime patch updates the selected example file after diff preview.',
+      changesSummary: ['Updates the selected example file after diff preview validation.'],
+      riskLevel: 'low',
+      userSelectable: true,
     },
   ],
   risks: [

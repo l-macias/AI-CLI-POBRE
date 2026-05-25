@@ -31,6 +31,9 @@ const proposal: RuntimePatchProposal = {
       content:
         'export function ProfileCard() {\n  return <section>Improved Profile</section>;\n}\n',
       reason: 'ProfileCard is the selected target for the patch proposal.',
+      changesSummary: ['Updates the selected ProfileCard component for diff preview testing.'],
+      riskLevel: 'low',
+      userSelectable: true,
     },
     {
       path: 'src/api/profileApi.ts',
@@ -38,6 +41,9 @@ const proposal: RuntimePatchProposal = {
       beforeHash: null,
       content: 'export async function getProfile() {\n  return fetch("/api/profile");\n}\n',
       reason: 'Profile API client is required by the proposed UI workflow.',
+      changesSummary: ['Creates the Profile API client required by the proposed workflow.'],
+      riskLevel: 'low',
+      userSelectable: true,
     },
   ],
   risks: [

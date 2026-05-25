@@ -6,6 +6,7 @@ import type {
   RuntimePatchDiffGenerateResult,
   RuntimePatchProposalGenerateResult,
   RuntimePatchRollbackResult,
+  RuntimePatchSandboxResult,
   RuntimePlanGenerateResult,
   RuntimeWorkflowStateResponse,
 } from '../../types/runtime';
@@ -25,6 +26,7 @@ interface GuidedWorkflowPanelProps {
   runtimePlan: RuntimePlanGenerateResult | null;
   patchProposal: RuntimePatchProposalGenerateResult | null;
   patchDiff: RuntimePatchDiffGenerateResult | null;
+  patchSandboxResult: RuntimePatchSandboxResult | null;
   snapshot: CreateSnapshotResult | null;
   applyResult: RuntimePatchApplyResult | null;
   rollbackResult: RuntimePatchRollbackResult | null;
@@ -36,6 +38,7 @@ interface GuidedWorkflowPanelProps {
   onGenerateProviderPlan: () => void;
   onGeneratePatchProposal: () => void;
   onGeneratePatchDiff: () => void;
+  onVerifySandbox: () => void;
   onDryRunApply: () => void;
   onCreateSnapshot: () => void;
   onExportReport: () => void;
@@ -84,6 +87,9 @@ export function GuidedWorkflowPanel(props: GuidedWorkflowPanelProps) {
 function buildWorkflowProgress(input: GuidedWorkflowPanelProps): WorkflowProgressViewModel {
   const snapshotRequired = requiresSnapshot(input);
   const snapshotReady = input.snapshot !== null;
+  const sandboxPassed = input.patchSandboxResult?.status === 'passed';
+  const sandboxBlocked =
+    input.patchSandboxResult?.status === 'blocked' || input.patchSandboxResult?.status === 'failed';
   const applyCompleted = input.applyResult?.status === 'applied';
   const rollbackCompleted = input.rollbackResult?.status === 'rolled_back';
   const dryRunCompleted = input.applyResult?.status === 'dry_run' || applyCompleted;
@@ -163,10 +169,30 @@ function buildWorkflowProgress(input: GuidedWorkflowPanelProps): WorkflowProgres
       targetPanelId: 'snapshot-panel',
     },
     {
+      id: 'verify',
+      title: 'Sandbox verification',
+      description: 'Apply patch in sandbox and run approved verify commands before real apply.',
+      status: sandboxStatus({
+        diffReady: input.patchDiff?.diff.safeToPreview === true,
+        sandboxPassed,
+        sandboxBlocked,
+      }),
+      reason:
+        input.patchDiff?.diff.safeToPreview !== true
+          ? 'Generate a safe diff preview first.'
+          : sandboxBlocked
+            ? 'Sandbox verification failed or was blocked.'
+            : undefined,
+      targetPanelId: 'runtime-patch-panel',
+    },
+    {
       id: 'dry-run',
       title: 'Dry run',
       description: 'Validate controlled apply without writing files.',
-      status: statusAfter(input.patchDiff?.diff.safeToPreview === true, dryRunCompleted),
+      status: statusAfter(
+        input.patchDiff?.diff.safeToPreview === true && !sandboxBlocked,
+        dryRunCompleted,
+      ),
       targetPanelId: 'runtime-patch-panel',
     },
     {
@@ -177,11 +203,13 @@ function buildWorkflowProgress(input: GuidedWorkflowPanelProps): WorkflowProgres
         diffReady: input.patchDiff?.diff.safeToPreview === true,
         snapshotReady,
         snapshotRequired,
+        sandboxBlocked,
         applyCompleted,
         applyResult: input.applyResult,
       }),
-      reason:
-        snapshotRequired && !snapshotReady
+      reason: sandboxBlocked
+        ? 'Sandbox verification must pass before real apply.'
+        : snapshotRequired && !snapshotReady
           ? 'Snapshot required before real apply.'
           : input.applyResult?.status === 'blocked'
             ? 'Apply was blocked by runtime policy.'
@@ -245,6 +273,8 @@ function buildWorkflowProgress(input: GuidedWorkflowPanelProps): WorkflowProgres
 function buildNextAction(input: GuidedWorkflowPanelProps): NextWorkflowAction {
   const snapshotRequired = requiresSnapshot(input);
   const snapshotReady = input.snapshot !== null;
+  const sandboxBlocked =
+    input.patchSandboxResult?.status === 'blocked' || input.patchSandboxResult?.status === 'failed';
 
   if (!input.session) {
     return {
@@ -319,6 +349,23 @@ function buildNextAction(input: GuidedWorkflowPanelProps): NextWorkflowAction {
       disabled: false,
       onRun: input.onCreateSnapshot,
     };
+  }
+
+  if (!input.patchSandboxResult) {
+    return {
+      title: 'Run sandbox verification',
+      description: 'Apply the patch in a sandbox and run approved verification commands.',
+      buttonLabel: 'Verify in Sandbox',
+      disabled: false,
+      onRun: input.onVerifySandbox,
+    };
+  }
+
+  if (sandboxBlocked) {
+    return blockedAction(
+      'Sandbox verification failed',
+      'Review sandbox issues before dry-run or real apply.',
+    );
   }
 
   if (!input.applyResult) {
@@ -441,10 +488,31 @@ function snapshotStatus(input: {
   return 'available';
 }
 
+function sandboxStatus(input: {
+  diffReady: boolean;
+  sandboxPassed: boolean;
+  sandboxBlocked: boolean;
+}): WorkflowStepStatus {
+  if (input.sandboxPassed) {
+    return 'completed';
+  }
+
+  if (input.sandboxBlocked) {
+    return 'blocked';
+  }
+
+  if (!input.diffReady) {
+    return 'locked';
+  }
+
+  return 'available';
+}
+
 function applyStatus(input: {
   diffReady: boolean;
   snapshotReady: boolean;
   snapshotRequired: boolean;
+  sandboxBlocked: boolean;
   applyCompleted: boolean;
   applyResult: RuntimePatchApplyResult | null;
 }): WorkflowStepStatus {
@@ -452,7 +520,11 @@ function applyStatus(input: {
     return 'completed';
   }
 
-  if (input.applyResult?.status === 'blocked' || input.applyResult?.status === 'failed') {
+  if (
+    input.sandboxBlocked ||
+    input.applyResult?.status === 'blocked' ||
+    input.applyResult?.status === 'failed'
+  ) {
     return 'blocked';
   }
 
@@ -484,6 +556,7 @@ function hasRuntimeAction(session: InteractiveSessionState | null, needle: strin
     `${action.title} ${action.description}`.toLowerCase().includes(normalizedNeedle),
   );
 }
+
 function toWorkflowProgressViewModel(
   workflow: RuntimeWorkflowStateResponse['workflow'],
 ): WorkflowProgressViewModel {

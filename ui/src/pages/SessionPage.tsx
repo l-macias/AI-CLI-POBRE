@@ -21,6 +21,8 @@ import {
   getRuntimeSettings,
   generatePatchProposal,
   generatePatchDiff,
+  verifyPatchSandbox,
+  preparePatchRecovery,
   applyRuntimePatch,
   rollbackRuntimePatch,
   buildRuntimeWorkflowState,
@@ -91,6 +93,9 @@ import type {
   ContextGraphReport,
   RuntimeArtifactIndex,
   RuntimeArtifactSummary,
+  ApprovalDecisionResult,
+  RuntimePatchSandboxResult,
+  RuntimePatchRecoveryResult,
 } from '../types/runtime';
 
 interface SessionPageProps {
@@ -114,62 +119,6 @@ export function SessionPage({
   const [savedSessions, setSavedSessions] = useState<InteractiveSessionState[]>([]);
   const [savedSessionsLoading, setSavedSessionsLoading] = useState(false);
 
-  function resetSessionArtifacts() {
-    setSuggestions([]);
-    setQuestions([]);
-    setTasks([]);
-    setTaskProgress(null);
-    setVerifyCommands([]);
-    setPackageScripts(null);
-    setLastVerifyRun(null);
-    setStackIntelligence(null);
-    setApiRoutes(null);
-    setFrontendBackendLinks(null);
-    setContextGraph(null);
-    setArtifactIndex(null);
-    setSelectedArtifact(null);
-    setSelectedArtifactContent('');
-    setRuntimePlan(null);
-    setRuntimeSettings(null);
-    setPatchProposal(null);
-    setPatchDiff(null);
-    setPatchApplyResult(null);
-    setPatchRollbackResult(null);
-    setReportExport(null);
-    setRuntimeWorkflow(null);
-    setApprovalCenter(null);
-    setSessionMemory(null);
-    setSnapshot(null);
-  }
-
-  function startNewSessionView() {
-    setSession(null);
-    onSessionChange(null);
-    resetSessionArtifacts();
-    setGoal('');
-    setCommand('/plan');
-    setActiveWorkspaceTab('overview');
-
-    if (selectedProject) {
-      setProjectRoot(selectedProject.rootPath);
-      setProjectName(selectedProject.name);
-    }
-  }
-  useEffect(() => {
-    if (!selectedProject || session) {
-      return;
-    }
-
-    setProjectRoot(selectedProject.rootPath);
-    setProjectName(selectedProject.name);
-  }, [selectedProject, session]);
-  useEffect(() => {
-    if (!initialSession || session) {
-      return;
-    }
-
-    void resumeSession(initialSession);
-  }, [initialSession, session]);
   const [suggestions, setSuggestions] = useState<RuntimeSuggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
@@ -210,24 +159,103 @@ export function SessionPage({
   const [patchProposalLoading, setPatchProposalLoading] = useState(false);
   const [patchDiff, setPatchDiff] = useState<RuntimePatchDiffGenerateResult | null>(null);
   const [patchDiffLoading, setPatchDiffLoading] = useState(false);
+  const [patchSandboxResult, setPatchSandboxResult] = useState<RuntimePatchSandboxResult | null>(
+    null,
+  );
+  const [patchSandboxLoading, setPatchSandboxLoading] = useState(false);
+  const [patchRecoveryResult, setPatchRecoveryResult] = useState<RuntimePatchRecoveryResult | null>(
+    null,
+  );
+  const [patchRecoveryLoading, setPatchRecoveryLoading] = useState(false);
   const [patchApplyResult, setPatchApplyResult] = useState<RuntimePatchApplyResult | null>(null);
   const [patchApplyLoading, setPatchApplyLoading] = useState(false);
   const [patchRollbackResult, setPatchRollbackResult] = useState<RuntimePatchRollbackResult | null>(
     null,
   );
   const [patchRollbackLoading, setPatchRollbackLoading] = useState(false);
+
   const [reportExport, setReportExport] = useState<ReportExportResult | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+
   const [runtimeWorkflow, setRuntimeWorkflow] = useState<RuntimeWorkflowStateResponse | null>(null);
   const [runtimeWorkflowLoading, setRuntimeWorkflowLoading] = useState(false);
 
   const [approvalCenter, setApprovalCenter] = useState<ApprovalCenterResult | null>(null);
   const [approvalCenterLoading, setApprovalCenterLoading] = useState(false);
+  const [approvedPatchFilePaths, setApprovedPatchFilePaths] = useState<string[] | null>(null);
+  const [approvedPatchDecision, setApprovedPatchDecision] = useState<ApprovalDecisionResult | null>(
+    null,
+  );
   const [sessionMemory, setSessionMemory] = useState<SessionMemoryView | null>(null);
   const [sessionMemoryLoading, setSessionMemoryLoading] = useState(false);
+
   const [snapshot, setSnapshot] = useState<CreateSnapshotResult | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
+
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<SessionWorkspaceTab>('overview');
+
+  function resetSessionArtifacts() {
+    setSuggestions([]);
+    setQuestions([]);
+    setTasks([]);
+    setTaskProgress(null);
+    setVerifyCommands([]);
+    setPackageScripts(null);
+    setLastVerifyRun(null);
+    setStackIntelligence(null);
+    setApiRoutes(null);
+    setFrontendBackendLinks(null);
+    setContextGraph(null);
+    setArtifactIndex(null);
+    setSelectedArtifact(null);
+    setSelectedArtifactContent('');
+    setRuntimePlan(null);
+    setRuntimeSettings(null);
+    setPatchProposal(null);
+    setPatchDiff(null);
+    setPatchSandboxResult(null);
+    setPatchRecoveryResult(null);
+    setPatchApplyResult(null);
+    setPatchRollbackResult(null);
+    setReportExport(null);
+    setRuntimeWorkflow(null);
+    setApprovalCenter(null);
+    setApprovedPatchFilePaths(null);
+    setApprovedPatchDecision(null);
+    setSessionMemory(null);
+    setSnapshot(null);
+  }
+
+  function startNewSessionView() {
+    setSession(null);
+    onSessionChange(null);
+    resetSessionArtifacts();
+    setGoal('');
+    setCommand('/plan');
+    setActiveWorkspaceTab('overview');
+
+    if (selectedProject) {
+      setProjectRoot(selectedProject.rootPath);
+      setProjectName(selectedProject.name);
+    }
+  }
+
+  useEffect(() => {
+    if (!selectedProject || session) {
+      return;
+    }
+
+    setProjectRoot(selectedProject.rootPath);
+    setProjectName(selectedProject.name);
+  }, [selectedProject, session]);
+
+  useEffect(() => {
+    if (!initialSession || session) {
+      return;
+    }
+
+    void resumeSession(initialSession);
+  }, [initialSession, session]);
 
   async function createSession() {
     const created = await startSession({
@@ -331,6 +359,7 @@ export function SessionPage({
 
     setQuestions((current) => current.filter((question) => question.id !== questionId));
   }
+
   async function refreshSessionMemory(targetSession = session) {
     if (!targetSession) {
       setSessionMemory(null);
@@ -366,6 +395,7 @@ export function SessionPage({
 
     await refreshSessionMemory(session);
   }
+
   async function refreshTasks(targetSession = session) {
     if (!targetSession) {
       return;
@@ -497,6 +527,7 @@ export function SessionPage({
       setVerifyLoading(false);
     }
   }
+
   async function refreshArtifactStore() {
     setArtifactLoading(true);
 
@@ -508,6 +539,7 @@ export function SessionPage({
       setArtifactLoading(false);
     }
   }
+
   async function refreshSavedSessions() {
     setSavedSessionsLoading(true);
 
@@ -536,6 +568,7 @@ export function SessionPage({
     void refreshSessionMemory(nextSession);
     void refreshArtifactStore();
   }
+
   async function selectArtifact(artifact: RuntimeArtifactSummary) {
     setSelectedArtifact(artifact);
     setArtifactLoading(true);
@@ -549,6 +582,7 @@ export function SessionPage({
       setArtifactLoading(false);
     }
   }
+
   async function analyzeProject() {
     if (!session) {
       return;
@@ -570,6 +604,7 @@ export function SessionPage({
       setIntelligenceLoading(false);
     }
   }
+
   async function analyzeContextGraph(input: { query: string; targetFilePath: string }) {
     if (!session) {
       return;
@@ -595,6 +630,7 @@ export function SessionPage({
       setContextGraphLoading(false);
     }
   }
+
   async function exportReport() {
     if (!session) {
       return;
@@ -640,6 +676,7 @@ export function SessionPage({
       setWorkflowLoading(false);
     }
   }
+
   function collectKnownFiles(): string[] {
     const files = new Set<string>();
 
@@ -671,6 +708,15 @@ export function SessionPage({
 
     return [...files].filter((file) => file.trim().length > 0);
   }
+
+  function selectedPatchFiles(): string[] | null {
+    if (approvedPatchFilePaths && approvedPatchFilePaths.length > 0) {
+      return approvedPatchFilePaths;
+    }
+
+    return null;
+  }
+
   function buildWorkflowArtifactState(): RuntimeWorkflowArtifactState {
     const workflowPrepared = Boolean(
       stackIntelligence ||
@@ -702,11 +748,14 @@ export function SessionPage({
       rollbackCompleted: patchRollbackResult?.status === 'rolled_back',
       rollbackBlocked: patchRollbackResult?.status === 'blocked',
       rollbackFailed: patchRollbackResult?.status === 'failed',
-      verifyCompleted: lastVerifyRun?.status === 'executed' && lastVerifyRun.exitCode === 0,
+      verifyCompleted:
+        (lastVerifyRun?.status === 'executed' && lastVerifyRun.exitCode === 0) ||
+        patchSandboxResult?.status === 'passed',
       reportExported: reportExport !== null,
       riskLevel: patchProposal?.proposal.riskLevel ?? runtimePlan?.plan.riskLevel ?? null,
     };
   }
+
   function buildApprovalArtifactState(): ApprovalCenterArtifactState | null {
     if (!session) {
       return null;
@@ -753,6 +802,8 @@ export function SessionPage({
       return;
     }
 
+    const request = approvalCenter?.requests.find((candidate) => candidate.id === input.requestId);
+
     const result = await resolveApproval({
       artifactState,
       decision: input,
@@ -773,8 +824,6 @@ export function SessionPage({
       await routeCommand(`/revise ${input.reason ?? 'Approval requested revision.'}`);
       return;
     }
-
-    const request = approvalCenter?.requests.find((candidate) => candidate.id === input.requestId);
 
     if (request?.kind === 'verify') {
       const commandToRun =
@@ -801,19 +850,24 @@ export function SessionPage({
     }
 
     if (request?.kind === 'patch') {
-      await applyPatch({
-        confirmedText: 'APPLY',
-        allowDirtyWorkingTree: false,
-      });
+      const nextSelectedFiles =
+        input.action === 'approve_selected_files'
+          ? result.decision.selectedFilePaths
+          : request.filePaths;
+
+      setApprovedPatchFilePaths(nextSelectedFiles);
+      setApprovedPatchDecision(result.decision);
+
+      await generateDiff(nextSelectedFiles);
       return;
     }
 
     await routeCommand(`Approval accepted: ${request?.title ?? input.requestId}`);
   }
+
   async function refreshRuntimeWorkflowState() {
     if (!session) {
       setRuntimeWorkflow(null);
-
       return;
     }
 
@@ -829,6 +883,7 @@ export function SessionPage({
       setRuntimeWorkflowLoading(false);
     }
   }
+
   async function generatePlan(useProvider = false) {
     if (!session) {
       return;
@@ -868,6 +923,7 @@ export function SessionPage({
       setRuntimePlanLoading(false);
     }
   }
+
   async function generatePatch() {
     if (!session || !runtimePlan || !runtimePlan.validation.valid) {
       return;
@@ -896,8 +952,13 @@ export function SessionPage({
       });
 
       setPatchProposal(result);
+      setApprovedPatchFilePaths(null);
+      setApprovedPatchDecision(null);
       setPatchDiff(null);
+      setPatchSandboxResult(null);
+      setPatchRecoveryResult(null);
       setPatchApplyResult(null);
+
       setPatchRollbackResult(null);
 
       const refreshed = await sendSessionCommand({
@@ -910,7 +971,8 @@ export function SessionPage({
       setPatchProposalLoading(false);
     }
   }
-  async function generateDiff() {
+
+  async function generateDiff(selectedFilePaths: string[] | null = selectedPatchFiles()) {
     if (!session || !patchProposal || !patchProposal.validation.valid) {
       return;
     }
@@ -920,15 +982,21 @@ export function SessionPage({
     try {
       const result = await generatePatchDiff({
         proposal: patchProposal.proposal,
+        ...(selectedFilePaths && selectedFilePaths.length > 0 ? { selectedFilePaths } : {}),
       });
 
       setPatchDiff(result);
+      setPatchSandboxResult(null);
+      setPatchRecoveryResult(null);
       setPatchApplyResult(null);
       setPatchRollbackResult(null);
 
       const refreshed = await sendSessionCommand({
         sessionId: session.id,
-        command: 'Patch diff preview generado y registrado. No se aplicaron archivos.',
+        command:
+          selectedFilePaths && selectedFilePaths.length > 0
+            ? `Patch diff preview generado para ${selectedFilePaths.length} archivo(s) aprobado(s). No se aplicaron archivos.`
+            : 'Patch diff preview generado y registrado. No se aplicaron archivos.',
       });
 
       setSession(refreshed);
@@ -936,7 +1004,69 @@ export function SessionPage({
       setPatchDiffLoading(false);
     }
   }
-  async function dryRunApplyPatch() {
+  async function verifySandbox(selectedFilePaths: string[] | null = selectedPatchFiles()) {
+    if (!session || !patchProposal || !patchProposal.validation.valid) {
+      return;
+    }
+
+    setPatchSandboxLoading(true);
+
+    try {
+      const result = await verifyPatchSandbox({
+        proposal: patchProposal.proposal,
+        ...(selectedFilePaths && selectedFilePaths.length > 0 ? { selectedFilePaths } : {}),
+      });
+
+      setPatchSandboxResult(result.sandbox);
+      setPatchRecoveryResult(null);
+      const refreshed = await sendSessionCommand({
+        sessionId: session.id,
+        command:
+          selectedFilePaths && selectedFilePaths.length > 0
+            ? `Patch sandbox verification terminó con estado ${result.sandbox.status} sobre ${selectedFilePaths.length} archivo(s) aprobado(s).`
+            : `Patch sandbox verification terminó con estado ${result.sandbox.status}.`,
+      });
+
+      setSession(refreshed);
+      void refreshArtifactStore();
+    } finally {
+      setPatchSandboxLoading(false);
+    }
+  }
+  async function prepareRecovery() {
+    if (!session || !patchProposal || !patchSandboxResult) {
+      return;
+    }
+
+    if (patchSandboxResult.status === 'passed') {
+      return;
+    }
+
+    setPatchRecoveryLoading(true);
+
+    try {
+      const result = await preparePatchRecovery({
+        originalObjective: session.goal.current || session.goal.original,
+        proposal: patchProposal.proposal,
+        sandboxResult: patchSandboxResult,
+        currentAttempt: 1,
+        maxAttempts: 2,
+      });
+
+      setPatchRecoveryResult(result.recovery);
+
+      const refreshed = await sendSessionCommand({
+        sessionId: session.id,
+        command: `Patch recovery preparado con estado ${result.recovery.status}.`,
+      });
+
+      setSession(refreshed);
+      void refreshArtifactStore();
+    } finally {
+      setPatchRecoveryLoading(false);
+    }
+  }
+  async function dryRunApplyPatch(selectedFilePaths: string[] | null = selectedPatchFiles()) {
     if (!session || !patchProposal || !patchDiff) {
       return;
     }
@@ -952,6 +1082,7 @@ export function SessionPage({
         allowDirtyWorkingTree: false,
         allowMissingRepository: false,
         backupEnabled: true,
+        ...(selectedFilePaths && selectedFilePaths.length > 0 ? { selectedFilePaths } : {}),
       });
 
       setPatchApplyResult(result.apply);
@@ -959,7 +1090,10 @@ export function SessionPage({
 
       const refreshed = await sendSessionCommand({
         sessionId: session.id,
-        command: 'Patch apply dry-run ejecutado. No se aplicaron archivos.',
+        command:
+          selectedFilePaths && selectedFilePaths.length > 0
+            ? `Patch apply dry-run ejecutado sobre ${selectedFilePaths.length} archivo(s) aprobado(s). No se aplicaron archivos.`
+            : 'Patch apply dry-run ejecutado. No se aplicaron archivos.',
       });
 
       setSession(refreshed);
@@ -967,6 +1101,7 @@ export function SessionPage({
       setPatchApplyLoading(false);
     }
   }
+
   async function dryRunRollbackPatch() {
     if (!session || !patchApplyResult) {
       return;
@@ -1019,10 +1154,17 @@ export function SessionPage({
       setPatchRollbackLoading(false);
     }
   }
-  async function applyPatch(input: { confirmedText: string; allowDirtyWorkingTree: boolean }) {
+
+  async function applyPatch(input: {
+    confirmedText: string;
+    allowDirtyWorkingTree: boolean;
+    selectedFilePaths?: string[];
+  }) {
     if (!session || !patchProposal || !patchDiff || input.confirmedText !== 'APPLY') {
       return;
     }
+
+    const selectedFilePaths = input.selectedFilePaths ?? selectedPatchFiles();
 
     setPatchApplyLoading(true);
 
@@ -1034,7 +1176,10 @@ export function SessionPage({
         allowDirtyWorkingTree: input.allowDirtyWorkingTree,
         allowMissingRepository: false,
         backupEnabled: true,
+        ...(selectedFilePaths && selectedFilePaths.length > 0 ? { selectedFilePaths } : {}),
         ...(snapshot?.snapshot.snapshotId ? { snapshotId: snapshot.snapshot.snapshotId } : {}),
+        ...(approvedPatchDecision ? { approvalDecision: approvedPatchDecision } : {}),
+        ...(patchSandboxResult ? { sandboxResult: patchSandboxResult } : {}),
       });
 
       setPatchApplyResult(result.apply);
@@ -1042,7 +1187,10 @@ export function SessionPage({
 
       const refreshed = await sendSessionCommand({
         sessionId: session.id,
-        command: `Patch apply ejecutado con estado ${result.apply.status}.`,
+        command:
+          selectedFilePaths && selectedFilePaths.length > 0
+            ? `Patch apply ejecutado con estado ${result.apply.status} sobre ${selectedFilePaths.length} archivo(s) aprobado(s).`
+            : `Patch apply ejecutado con estado ${result.apply.status}.`,
       });
 
       setSession(refreshed);
@@ -1050,11 +1198,13 @@ export function SessionPage({
       setPatchApplyLoading(false);
     }
   }
+
   async function refreshRuntimeSettings() {
     const settings = await getRuntimeSettings();
 
     setRuntimeSettings(settings);
   }
+
   async function createSessionSnapshot(targetFiles: string[]) {
     if (!session) {
       return;
@@ -1075,6 +1225,7 @@ export function SessionPage({
       setSnapshotLoading(false);
     }
   }
+
   useEffect(() => {
     void refreshSavedSessions();
   }, []);
@@ -1111,6 +1262,7 @@ export function SessionPage({
     lastVerifyRun,
     reportExport,
   ]);
+
   return (
     <section className="session-page">
       <RuntimeStatusBar session={session} />
@@ -1236,14 +1388,17 @@ export function SessionPage({
               reportExport={reportExport}
               runtimeWorkflow={runtimeWorkflow}
               runtimeWorkflowLoading={runtimeWorkflowLoading}
+              patchSandboxResult={patchSandboxResult}
               onPrepareWorkflow={() => void prepareWorkflow()}
               onGeneratePlan={() => void generatePlan(false)}
               onGenerateProviderPlan={() => void generatePlan(true)}
               onGeneratePatchProposal={() => void generatePatch()}
               onGeneratePatchDiff={() => void generateDiff()}
+              onVerifySandbox={() => void verifySandbox()}
               onDryRunApply={() => void dryRunApplyPatch()}
               onCreateSnapshot={() => {
-                const targetFiles = patchProposal?.proposal.files.map((file) => file.path) ??
+                const targetFiles = selectedPatchFiles() ??
+                  patchProposal?.proposal.files.map((file) => file.path) ??
                   runtimePlan?.plan.scope.candidateFiles.map((file) => file.path) ?? [
                     'package.json',
                   ];
@@ -1323,6 +1478,12 @@ export function SessionPage({
               rollbackLoading={patchRollbackLoading}
               onGeneratePatchProposal={() => void generatePatch()}
               onGeneratePatchDiff={() => void generateDiff()}
+              sandboxResult={patchSandboxResult}
+              sandboxLoading={patchSandboxLoading}
+              recoveryResult={patchRecoveryResult}
+              recoveryLoading={patchRecoveryLoading}
+              onPrepareRecovery={() => void prepareRecovery()}
+              onVerifySandbox={() => void verifySandbox()}
               onDryRunApply={() => void dryRunApplyPatch()}
               onApplyPatch={(input) => void applyPatch(input)}
               onDryRunRollback={() => void dryRunRollbackPatch()}

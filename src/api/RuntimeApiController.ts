@@ -55,6 +55,16 @@ import { RuntimeArtifactStore } from '../artifacts/RuntimeArtifactStore.js';
 import type { RuntimeQuestion } from '../interactive/RuntimeQuestion.js';
 import { PatchCandidateResolver } from '../patches/PatchCandidateResolver.js';
 import { RuntimePatchProviderBridge } from '../patches/RuntimePatchProviderBridge.js';
+import { ApprovedPatchBuilder } from '../patches/ApprovedPatchBuilder.js';
+import { PatchApplyAuthorization } from '../approval/PatchApplyAuthorization.js';
+import { ApprovalDecisionStore } from '../approval/ApprovalDecisionStore.js';
+import { PatchSandbox } from '../sandbox/PatchSandbox.js';
+import { SandboxResultStorage } from '../sandbox/SandboxResultStorage.js';
+import type { PatchSandboxResult } from '../sandbox/SandboxResult.js';
+import { PatchRecoveryLoop } from '../patches/PatchRecoveryLoop.js';
+import { PatchRecoveryStorage } from '../patches/PatchRecoveryStorage.js';
+import type { PatchRecoveryLoopResult } from '../patches/PatchRecoveryLoop.js';
+
 import type {
   ProjectMemoryEntryKind,
   ProjectMemoryImportance,
@@ -67,6 +77,7 @@ import type {
 import type {
   ApprovalCenterArtifactState,
   ApprovalDecisionInput,
+  ApprovalDecisionResult,
 } from '../approval/ApprovalRequest.js';
 
 export interface RuntimeApiControllerOptions {
@@ -115,6 +126,11 @@ export interface RuntimeApiControllerOptions {
   artifactStore?: RuntimeArtifactStore | undefined;
   patchCandidateResolver?: PatchCandidateResolver | undefined;
   runtimePatchProviderBridge?: RuntimePatchProviderBridge | undefined;
+  approvalDecisionStore?: ApprovalDecisionStore | undefined;
+  patchSandbox?: PatchSandbox | undefined;
+  sandboxResultStorage?: SandboxResultStorage | undefined;
+  patchRecoveryLoop?: PatchRecoveryLoop | undefined;
+  patchRecoveryStorage?: PatchRecoveryStorage | undefined;
 }
 
 export class RuntimeApiController {
@@ -163,6 +179,13 @@ export class RuntimeApiController {
   private readonly artifactStore: RuntimeArtifactStore;
   private readonly patchCandidateResolver: PatchCandidateResolver;
   private readonly runtimePatchProviderBridge: RuntimePatchProviderBridge | null;
+  private readonly approvedPatchBuilder: ApprovedPatchBuilder;
+  private readonly patchSandbox: PatchSandbox;
+  private readonly sandboxResultStorage: SandboxResultStorage;
+  private readonly patchApplyAuthorization: PatchApplyAuthorization;
+  private readonly approvalDecisionStore: ApprovalDecisionStore;
+  private readonly patchRecoveryLoop: PatchRecoveryLoop;
+  private readonly patchRecoveryStorage: PatchRecoveryStorage;
 
   public constructor(options: RuntimeApiControllerOptions) {
     this.session = options.session;
@@ -212,6 +235,14 @@ export class RuntimeApiController {
     this.approvalCenter = options.approvalCenter ?? new ApprovalCenter();
     this.codeIntelligenceReport = options.codeIntelligenceReport ?? new CodeIntelligenceReport();
     this.artifactStore = options.artifactStore ?? new RuntimeArtifactStore();
+    this.approvedPatchBuilder = new ApprovedPatchBuilder();
+    this.patchSandbox = options.patchSandbox ?? new PatchSandbox();
+    this.sandboxResultStorage = options.sandboxResultStorage ?? new SandboxResultStorage();
+    this.patchApplyAuthorization = new PatchApplyAuthorization();
+    this.approvalCenter = options.approvalCenter ?? new ApprovalCenter();
+    this.approvalDecisionStore = options.approvalDecisionStore ?? new ApprovalDecisionStore();
+    this.patchRecoveryLoop = options.patchRecoveryLoop ?? new PatchRecoveryLoop();
+    this.patchRecoveryStorage = options.patchRecoveryStorage ?? new PatchRecoveryStorage();
   }
 
   public health(): RuntimeApiRouteResult {
@@ -555,7 +586,19 @@ export class RuntimeApiController {
 
     if (result.accepted) {
       const state = await this.session.load(artifactState.sessionId);
-
+      if (
+        artifactState.proposal &&
+        artifactState.diff &&
+        artifactState.proposal.status === 'validated'
+      ) {
+        await this.approvalDecisionStore.save({
+          sessionId: artifactState.sessionId,
+          projectRoot: artifactState.projectRoot,
+          proposalId: artifactState.diff.proposalId,
+          diffId: artifactState.diff.id,
+          decision: result,
+        });
+      }
       await this.session.addRuntimeAction(state, {
         title: 'Approval decision recorded',
         description: `Approval request ${result.requestId} resolved with action ${result.action}.`,
@@ -868,18 +911,29 @@ export class RuntimeApiController {
   public async generatePatchDiff(body: JsonValue | null): Promise<RuntimeApiRouteResult> {
     const input = this.asObject(body);
     const proposal = this.requiredRuntimePatchProposal(input, 'proposal');
+    const selectedFilePaths = this.optionalStringArray(input, 'selectedFilePaths');
 
-    if (proposal.status !== 'validated') {
+    const approvedPatch =
+      selectedFilePaths && selectedFilePaths.length > 0
+        ? this.approvedPatchBuilder.build({
+            proposal,
+            selectedFilePaths,
+          })
+        : null;
+
+    const proposalForDiff = approvedPatch?.proposal ?? proposal;
+
+    if (proposalForDiff.status !== 'validated') {
       throw new Error('Patch diff preview requires a validated patch proposal.');
     }
 
     const result = this.patchDiffBuilder.build({
-      proposal,
+      proposal: proposalForDiff,
     });
 
     const files = await this.patchDiffStorage.save(result);
 
-    const state = await this.session.load(proposal.sessionId);
+    const state = await this.session.load(proposalForDiff.sessionId);
 
     await this.session.addRuntimeAction(state, {
       title: 'Patch diff preview generated',
@@ -887,7 +941,14 @@ export class RuntimeApiController {
       status: 'completed',
       metadata: {
         diffId: result.diff.id,
-        proposalId: proposal.id,
+        proposalId: proposalForDiff.id,
+        ...(approvedPatch
+          ? {
+              originalProposalId: approvedPatch.originalProposalId,
+              selectedFilePaths: approvedPatch.selectedFilePaths,
+              rejectedFilePaths: approvedPatch.rejectedFilePaths,
+            }
+          : {}),
         summary: result.diff.summary as unknown as JsonObject,
         files: files as unknown as JsonObject,
       },
@@ -895,8 +956,8 @@ export class RuntimeApiController {
 
     this.eventBus.publish({
       name: 'audit.generated',
-      sessionId: proposal.sessionId,
-      projectRoot: proposal.projectRoot,
+      sessionId: proposalForDiff.sessionId,
+      projectRoot: proposalForDiff.projectRoot,
       message: `Patch diff preview generated: ${result.diff.id}`,
       payload: {
         diff: result.diff as unknown as JsonObject,
@@ -909,25 +970,278 @@ export class RuntimeApiController {
       files: files as unknown as JsonObject,
     });
   }
+  public async verifyPatchSandbox(body: JsonValue | null): Promise<RuntimeApiRouteResult> {
+    const input = this.asObject(body);
+    const proposal = this.requiredRuntimePatchProposal(input, 'proposal');
+    const selectedFilePaths = this.optionalStringArray(input, 'selectedFilePaths');
+
+    const approvedPatch =
+      selectedFilePaths && selectedFilePaths.length > 0
+        ? this.approvedPatchBuilder.build({
+            proposal,
+            selectedFilePaths,
+          })
+        : null;
+
+    const proposalForSandbox = approvedPatch?.proposal ?? proposal;
+
+    const result = await this.patchSandbox.verify({
+      proposal: proposalForSandbox,
+      verifyCommands: proposalForSandbox.verifyCommands,
+      approvalState: 'approved',
+    });
+
+    const files = await this.sandboxResultStorage.save(result);
+
+    const state = await this.session.load(proposalForSandbox.sessionId);
+
+    await this.session.addRuntimeAction(state, {
+      title: 'Patch sandbox verification executed',
+      description: `Sandbox verification finished with status ${result.status}.`,
+      status:
+        result.status === 'passed'
+          ? 'completed'
+          : result.status === 'blocked'
+            ? 'blocked'
+            : 'failed',
+      metadata: {
+        sandboxResultId: result.id,
+        proposalId: proposalForSandbox.id,
+        ...(approvedPatch
+          ? {
+              originalProposalId: approvedPatch.originalProposalId,
+              selectedFilePaths: approvedPatch.selectedFilePaths,
+              rejectedFilePaths: approvedPatch.rejectedFilePaths,
+            }
+          : {}),
+        sandboxStatus: result.status,
+        verifyRuns: result.verifyRuns as unknown as JsonObject[],
+        issues: result.issues as unknown as JsonObject[],
+        files: files as unknown as JsonObject,
+      },
+    });
+
+    this.eventBus.publish({
+      name: 'audit.generated',
+      sessionId: proposalForSandbox.sessionId,
+      projectRoot: proposalForSandbox.projectRoot,
+      message: `Patch sandbox verification executed: ${result.id}`,
+      payload: {
+        sandbox: result as unknown as JsonObject,
+        files: files as unknown as JsonObject,
+      },
+    });
+
+    return this.response.created({
+      sandbox: result as unknown as JsonObject,
+      files: files as unknown as JsonObject,
+    });
+  }
+  public async preparePatchRecovery(body: JsonValue | null): Promise<RuntimeApiRouteResult> {
+    const input = this.asObject(body);
+    const originalObjective = this.requiredString(input, 'originalObjective');
+    const proposal = this.requiredRuntimePatchProposal(input, 'proposal');
+    const sandboxResult = this.requiredPatchSandboxResult(input, 'sandboxResult');
+    const currentAttempt = this.optionalNumber(input, 'currentAttempt') ?? 1;
+    const maxAttempts = this.optionalNumber(input, 'maxAttempts') ?? 2;
+
+    const recovery = this.patchRecoveryLoop.prepareRepair({
+      originalObjective,
+      proposal,
+      sandboxResult,
+      currentAttempt,
+      maxAttempts,
+    });
+
+    const files = await this.patchRecoveryStorage.save(recovery);
+    const state = await this.session.load(proposal.sessionId);
+
+    await this.session.addRuntimeAction(state, {
+      title: 'Patch recovery prepared',
+      description: `Patch recovery finished with status ${recovery.status}.`,
+      status:
+        recovery.status === 'repair_prompt_ready'
+          ? 'completed'
+          : recovery.status === 'max_attempts_reached'
+            ? 'blocked'
+            : 'failed',
+      metadata: {
+        recovery: recovery as unknown as JsonObject,
+        files: files as unknown as JsonObject,
+      },
+    });
+
+    this.eventBus.publish({
+      name: 'audit.generated',
+      sessionId: proposal.sessionId,
+      projectRoot: proposal.projectRoot,
+      message: `Patch recovery prepared: ${recovery.id}`,
+      payload: {
+        recovery: recovery as unknown as JsonObject,
+        files: files as unknown as JsonObject,
+      },
+    });
+
+    return this.response.created({
+      recovery: recovery as unknown as JsonObject,
+      files: files as unknown as JsonObject,
+    });
+  }
+  public async generatePatchRecoveryProposal(
+    body: JsonValue | null,
+  ): Promise<RuntimeApiRouteResult> {
+    const input = this.asObject(body);
+    const originalProposal = this.requiredRuntimePatchProposal(input, 'originalProposal');
+    const recovery = this.requiredPatchRecoveryLoopResult(input, 'recovery');
+    const model =
+      this.optionalString(input, 'model') ??
+      (await this.runtimeSettingsStore.load()).model.defaultModel;
+
+    if (recovery.status !== 'repair_prompt_ready') {
+      throw new Error('Patch recovery proposal generation requires repair_prompt_ready status.');
+    }
+
+    const firstAttempt = recovery.attempts[0];
+
+    if (!firstAttempt) {
+      throw new Error('Patch recovery proposal generation requires at least one recovery attempt.');
+    }
+
+    const failedFiles = firstAttempt.failureReport.failedFiles.map((filePath) => ({
+      path: filePath,
+      existsKnown: true,
+      reason: 'File failed sandbox verification and is eligible for repair.',
+    }));
+
+    const resolvedCandidates = await this.patchCandidateResolver.resolve({
+      projectRoot: originalProposal.projectRoot,
+      candidates: failedFiles,
+      maxFiles: 6,
+      maxFileBytes: 36_000,
+    });
+
+    if (resolvedCandidates.length === 0) {
+      throw new Error('Patch recovery provider repair requires resolved failed files.');
+    }
+
+    const bridge =
+      this.runtimePatchProviderBridge ??
+      new RuntimePatchProviderBridge({
+        providerManager: this.providerManager,
+        model,
+      });
+
+    const repaired = await bridge.repair({
+      originalProposal,
+      repairPrompt: firstAttempt.repairPrompt,
+      candidates: resolvedCandidates,
+      verifyCommands: originalProposal.verifyCommands,
+    });
+
+    const files = await this.patchStorage.save(repaired.result);
+    const state = await this.session.load(originalProposal.sessionId);
+
+    await this.session.addRuntimeAction(state, {
+      title: 'Patch recovery proposal generated',
+      description: `Provider generated repaired patch proposal ${repaired.result.proposal.id}.`,
+      status: repaired.result.validation.valid ? 'completed' : 'blocked',
+      metadata: {
+        originalProposalId: originalProposal.id,
+        repairedProposalId: repaired.result.proposal.id,
+        recoveryId: recovery.id,
+        validation: repaired.result.validation as unknown as JsonObject,
+        files: files as unknown as JsonObject,
+        providerAudit: repaired.audit as unknown as JsonObject,
+      },
+    });
+
+    this.eventBus.publish({
+      name: 'audit.generated',
+      sessionId: originalProposal.sessionId,
+      projectRoot: originalProposal.projectRoot,
+      message: `Patch recovery proposal generated: ${repaired.result.proposal.id}`,
+      payload: {
+        originalProposalId: originalProposal.id,
+        recovery: recovery as unknown as JsonObject,
+        proposal: repaired.result.proposal as unknown as JsonObject,
+        validation: repaired.result.validation as unknown as JsonObject,
+        files: files as unknown as JsonObject,
+        providerAudit: repaired.audit as unknown as JsonObject,
+      },
+    });
+
+    return this.response.created({
+      source: 'provider',
+      proposal: repaired.result.proposal as unknown as JsonObject,
+      validation: repaired.result.validation as unknown as JsonObject,
+      files: files as unknown as JsonObject,
+      providerAudit: repaired.audit as unknown as JsonObject,
+    });
+  }
   public async applyRuntimePatch(body: JsonValue | null): Promise<RuntimeApiRouteResult> {
     const input = this.asObject(body);
     const proposal = this.requiredRuntimePatchProposal(input, 'proposal');
+    const selectedFilePaths = this.optionalStringArray(input, 'selectedFilePaths');
+    const approvedPatch =
+      selectedFilePaths && selectedFilePaths.length > 0
+        ? this.approvedPatchBuilder.build({
+            proposal,
+            selectedFilePaths,
+          })
+        : null;
+
+    const proposalToApply = approvedPatch?.proposal ?? proposal;
     const diff = this.requiredPatchDiffPreview(input, 'diff');
     const applyConfirmed = this.optionalBoolean(input, 'applyConfirmed') === true;
+    const dryRun = this.optionalBoolean(input, 'dryRun') === true;
     const snapshotId = this.optionalString(input, 'snapshotId');
+    const approvalDecision = this.optionalApprovalDecisionResult(input, 'approvalDecision');
+    const sandboxResult = this.optionalPatchSandboxResult(input, 'sandboxResult');
+    const storedApprovalDecision =
+      approvalDecision ??
+      (
+        await this.approvalDecisionStore.findLatest({
+          sessionId: proposalToApply.sessionId,
+          proposalId: proposalToApply.id,
+          diffId: diff.id,
+        })
+      )?.decision ??
+      null;
+    if (!dryRun) {
+      this.assertSandboxPassedForApply({
+        proposal: proposalToApply,
+        diff,
+        sandboxResult,
+      });
+    }
+    if (!dryRun) {
+      const authorization = this.patchApplyAuthorization.authorize({
+        proposal: proposalToApply,
+        diff,
+        decision: storedApprovalDecision,
+      });
+
+      if (!authorization.authorized) {
+        throw new Error(
+          `Runtime patch apply authorization failed: ${authorization.issues
+            .map((issue) => `${issue.code}: ${issue.message}`)
+            .join(' | ')}`,
+        );
+      }
+    }
 
     const result = await this.runtimePatchApplyBridge.apply({
-      proposal,
+      proposal: proposalToApply,
       diff,
       applyConfirmed,
       ...(snapshotId ? { snapshotId } : {}),
-      dryRun: this.optionalBoolean(input, 'dryRun'),
+      dryRun,
       allowDirtyWorkingTree: this.optionalBoolean(input, 'allowDirtyWorkingTree'),
       allowMissingRepository: this.optionalBoolean(input, 'allowMissingRepository'),
       backupEnabled: this.optionalBoolean(input, 'backupEnabled') ?? true,
     });
 
-    const state = await this.session.load(proposal.sessionId);
+    const state = await this.session.load(proposalToApply.sessionId);
 
     await this.session.addRuntimeAction(state, {
       title: 'Runtime patch apply executed',
@@ -940,8 +1254,19 @@ export class RuntimeApiController {
             : 'failed',
       metadata: {
         applyId: result.id,
-        proposalId: proposal.id,
+        proposalId: proposalToApply.id,
+        ...(approvedPatch
+          ? {
+              originalProposalId: approvedPatch.originalProposalId,
+              selectedFilePaths: approvedPatch.selectedFilePaths,
+              rejectedFilePaths: approvedPatch.rejectedFilePaths,
+            }
+          : {}),
         diffId: diff.id,
+        approvalDecision: storedApprovalDecision
+          ? (storedApprovalDecision as unknown as JsonObject)
+          : null,
+        sandboxResult: sandboxResult ? (sandboxResult as unknown as JsonObject) : null,
         status: result.status,
         operationResults: result.operationResults as unknown as JsonObject[],
         issues: result.issues as unknown as JsonObject[],
@@ -950,8 +1275,8 @@ export class RuntimeApiController {
 
     this.eventBus.publish({
       name: 'audit.generated',
-      sessionId: proposal.sessionId,
-      projectRoot: proposal.projectRoot,
+      sessionId: proposalToApply.sessionId,
+      projectRoot: proposalToApply.projectRoot,
       message: `Runtime patch apply executed: ${result.id}`,
       payload: {
         apply: result as unknown as JsonObject,
@@ -961,10 +1286,11 @@ export class RuntimeApiController {
     return this.response.created({
       apply: {
         ...(result as unknown as JsonObject),
-        sessionId: proposal.sessionId,
+        sessionId: proposalToApply.sessionId,
       },
     });
   }
+
   private async generateProviderPatchProposal(input: {
     model: string;
     planId: string;
@@ -1115,6 +1441,120 @@ export class RuntimeApiController {
       ) as ApprovalCenterArtifactState['lastVerifyRun'],
       snapshotAvailable: this.requiredRecordBoolean(record, 'snapshotAvailable', key),
       dirtyWorkingTree: this.requiredRecordBoolean(record, 'dirtyWorkingTree', key),
+    };
+  }
+  private requiredPatchSandboxResult(input: JsonObject, key: string): PatchSandboxResult {
+    const value = this.optionalPatchSandboxResult(input, key);
+
+    if (!value) {
+      throw new Error(`"${key}" is required.`);
+    }
+
+    return value;
+  }
+  private requiredPatchRecoveryLoopResult(input: JsonObject, key: string): PatchRecoveryLoopResult {
+    const value = input[key];
+
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      throw new Error(`"${key}" must be a patch recovery result object.`);
+    }
+
+    const record = value as Record<string, unknown>;
+    const status = record['status'];
+
+    if (
+      status !== 'repair_prompt_ready' &&
+      status !== 'max_attempts_reached' &&
+      status !== 'not_recoverable'
+    ) {
+      throw new Error(`"${key}.status" must be a valid patch recovery status.`);
+    }
+
+    if (!Array.isArray(record['attempts'])) {
+      throw new Error(`"${key}.attempts" must be an array.`);
+    }
+
+    return value as unknown as PatchRecoveryLoopResult;
+  }
+  private optionalPatchSandboxResult(input: JsonObject, key: string): PatchSandboxResult | null {
+    const value = input[key];
+
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error(`"${key}" must be a sandbox result object or null.`);
+    }
+
+    const record = value as Record<string, unknown>;
+
+    const status = record['status'];
+
+    if (status !== 'passed' && status !== 'failed' && status !== 'blocked') {
+      throw new Error(`"${key}.status" must be passed, failed, or blocked.`);
+    }
+
+    return value as unknown as PatchSandboxResult;
+  }
+
+  private assertSandboxPassedForApply(input: {
+    proposal: RuntimePatchProposal;
+    diff: PatchDiffPreview;
+    sandboxResult: PatchSandboxResult | null;
+  }): void {
+    if (!input.sandboxResult) {
+      throw new Error('Real patch apply requires a passed sandbox verification result.');
+    }
+
+    if (input.sandboxResult.status !== 'passed') {
+      throw new Error(
+        `Real patch apply requires passed sandbox verification. Current sandbox status: ${input.sandboxResult.status}.`,
+      );
+    }
+
+    if (input.sandboxResult.proposalId !== input.proposal.id) {
+      throw new Error('Sandbox result proposalId does not match proposal being applied.');
+    }
+
+    if (input.sandboxResult.sessionId !== input.proposal.sessionId) {
+      throw new Error('Sandbox result sessionId does not match proposal sessionId.');
+    }
+
+    if (input.sandboxResult.projectRoot !== input.proposal.projectRoot) {
+      throw new Error('Sandbox result projectRoot does not match proposal projectRoot.');
+    }
+
+    if (input.diff.proposalId !== input.proposal.id) {
+      throw new Error('Patch diff proposalId does not match proposal being applied.');
+    }
+  }
+  private optionalApprovalDecisionResult(
+    input: JsonObject,
+    key: string,
+  ): ApprovalDecisionResult | null {
+    const value = input[key];
+
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error(`"${key}" must be an approval decision result object or null.`);
+    }
+
+    const record = value as Record<string, unknown>;
+    const blockedReason = this.optionalRecordString(record, 'blockedReason');
+    const reason = this.optionalRecordString(record, 'reason');
+
+    return {
+      requestId: this.requiredRecordString(record, 'requestId', key),
+      action: this.requiredApprovalAction(record, 'action', key),
+      accepted: this.requiredRecordBoolean(record, 'accepted', key),
+      selectedFilePaths: this.requiredRecordStringArray(record, 'selectedFilePaths', key),
+      ...(blockedReason ? { blockedReason } : {}),
+      ...(reason ? { reason } : {}),
+      decidedAt: this.requiredRecordString(record, 'decidedAt', key),
     };
   }
 
@@ -1611,16 +2051,17 @@ export class RuntimeApiController {
 
       const file = item as Record<string, unknown>;
 
+      const label = `proposal.${key}.${String(index)}`;
+
       return {
-        path: this.requiredRecordString(file, 'path', `proposal.${key}.${String(index)}`),
-        operation: this.requiredRuntimePatchOperation(
-          file,
-          'operation',
-          `proposal.${key}.${String(index)}`,
-        ),
+        path: this.requiredRecordString(file, 'path', label),
+        operation: this.requiredRuntimePatchOperation(file, 'operation', label),
         beforeHash: this.optionalRecordStringOrNull(file, 'beforeHash'),
         content: this.optionalRecordStringOrNull(file, 'content'),
-        reason: this.requiredRecordString(file, 'reason', `proposal.${key}.${String(index)}`),
+        reason: this.requiredRecordString(file, 'reason', label),
+        changesSummary: this.requiredRecordStringArray(file, 'changesSummary', label),
+        riskLevel: this.requiredRuntimePatchRiskLevel(file, 'riskLevel', label),
+        userSelectable: this.requiredRecordTrue(file, 'userSelectable', label),
       };
     });
   }
@@ -1712,6 +2153,29 @@ export class RuntimeApiController {
     }
 
     return value;
+  }
+  private requiredRecordStringArray(
+    record: Record<string, unknown>,
+    key: string,
+    label: string,
+  ): string[] {
+    const value = record[key];
+
+    if (!Array.isArray(value) || !value.every((item) => typeof item === 'string')) {
+      throw new Error(`"${label}.${key}" must be a string array.`);
+    }
+
+    return value;
+  }
+
+  private requiredRecordTrue(record: Record<string, unknown>, key: string, label: string): true {
+    const value = record[key];
+
+    if (value !== true) {
+      throw new Error(`"${label}.${key}" must be true.`);
+    }
+
+    return true;
   }
   private requiredRecordStringAllowEmpty(
     record: Record<string, unknown>,
@@ -2432,6 +2896,19 @@ export class RuntimeApiController {
     const items = value.filter((item): item is string => typeof item === 'string');
 
     return items.length > 0 ? items : undefined;
+  }
+  private optionalNumber(input: JsonObject, key: string): number | undefined {
+    const value = input[key];
+
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      throw new Error(`"${key}" must be a finite number.`);
+    }
+
+    return value;
   }
   private optionalPositiveNumber(input: JsonObject, key: string): number | undefined {
     const value = input[key];

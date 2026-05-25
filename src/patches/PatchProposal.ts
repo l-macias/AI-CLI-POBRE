@@ -10,6 +10,9 @@ export interface PatchFileChange {
   beforeHash: string | null;
   content: string | null;
   reason: string;
+  changesSummary: string[];
+  riskLevel: PatchProposalRiskLevel;
+  userSelectable: true;
 }
 
 export interface PatchProposalRisk {

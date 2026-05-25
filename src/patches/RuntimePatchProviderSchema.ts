@@ -6,6 +6,7 @@ export const runtimePatchProviderFileSchema = z
     operation: z.enum(['modify', 'create']),
     content: z.string().min(1),
     reason: z.string().min(10).max(700),
+    changesSummary: z.array(z.string().min(3).max(220)).min(1).max(8),
   })
   .strict();
 

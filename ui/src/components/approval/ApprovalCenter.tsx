@@ -28,7 +28,11 @@ export function ApprovalCenter({ center, loading = false, onDecision }: Approval
       const next: Record<string, string[]> = {};
 
       for (const request of center.requests) {
-        next[request.id] = current[request.id] ?? request.filePaths;
+        const selectedByDefault = request.fileReviews
+          .filter((file) => file.userSelectable && file.selectedByDefault)
+          .map((file) => file.path);
+
+        next[request.id] = current[request.id] ?? selectedByDefault;
       }
 
       return next;
@@ -79,11 +83,25 @@ export function ApprovalCenter({ center, loading = false, onDecision }: Approval
             <ApprovalCardRouter
               key={request.id}
               request={request}
-              selectedFilePaths={selectedFilesByRequest[request.id] ?? request.filePaths}
+              selectedFilePaths={selectedFilesByRequest[request.id] ?? []}
               onToggleFile={(filePath) =>
                 setSelectedFilesByRequest((current) => ({
                   ...current,
-                  [request.id]: toggleFile(current[request.id] ?? request.filePaths, filePath),
+                  [request.id]: toggleFile(current[request.id] ?? [], filePath),
+                }))
+              }
+              onSelectAll={() =>
+                setSelectedFilesByRequest((current) => ({
+                  ...current,
+                  [request.id]: request.fileReviews
+                    .filter((file) => file.userSelectable)
+                    .map((file) => file.path),
+                }))
+              }
+              onClearSelection={() =>
+                setSelectedFilesByRequest((current) => ({
+                  ...current,
+                  [request.id]: [],
                 }))
               }
               onDecision={onDecision}
@@ -99,6 +117,8 @@ interface ApprovalCardRouterProps {
   request: ApprovalRequest;
   selectedFilePaths: string[];
   onToggleFile: (filePath: string) => void;
+  onSelectAll: () => void;
+  onClearSelection: () => void;
   onDecision: (input: ApprovalDecisionViewInput) => void;
 }
 

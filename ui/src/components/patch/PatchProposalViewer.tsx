@@ -1,4 +1,4 @@
-import { GitPullRequestDraft, ShieldAlert } from 'lucide-react';
+import { GitPullRequestDraft, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { Badge } from '../Badge';
 import { PatchFileCard } from './PatchFileCard';
 import { PatchSummary } from './PatchSummary';
@@ -13,6 +13,8 @@ import type {
   RuntimePatchApplyResult,
   SnapshotManifest,
   RuntimePatchRollbackResult,
+  RuntimePatchSandboxResult,
+  RuntimePatchRecoveryResult,
 } from '../../types/runtime';
 
 interface PatchProposalViewerProps {
@@ -20,15 +22,21 @@ interface PatchProposalViewerProps {
   runtimePlan: RuntimePlanGenerateResult | null;
   patchProposal: RuntimePatchProposalGenerateResult | null;
   patchDiff: RuntimePatchDiffGenerateResult | null;
+  sandboxResult: RuntimePatchSandboxResult | null;
+  recoveryResult: RuntimePatchRecoveryResult | null;
   snapshot: { snapshot: SnapshotManifest } | null;
   applyResult: RuntimePatchApplyResult | null;
   rollbackResult: RuntimePatchRollbackResult | null;
   loading: boolean;
   diffLoading: boolean;
+  sandboxLoading: boolean;
+  recoveryLoading: boolean;
   applyLoading: boolean;
   rollbackLoading: boolean;
   onGeneratePatchProposal: () => void;
   onGeneratePatchDiff: () => void;
+  onVerifySandbox: () => void;
+  onPrepareRecovery: () => void;
   onDryRunApply: () => void;
   onApplyPatch: (input: { confirmedText: string; allowDirtyWorkingTree: boolean }) => void;
   onDryRunRollback: () => void;
@@ -41,15 +49,21 @@ export function PatchProposalViewer({
   runtimePlan,
   patchProposal,
   patchDiff,
+  sandboxResult,
   snapshot,
   applyResult,
   rollbackResult,
   loading,
   diffLoading,
+  sandboxLoading,
   applyLoading,
   rollbackLoading,
+  recoveryResult,
+  recoveryLoading,
+  onPrepareRecovery,
   onGeneratePatchProposal,
   onGeneratePatchDiff,
+  onVerifySandbox,
   onDryRunApply,
   onApplyPatch,
   onDryRunRollback,
@@ -59,9 +73,18 @@ export function PatchProposalViewer({
   const canGenerate = Boolean(
     session && runtimePlan?.validation.valid && runtimePlan.plan.status === 'validated',
   );
+
   const canGenerateDiff = Boolean(
     session && patchProposal?.validation.valid && patchProposal.proposal.status === 'validated',
   );
+
+  const canVerifySandbox = Boolean(
+    session &&
+    patchProposal?.validation.valid &&
+    patchProposal.proposal.status === 'validated' &&
+    patchDiff?.diff.safeToPreview === true,
+  );
+
   return (
     <section className="plan-viewer">
       <div className="panel-header">
@@ -70,7 +93,7 @@ export function PatchProposalViewer({
           <div>
             <h2>Patch Proposal</h2>
             <p className="muted">
-              Generate a proposal from the validated runtime plan. No apply action exists here.
+              Generate, review, sandbox-verify and apply patches through runtime gates.
             </p>
           </div>
         </div>
@@ -82,7 +105,12 @@ export function PatchProposalViewer({
         ) : (
           <Badge tone="slate">empty</Badge>
         )}
+
         {patchDiff ? <PatchDiffPreview result={patchDiff} /> : null}
+
+        {sandboxResult ? <PatchSandboxResultCard result={sandboxResult} /> : null}
+        {recoveryResult ? <PatchRecoveryResultCard result={recoveryResult} /> : null}
+
         {patchDiff ? (
           <PatchApplyPanel
             patchProposal={patchProposal}
@@ -94,6 +122,7 @@ export function PatchProposalViewer({
             onApply={onApplyPatch}
           />
         ) : null}
+
         {applyResult ? (
           <PatchRollbackPanel
             applyResult={applyResult}
@@ -109,12 +138,28 @@ export function PatchProposalViewer({
         <button disabled={!canGenerate || loading} onClick={onGeneratePatchProposal}>
           {loading ? 'Generating...' : 'Generate Patch Proposal'}
         </button>
+
         <button
           disabled={!canGenerateDiff || diffLoading}
           className="secondary-button"
           onClick={onGeneratePatchDiff}
         >
           {diffLoading ? 'Generating diff...' : 'Generate Diff Preview'}
+        </button>
+
+        <button
+          disabled={!canVerifySandbox || sandboxLoading}
+          className="secondary-button"
+          onClick={onVerifySandbox}
+        >
+          {sandboxLoading ? 'Verifying sandbox...' : 'Verify in Sandbox'}
+        </button>
+        <button
+          disabled={!sandboxResult || sandboxResult.status === 'passed' || recoveryLoading}
+          className="secondary-button"
+          onClick={onPrepareRecovery}
+        >
+          {recoveryLoading ? 'Preparing recovery...' : 'Prepare Recovery'}
         </button>
         <button
           disabled={!session}
@@ -221,7 +266,9 @@ export function PatchProposalViewer({
             <article className="plan-summary-card">
               <div>
                 <strong>Suggested verify commands</strong>
-                <p className="muted">Verification still requires explicit approval.</p>
+                <p className="muted">
+                  Sandbox verification runs approved safe commands before real apply.
+                </p>
               </div>
 
               <div className="plan-step-list">
@@ -254,5 +301,152 @@ export function PatchProposalViewer({
         </article>
       )}
     </section>
+  );
+}
+
+function PatchSandboxResultCard({ result }: { result: RuntimePatchSandboxResult }) {
+  const tone =
+    result.status === 'passed' ? 'green' : result.status === 'blocked' ? 'yellow' : 'red';
+
+  return (
+    <article className="plan-summary-card">
+      <div className="panel-title-row">
+        <ShieldCheck size={18} />
+        <div>
+          <strong>Sandbox verification</strong>
+          <p className="muted">Patch was tested inside a sandbox workspace before real apply.</p>
+        </div>
+        <Badge tone={tone}>{result.status}</Badge>
+      </div>
+
+      {result.workspace ? (
+        <p className="muted">Workspace: {result.workspace.workspaceRoot}</p>
+      ) : null}
+
+      {result.applyResult ? (
+        <p className="muted">Sandbox apply: {result.applyResult.status}</p>
+      ) : null}
+
+      {result.verifyRuns.length > 0 ? (
+        <div className="plan-step-list">
+          {result.verifyRuns.map((run) => (
+            <article className="plan-step-card" key={`${run.command}-${run.startedAt}`}>
+              <div className="plan-step-content">
+                <div className="plan-step-header">
+                  <strong>{run.command}</strong>
+                  <Badge
+                    tone={
+                      run.status === 'blocked'
+                        ? 'yellow'
+                        : run.status === 'failed' || run.exitCode !== 0
+                          ? 'red'
+                          : 'green'
+                    }
+                  >
+                    {run.status}
+                    {run.exitCode !== undefined ? ` / ${run.exitCode}` : ''}
+                  </Badge>
+                </div>
+
+                {run.stdoutSummary ? (
+                  <pre className="runtime-code-block">{run.stdoutSummary}</pre>
+                ) : null}
+
+                {run.stderrSummary ? (
+                  <pre className="runtime-code-block">{run.stderrSummary}</pre>
+                ) : null}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      {result.issues.length > 0 ? (
+        <div className="plan-step-list">
+          {result.issues.map((issue) => (
+            <article className="plan-step-card" key={`${issue.code}-${issue.message}`}>
+              <div className="plan-step-content">
+                <div className="plan-step-header">
+                  <strong>{issue.code}</strong>
+                  <Badge tone={issue.severity === 'error' ? 'red' : 'yellow'}>
+                    {issue.severity}
+                  </Badge>
+                </div>
+                <p>{issue.message}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+function PatchRecoveryResultCard({ result }: { result: RuntimePatchRecoveryResult }) {
+  const tone =
+    result.status === 'repair_prompt_ready'
+      ? 'green'
+      : result.status === 'max_attempts_reached'
+        ? 'yellow'
+        : 'red';
+
+  const firstAttempt = result.attempts[0];
+
+  return (
+    <article className="plan-summary-card">
+      <div className="panel-title-row">
+        <ShieldAlert size={18} />
+        <div>
+          <strong>Patch recovery</strong>
+          <p className="muted">
+            Runtime prepared a failure report and repair prompt after sandbox failure.
+          </p>
+        </div>
+        <Badge tone={tone}>{result.status}</Badge>
+      </div>
+
+      <p className="muted">
+        Attempt {result.currentAttempt}/{result.maxAttempts}
+      </p>
+
+      {result.issues.length > 0 ? (
+        <div className="plan-step-list">
+          {result.issues.map((issue) => (
+            <article className="plan-step-card" key={`${issue.code}-${issue.message}`}>
+              <div className="plan-step-content">
+                <div className="plan-step-header">
+                  <strong>{issue.code}</strong>
+                  <Badge tone={issue.severity === 'error' ? 'red' : 'yellow'}>
+                    {issue.severity}
+                  </Badge>
+                </div>
+                <p>{issue.message}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      {firstAttempt ? (
+        <div className="plan-step-list">
+          <article className="plan-step-card">
+            <div className="plan-step-content">
+              <div className="plan-step-header">
+                <strong>{firstAttempt.failureReport.summary}</strong>
+                <Badge tone={firstAttempt.failureReport.status === 'failed' ? 'red' : 'yellow'}>
+                  {firstAttempt.failureReport.status}
+                </Badge>
+              </div>
+
+              <p className="muted">
+                Failed files: {firstAttempt.failureReport.failedFiles.join(', ')}
+              </p>
+
+              <strong>Repair prompt</strong>
+              <pre className="runtime-code-block">{firstAttempt.repairPrompt.user}</pre>
+            </div>
+          </article>
+        </div>
+      ) : null}
+    </article>
   );
 }

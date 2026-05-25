@@ -5,21 +5,25 @@ import type {
   PatchProposalGenerationResult,
   RuntimePatchProposal,
 } from './PatchProposal.js';
+import { PatchFileReviewBuilder } from './PatchFileReviewBuilder.js';
 import { PatchProposalValidator } from './PatchProposalValidator.js';
 import { PatchRiskAnalyzer } from './PatchRiskAnalyzer.js';
 
 export interface PatchProposalGeneratorOptions {
   validator?: PatchProposalValidator | undefined;
   riskAnalyzer?: PatchRiskAnalyzer | undefined;
+  fileReviewBuilder?: PatchFileReviewBuilder | undefined;
 }
 
 export class PatchProposalGenerator {
   private readonly validator: PatchProposalValidator;
   private readonly riskAnalyzer: PatchRiskAnalyzer;
+  private readonly fileReviewBuilder: PatchFileReviewBuilder;
 
   public constructor(options: PatchProposalGeneratorOptions = {}) {
     this.validator = options.validator ?? new PatchProposalValidator();
     this.riskAnalyzer = options.riskAnalyzer ?? new PatchRiskAnalyzer();
+    this.fileReviewBuilder = options.fileReviewBuilder ?? new PatchFileReviewBuilder();
   }
 
   public generate(input: PatchProposalGenerationInput): PatchProposalGenerationResult {
@@ -58,22 +62,34 @@ export class PatchProposalGenerator {
       const normalizedContent = candidate.content ?? '';
 
       if (candidate.existsKnown) {
-        return {
-          path: candidate.path,
-          operation: 'modify',
-          beforeHash: this.hashContent(normalizedContent),
-          content: this.buildProposedContent(normalizedContent, candidate.path),
-          reason: candidate.reason,
-        };
+        return this.fileReviewBuilder.build(
+          {
+            path: candidate.path,
+            operation: 'modify',
+            beforeHash: this.hashContent(normalizedContent),
+            content: this.buildProposedContent(normalizedContent, candidate.path),
+            reason: candidate.reason,
+            changesSummary: [
+              'Adds a runtime-generated placeholder change for diff and approval workflow testing.',
+            ],
+          },
+          input.candidateFiles.length,
+        );
       }
 
-      return {
-        path: candidate.path,
-        operation: 'create',
-        beforeHash: null,
-        content: this.buildCreatedContent(candidate.path),
-        reason: candidate.reason,
-      };
+      return this.fileReviewBuilder.build(
+        {
+          path: candidate.path,
+          operation: 'create',
+          beforeHash: null,
+          content: this.buildCreatedContent(candidate.path),
+          reason: candidate.reason,
+          changesSummary: [
+            'Creates a runtime-generated placeholder file for proposal workflow testing.',
+          ],
+        },
+        input.candidateFiles.length,
+      );
     });
   }
 

@@ -1,474 +1,552 @@
-FASE 10 — UX real tipo plataforma
-SESIÓN 91 — Pending Approval Center
+Roadmap actualizado — Zero Runtime hacia una herramienta confiable de uso diario
+Contexto general del proyecto
 
-Objetivo: centralizar aprobaciones en un solo lugar.
+ROADMAP RECOMENDADO DESDE AHORA
+SESIÓN 96.E — File-Level Patch Review + Selective Approval
+Objetivo
 
-Implementar recomendado:
+Convertir los patches en unidades revisables por archivo.
 
-src/approval/
-├── ApprovalRequest.ts
-├── ApprovalRequestStore.ts
-├── ApprovalPolicy.ts
-├── ApprovalDecisionRecorder.ts
-└── ApprovalRequestBuilder.ts
+Hoy el patch puede tocar varios archivos, pero el usuario no tiene una revisión suficientemente clara por cada uno. Esta sesión debe hacer que cada archivo del patch tenga su propio resumen, riesgo y estado de aprobación.
 
-UI:
+Implementar
+src/patches/
+├── PatchFileReview.ts
+├── PatchFileReviewBuilder.ts
+├── PatchSelectionPolicy.ts
 
+Modificar:
+
+src/patches/PatchProposal.ts
+src/patches/RuntimePatchProviderSchema.ts
+src/patches/RuntimePatchProviderBridge.ts
+src/approval/ApprovalCenter.ts
+src/approval/ApprovalRequest.ts
+ui/src/components/patch/
 ui/src/components/approval/
-├── ApprovalCenter.tsx
-├── ApprovalRequestCard.tsx
-├── PlanApprovalCard.tsx
-├── PatchApprovalCard.tsx
-├── VerifyApprovalCard.tsx
-├── RiskApprovalCard.tsx
-└── RollbackApprovalCard.tsx
+Modelo esperado
+
+Cada archivo del patch debe tener metadata clara:
+
+interface PatchFileChange {
+path: string;
+operation: 'modify' | 'create' | 'delete';
+beforeHash: string | null;
+content: string | null;
+reason: string;
+changesSummary: string[];
+riskLevel: 'low' | 'medium' | 'high';
+userSelectable: true;
+}
 
-Debe manejar:
-
-approve plan
-approve patch
-approve verify
-approve dirty working tree
-approve rollback
-reject
-ask revision
-approve selected files
+Ejemplo visible para el usuario:
 
-Resultado esperado:
+src/components/sections/Hero.tsx
 
-Las aprobaciones dejan de estar repartidas.
-Zero muestra todo lo que requiere intervención humana en un centro único.
-SESIÓN 92 — Session Memory UI
+Summary:
 
-Objetivo: ver y editar decisiones activas de la sesión.
+- Improves mobile spacing.
+- Fixes CTA overlap.
+- Adjusts headline hierarchy.
 
-Backend/runtime si falta:
+Risk:
+medium
 
-src/interactive/SessionDecision.ts
-src/interactive/SessionDecisionStore.ts
-src/interactive/DecisionConflictDetector.ts
-src/interactive/DecisionApplier.ts
+Reason:
+This component controls the landing hero section and is directly related to the requested UI improvement.
+UI esperada
 
-UI:
+En la pestaña Patch:
 
-ui/src/components/memory/
-├── DecisionMemoryPanel.tsx
-├── DecisionCard.tsx
-├── DecisionConflictPanel.tsx
-└── AppliedContextViewer.tsx
+Patch Review
+├─ Summary general
+├─ File cards
+│ ├─ checkbox aprobar archivo
+│ ├─ resumen
+│ ├─ riesgo
+│ ├─ diff
+│ └─ reason
+├─ Approve selected
+├─ Approve all
+├─ Reject selected
+└─ Ask revision
+Reglas
 
-Mostrar:
+- No aplicar archivos no aprobados.
+- No confiar en summaries de la LLM sin validación runtime.
+- Si un archivo toca path sensible, marcar high risk o bloquear.
+- Si hay muchos archivos, exigir aprobación selectiva.
+- Mantener compatibilidad con approve_all.
+  Resultado esperado
 
-no tocar backend
-usar local_snapshot
-no usar any
-no tocar database
-permitir package.json solo con aprobación
-conflictos activos
-reglas aplicadas al contexto
+El usuario puede aprobar solo algunos archivos del patch.
 
-Resultado esperado:
+SESIÓN 96.F — Selective Patch Apply
+Objetivo
 
-El usuario puede ver qué reglas/decisiones están afectando al runtime.
-SESIÓN 93 — Context Graph UI
+Permitir que el runtime aplique únicamente los archivos aprobados.
 
-Objetivo: visualizar relaciones reales frontend/backend.
-
-UI:
-
-ui/src/components/context-graph/
-├── ContextGraph.tsx
-├── ContextNode.tsx
-├── ContextEdge.tsx
-├── EndpointRelationshipGraph.tsx
-└── ContextGraphLegend.tsx
+No sirve aprobar archivos individualmente si después el apply aplica todo el patch original. Esta sesión conecta la aprobación selectiva con el apply real.
 
-Ejemplo visual:
-
-ProfileEditForm.tsx
--> profileApi.ts
--> POST /api/profile
--> profileRoutes.ts
--> authMiddleware.ts
--> profileController.ts
+Implementar
+src/patches/
+├── PatchProposalFilter.ts
+├── ApprovedPatchBuilder.ts
 
-Resultado esperado:
+Modificar:
+
+src/patches/RuntimePatchApplyBridge.ts
+src/api/RuntimeApiController.ts
+src/approval/ApprovalCenter.ts
+ui/src/pages/SessionPage.tsx
+Flujo esperado
+Original proposal:
+
+- Hero.tsx
+- Navbar.tsx
+- globals.css
+
+Usuario aprueba:
+
+- Hero.tsx
+- globals.css
+
+Runtime crea proposal filtrado:
 
-Zero se siente más moderno y útil para entender proyectos MERN/PERN.
-FASE 11 — Persistencia y continuidad
-SESIÓN 94 — Runtime Artifact Store
+- Hero.tsx
+- globals.css
 
-Objetivo: unificar almacenamiento de artefactos por sesión.
+Runtime valida de nuevo
+Runtime genera diff filtrado
+Runtime aplica solo eso
+Reglas
 
-Implementar:
+- Nunca aplicar todo y luego revertir partes.
+- Filtrar antes de diff/apply.
+- Revalidar proposal filtrado.
+- Recalcular risk level del proposal filtrado.
+- Mantener trazabilidad del proposal original.
+  Resultado esperado
 
-src/artifacts/
-├── RuntimeArtifact.ts
-├── RuntimeArtifactStore.ts
-├── RuntimeArtifactIndex.ts
-├── RuntimeArtifactReader.ts
-└── RuntimeArtifactWriter.ts
+El usuario puede aprobar y aplicar solo archivos seleccionados.
 
-Artefactos:
+SESIÓN 96.G — Patch Risk Policy por cantidad y tipo de cambio
+Objetivo
 
-runtime_plan
-patch_proposal
-diff_preview
-apply_result
-rollback_result
-snapshot
-verify_result
-report
+Crear una política profesional para decidir cuándo un patch es simple, medio o riesgoso.
 
-Resultado esperado:
+No conviene limitar arbitrariamente a 2 archivos. Conviene clasificar.
 
-Cada sesión puede recuperar su último plan, patch, diff, apply, rollback y report.
-SESIÓN 95 — Resume Session / Restore UI State
+Implementar
+src/patches/
+├── PatchRiskPolicy.ts
+├── PatchSizeClassifier.ts
+├── PatchImpactAnalyzer.ts
+Política recomendada
+1 archivo:
 
-Objetivo: poder cerrar y abrir la UI sin perder el estado.
+- low o medium según path
+- puede avanzar con approval normal
 
-Endpoints:
+2 a 5 archivos:
 
-GET /api/sessions/:id/artifacts
-GET /api/sessions/:id/workflow-state
-POST /api/sessions/:id/resume
-
-UI:
-
-restaurar runtimePlan
-restaurar patchProposal
-restaurar patchDiff
-restaurar applyResult
-restaurar rollbackResult
-restaurar reportExport
-recalcular Guided Workflow
-
-Resultado esperado:
-
-Zero puede continuar una sesión previa donde quedó.
-SESIÓN 96 — Project Dashboard
-
-Objetivo: pantalla inicial útil para uso diario.
-
-UI:
-
-ui/src/pages/ProjectDashboardPage.tsx
-ui/src/components/dashboard/
-├── ProjectDashboard.tsx
-├── RecentProjectCard.tsx
-├── RecentSessionCard.tsx
-├── ProviderStatusWidget.tsx
-├── SnapshotStatusWidget.tsx
-├── RecentReportsWidget.tsx
-└── RecommendedActionsWidget.tsx
-
-Mostrar:
-
-proyectos recientes
-última sesión
-estado provider
-último plan
-último patch
-último apply
-último rollback
-reports recientes
-snapshots recientes
-acciones recomendadas
-SESIÓN 97 — Reports Browser
-
-Objetivo: ver reportes desde UI.
-
-UI:
-
-ui/src/pages/ReportsPage.tsx
-ui/src/components/reports/
-├── ReportsBrowser.tsx
-├── ReportCard.tsx
-├── ReportViewer.tsx
-├── ReportDiffSummary.tsx
-└── ReportTimelineSummary.tsx
-
-Backend si falta:
-
-src/reports/ReportIndex.ts
-src/reports/ReportReader.ts
-
-Resultado esperado:
-
-El usuario puede revisar reportes sin abrir archivos manualmente.
-FASE 12 — Provider real para edición
-SESIÓN 98 — Provider Patch Bridge
-
-Objetivo: permitir que el provider proponga patches reales, no solo planes.
-
-Implementar:
-
-src/patches/provider/
-├── RuntimePatchProviderBridge.ts
-├── PatchProviderSchema.ts
-├── PatchProviderPromptBuilder.ts
-├── PatchProviderSanitizer.ts
-└── PatchProviderResponseParser.ts
-
-Flujo:
-
-Runtime Plan validado
-
-- Context Pack seguro
-  -> provider propone patch JSON
-  -> runtime valida schema
-  -> PatchProposalValidator
-  -> Diff Preview
-  -> Approval
-  -> Apply controlado
-
-Regla central:
-
-LLM propone.
-Runtime valida.
-Runtime decide.
-Usuario aprueba.
-SESIÓN 99 — Context Pack Builder
-
-Objetivo: construir contexto seguro antes de llamar al provider.
-
-Implementar:
-
-src/context-pack/
-├── ContextPack.ts
-├── ContextPackBuilder.ts
-├── ContextFileReader.ts
-├── ContextBudgetManager.ts
-├── SecretRedactor.ts
-├── ContextRiskScanner.ts
-└── ContextPackReporter.ts
-
-Debe incluir:
-
-archivos candidatos
-rutas relacionadas
-stack detectado
-API map
-frontend/backend links
-decisiones de sesión
-restricciones activas
-plan actual
-sin secrets
-sin .env
-límite de tokens
-
-Resultado esperado:
-
-OpenRouter/provider recibe contexto útil, acotado y seguro.
-SESIÓN 100 — Provider Patch E2E
-
-Objetivo: probar flujo completo con provider fake y OpenRouter opcional.
-
-Test:
-
-plan
-context pack
-provider patch proposal
-validation
-diff
-dry-run
-apply
-rollback
-report
-
-Reglas:
-
-si no hay OPENROUTER_API_KEY -> skipped
-si hay key -> smoke test real
-runtime nunca aplica sin aprobación
-FASE 13 — Verificación y reporte profesional
-SESIÓN 101 — Post Apply Verify Workflow
-
-Objetivo: después de apply, sugerir/verificar comandos seguros.
-
-Implementar:
-
-src/verify/
-├── PostApplyVerifyPlanner.ts
-├── PostApplyVerifyWorkflow.ts
-├── VerifyResultStore.ts
-└── VerifyResultSummarizer.ts
-
-Flujo:
-
-apply ok
--> sugerir npm run typecheck
--> sugerir npm run build si existe
--> ejecutar solo con aprobación
--> guardar resultado
-SESIÓN 102 — Full Workflow Report Upgrade
-
-Objetivo: reportes completos de flujo.
-
-Implementar:
-
+- medium por defecto
+- requiere aprobación por archivo
+- requiere snapshot
+- requiere verify
+
+6+ archivos:
+
+- high o staged patch
+- requiere dividir en batches
+- no aplicar todo junto salvo aprobación avanzada
+  Más reglas
+- package.json, tsconfig, providers, security, apply, runtime core => high risk
+- frontend UI aislado => low/medium
+- database, migrations, prisma, .env => blocked o high approval
+- delete operations => bloqueadas por defecto
+  Resultado esperado
+
+El runtime no bloquea cambios grandes sin criterio, pero tampoco deja pasar patches peligrosos.
+
+SESIÓN 96.H — Patch Verification Sandbox
+Objetivo
+
+Probar patches antes del apply real.
+
+El usuario no debería recibir un patch y descubrir que rompe el proyecto después de aplicarlo. El runtime debe poder hacer una verificación segura.
+
+Implementar
+src/sandbox/
+├── PatchSandbox.ts
+├── SandboxWorkspaceManager.ts
+├── SandboxPatchApplier.ts
+├── SandboxVerifyRunner.ts
+├── SandboxResult.ts
+Flujo MVP recomendado
+
+Primero puede ser con snapshot local, no Docker:
+
+1. Crear snapshot
+2. Aplicar patch temporalmente
+3. Ejecutar verify commands aprobados
+4. Si falla:
+   - guardar errores
+   - rollback automático
+   - bloquear apply real
+5. Si pasa:
+   - marcar patch como verified
+   - permitir apply real
+     Verificaciones iniciales
+     npm run typecheck
+     npm run build
+     npm run lint
+     tsc --noEmit
+
+Solo comandos permitidos y con aprobación runtime.
+
+Resultado esperado
+
+Antes de aplicar real, Zero puede decir:
+
+Sandbox verification passed:
+
+- npm run typecheck: ok
+- npm run build: ok
+
+Patch is safe to apply.
+
+O:
+
+Sandbox verification failed:
+
+- npm run build failed
+- Error in Hero.tsx line 42
+- Runtime rolled back sandbox changes
+- Apply real is blocked
+  SESIÓN 96.I — Failed Patch Recovery Loop
+  Objetivo
+
+Si un patch falla verificación, Zero debe poder pedir una corrección al provider sin dejar al usuario tirado.
+
+No queremos:
+
+“Dio error, perdón.”
+
+Queremos:
+
+“El patch falló verificación. Runtime lo bloqueó, hizo rollback, y puede pedir una propuesta corregida con estos errores.”
+Implementar
+src/patches/
+├── PatchFailureReport.ts
+├── PatchRepairPromptBuilder.ts
+├── PatchRecoveryLoop.ts
+Flujo
+Patch proposal
+-> sandbox apply
+-> verify fails
+-> collect errors
+-> provider receives:
+
+- original objective
+- failed diff
+- failed files
+- verify output
+- constraints
+  -> provider proposes corrected patch
+  -> runtime validates again
+  -> sandbox verifies again
+  Reglas
+- Limitar intentos: máximo 2 o 3.
+- Cada intento debe quedar auditado.
+- No aplicar nada real si verify falla.
+- Mostrar historial de intentos.
+  Resultado esperado
+
+Zero puede auto-corregir patches fallidos sin perder control runtime.
+
+SESIÓN 96.J — Patch Diff Viewer Layout Fix
+Objetivo
+
+Hacer que la pestaña Patch sea cómoda, profesional y usable.
+
+Ahora la UI se ve comprimida y el diff no tiene foco suficiente.
+
+Nueva estructura visual
+Patch tab
+├─ Header compacto
+│ ├─ proposal status
+│ ├─ risk
+│ ├─ files count
+│ ├─ additions/deletions
+│ └─ actions
+├─ File review sidebar
+│ ├─ lista de archivos
+│ ├─ checkbox approval
+│ └─ risk badges
+└─ Main diff viewer
+├─ file summary
+├─ reason
+├─ changes summary
+└─ line diff
+Reglas UI
+
+- Diff a ancho completo.
+- Nada de columnas angostas.
+- Controlled apply colapsado hasta que haga falta.
+- Approval visible pero no invasivo.
+- Sin scroll horizontal global.
+- File list sticky o lateral.
+  Resultado esperado
+
+El usuario entiende el patch sin tener que scrollear eternamente ni ver cards superpuestas.
+
+SESIÓN 96.K — Runtime Patch Report
+Objetivo
+
+Cada patch debe generar un reporte claro.
+
+Implementar
 src/reports/
-├── WorkflowReportBuilder.ts
-├── PatchWorkflowReportSection.ts
-├── SecurityWorkflowReportSection.ts
-├── ProviderWorkflowReportSection.ts
-├── VerifyWorkflowReportSection.ts
-└── RollbackWorkflowReportSection.ts
+├── PatchReviewReportBuilder.ts
+├── PatchVerificationReportBuilder.ts
+El reporte debe incluir
+
+- objetivo original
+- provider usado
+- modelo usado
+- archivos propuestos
+- archivos aprobados
+- archivos rechazados
+- riesgos
+- diff summary
+- sandbox result
+- verify result
+- apply result
+- rollback info
+  Resultado esperado
+
+Al final de cada flujo, el usuario tiene trazabilidad completa.
+
+SESIÓN 96.L — Visual Preview Foundation
+Objetivo
+
+Preparar la base para previsualizar cambios visuales.
+
+Esto no tiene que ser perfecto al inicio. Pero sí debe abrir el camino.
+
+MVP
+
+- detectar dev script
+- permitir ejecutar dev server con aprobación
+- guardar URL local
+- mostrar instrucciones de preview
+- permitir marcar visual review como aprobado manualmente
+  Más adelante
+- screenshot before
+- screenshot after
+- comparación automática
+- detectar overflow/layout roto
+- Playwright visual check
+  Resultado esperado
+
+Para cambios UI, Zero puede decir:
+
+Build passed.
+Preview server available at http://localhost:3000.
+Please review visual changes before real apply.
+
+Más adelante debería poder mostrar screenshots.
+
+SESIÓN 96.M — Visual Regression / Screenshot Preview
+Objetivo
+
+Agregar comparación visual real.
+
+Implementar más adelante
+src/visual/
+├── VisualPreviewRunner.ts
+├── ScreenshotCapture.ts
+├── VisualDiffAnalyzer.ts
+├── VisualRegressionReport.ts
+Flujo ideal
+
+1. Capturar screenshot before
+2. Aplicar patch en sandbox
+3. Levantar app
+4. Capturar screenshot after
+5. Mostrar before/after
+6. Usuario aprueba visualmente
+   Resultado esperado
+
+Esto sería una feature diferencial fuerte frente a agentes comunes.
+
+SESIÓN 96.N — Provider Context File Selection
+Objetivo
+
+Mejorar qué archivos se mandan al provider.
+
+Aunque ya hay resolver de candidatos, debe ser más inteligente.
+
+Implementar
+src/context/
+├── PatchContextSelector.ts
+├── ProjectFileRanker.ts
+├── IntentToFileMatcher.ts
+Debe considerar
+
+- objetivo del usuario
+- stack detectado
+- rutas frontend/backend
+- archivos conocidos
+- nombres semánticos
+- imports
+- tamaño de archivo
+- paths sensibles
+  Ejemplo
+
+Si el usuario pide:
+
+“mejorar hero de la landing”
+
+Debe priorizar:
+
+src/components/sections/Hero.tsx
+src/app/page.tsx
+src/styles/globals.css
+
+No pasar 20 archivos al provider.
+
+Resultado esperado
+
+El provider recibe menos archivos, pero mejores.
+
+SESIÓN 96.O — Provider Patch Quality Guard
+Objetivo
+
+Evitar patches malos aunque pasen schema.
+
+Un patch puede ser JSON válido pero malo: demasiado grande, cambia demasiado, borra contenido, reescribe todo sin razón, etc.
+
+Implementar
+src/patches/
+├── PatchQualityGuard.ts
+├── PatchContentHeuristics.ts
+Validaciones
+
+- demasiadas líneas agregadas
+- demasiadas líneas eliminadas
+- cambia más del 60% de un archivo
+- elimina imports críticos
+- elimina exports
+- convierte server/client component sin razón
+- toca contenido fuera del objetivo
+- añade dependencias no permitidas
+  Resultado esperado
+
+Zero puede bloquear:
+
+Patch rejected:
+
+- Too many unrelated changes.
+- Rewrites entire file without sufficient reason.
+- Removes existing exported component.
+  ROADMAP POSTERIOR — Para MVP público confiable
+  SESIÓN 97 — Reports Browser
+  Objetivo
+
+Tener una pantalla para navegar reportes pasados.
+
+Debe mostrar
+
+- sesiones
+- planes
+- patches
+- verification reports
+- apply reports
+- rollback reports
+  SESIÓN 98 — Provider Patch Bridge v2
+  Objetivo
+
+Mejorar provider patch con recovery, quality guard y file-level approval ya integrados.
+
+SESIÓN 99 — Context Pack Builder
+Objetivo
+
+Crear paquetes de contexto controlados para provider.
 
 Debe incluir:
 
-plan
-provider usado
-patch proposal
-diff summary
-snapshot
-dry-run result
-apply result
-rollback result
-verify result
-archivos tocados
-backups
-riesgos
-decisiones
-acciones bloqueadas
-timeline
-SESIÓN 103 — Visual Workflow Timeline Upgrade
+- archivos relevantes
+- summaries
+- constraints
+- project memory
+- session decisions
+- protected paths
+- allowed commands
 
-Objetivo: timeline más profesional.
+Nunca incluir secretos.
 
-UI:
+SESIÓN 100 — Hardening MVP
+Objetivo
 
-ui/src/components/workflow-timeline/
-├── WorkflowTimeline.tsx
-├── WorkflowTimelineStep.tsx
-├── WorkflowTimelineEventCard.tsx
-├── WorkflowBlockedEvent.tsx
-├── WorkflowApplyEvent.tsx
-└── WorkflowRollbackEvent.tsx
+Auditoría general antes de usarlo en serio o mostrarlo públicamente.
 
-Mostrar:
+Revisar:
 
-Project loaded
-Workflow prepared
-Plan generated
-Patch proposed
-Diff preview generated
-Snapshot created
-Dry-run completed
-Patch applied
-Rollback available/completed
-Verify completed
-Report exported
-FASE 14 — Hardening y MVP público/técnico
-SESIÓN 104 — Security Hardening Pass
+- protected paths
+- .env leakage
+- provider prompts
+- patch apply gates
+- rollback
+- sandbox
+- verify commands
+- approval bypass
+- path traversal
+- absolute paths
+- JSON parsing
+- provider malformed output
+- memory poisoning
+  Flujo ideal final de usuario
 
-Objetivo: auditar seguridad antes de seguir creciendo.
+El flujo diario debería verse así:
 
-Checklist:
+1. Dashboard
+2. Select project
+3. Start session
+4. Prepare Workflow
+5. Generate Provider Plan
+6. Review Plan
+7. Generate Provider Patch Proposal
+8. Review files one by one
+9. Approve selected files
+10. Create sandbox/snapshot
+11. Run sandbox verification
+12. If fails:
+    - rollback sandbox
+    - request provider fix
+13. If passes:
+    - approve real apply
+14. Runtime applies with backup
+15. Runtime verifies again
+16. Export report
+17. Rollback available
+    Prioridad real recomendada
 
-protected paths
-.env leakage
-path traversal
-dangerous deletes
-dirty working tree
-snapshot requirement
-high risk apply block
-provider prompt injection
-context poisoning
-secret redaction
-backup integrity
-rollback integrity
-SESIÓN 105 — Code Quality Hardening
+Si queremos que Zero se vuelva útil y confiable rápido, el orden más importante es:
 
-Objetivo: limpieza técnica.
+1. 96.E — File-Level Patch Review + Selective Approval
+2. 96.F — Selective Patch Apply
+3. 96.H — Patch Verification Sandbox
+4. 96.I — Failed Patch Recovery Loop
+5. 96.J — Patch Diff Viewer Layout Fix
+6. 96.O — Patch Quality Guard
+7. 96.L — Visual Preview Foundation
+8. 97 — Reports Browser
+9. 100 — Hardening MVP
 
-Checklist:
+El punto clave es este:
 
-no any
-strict TypeScript
-imports muertos
-helpers duplicados
-errores legibles
-tipos compartidos
-nombres consistentes
-scripts ordenados
-tests agrupados
-SESIÓN 106 — MVP Daily Use Test
+Antes de agregar más features, hay que convertir los patches en algo revisable, aprobable, verificable y reversible.
 
-Objetivo: probar Zero en un proyecto real MERN/PERN.
-
-Flujo:
-
-abrir proyecto real
-prepare workflow
-plan
-provider plan
-patch proposal
-provider patch si ya existe
-diff
-snapshot
-dry-run
-apply
-verify
-rollback si hace falta
-report
-resume session
-
-Resultado esperado:
-
-Validar si Zero ya sirve para uso diario técnico.
-FASE 15 — Producto avanzado
-SESIÓN 107 — GitHub Integration Base
-detectar repo
-branch actual
-working tree status
-crear branch segura
-preparar commit
-preparar PR futuro
-SESIÓN 108 — Pull Request Proposal Flow
-patch aplicado
-verify ok
-crear branch
-commit
-generar PR draft
-reportar cambios
-SESIÓN 109 — Settings Pro
-provider
-modelo
-workspace mode
-protected paths
-approval behavior
-GitHub
-verify commands
-high-risk policy
-SESIÓN 110 — Project Creation Mode
-crear proyecto desde cero
-sugerir arquitectura
-generar estructura inicial
-planificar módulos
-scaffold controlado
-apply por aprobación
-SESIÓN 111 — RAG/Knowledge Integration Design
-
-Probablemente convenga como proyecto separado, pero Zero puede integrarlo después.
-
-embeddings
-vector store
-project knowledge base
-business docs
-chatbots
-external docs
-Recomendación de orden inmediato
-
-Yo seguiría así:
-
-91 — Pending Approval Center
-92 — Session Memory UI
-93 — Context Graph UI
-94 — Runtime Artifact Store
-95 — Resume Session
-96 — Project Dashboard
-97 — Reports Browser
-98 — Provider Patch Bridge
-99 — Context Pack Builder
-100 — Provider Patch E2E
+Ahí Zero empieza a diferenciarse de Cursor, Claude Code o cualquier agente libre: no por “hacer más magia”, sino por hacer cambios con control, evidencia, validación y confianza.

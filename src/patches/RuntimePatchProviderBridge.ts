@@ -8,9 +8,11 @@ import type {
   PatchProposalVerifyCommand,
   RuntimePatchProposal,
 } from './PatchProposal.js';
+import { PatchFileReviewBuilder } from './PatchFileReviewBuilder.js';
 import { PatchProposalValidator } from './PatchProposalValidator.js';
 import { PatchRiskAnalyzer } from './PatchRiskAnalyzer.js';
 import type { ResolvedPatchCandidate } from './PatchCandidateResolver.js';
+import type { PatchRepairPrompt } from './PatchRepairPromptBuilder.js';
 import {
   runtimePatchProviderSchema,
   type RuntimePatchProviderOutput,
@@ -22,6 +24,7 @@ export interface RuntimePatchProviderBridgeOptions {
   model: string;
   validator?: PatchProposalValidator | undefined;
   riskAnalyzer?: PatchRiskAnalyzer | undefined;
+  fileReviewBuilder?: PatchFileReviewBuilder | undefined;
 }
 
 export interface RuntimePatchProviderBridgeInput {
@@ -34,7 +37,12 @@ export interface RuntimePatchProviderBridgeInput {
   verifyCommands: PatchProposalVerifyCommand[];
   constraints: string[];
 }
-
+export interface RuntimePatchProviderRepairInput {
+  originalProposal: RuntimePatchProposal;
+  repairPrompt: PatchRepairPrompt;
+  candidates: ResolvedPatchCandidate[];
+  verifyCommands: PatchProposalVerifyCommand[];
+}
 export interface RuntimePatchProviderAudit {
   provider: ProviderName;
   model: string;
@@ -53,6 +61,7 @@ export class RuntimePatchProviderBridge {
   private readonly model: string;
   private readonly validator: PatchProposalValidator;
   private readonly riskAnalyzer: PatchRiskAnalyzer;
+  private readonly fileReviewBuilder: PatchFileReviewBuilder;
 
   public constructor(options: RuntimePatchProviderBridgeOptions) {
     this.providerManager = options.providerManager;
@@ -60,6 +69,7 @@ export class RuntimePatchProviderBridge {
     this.model = options.model;
     this.validator = options.validator ?? new PatchProposalValidator();
     this.riskAnalyzer = options.riskAnalyzer ?? new PatchRiskAnalyzer();
+    this.fileReviewBuilder = options.fileReviewBuilder ?? new PatchFileReviewBuilder();
   }
 
   public async generate(
@@ -105,7 +115,58 @@ export class RuntimePatchProviderBridge {
       },
     };
   }
+  public async repair(
+    input: RuntimePatchProviderRepairInput,
+  ): Promise<RuntimePatchProviderBridgeResult> {
+    if (input.candidates.length === 0) {
+      throw new Error('Provider patch repair requires at least one resolved real file.');
+    }
 
+    const response = await this.providerManager.completeJson(
+      this.providerName,
+      {
+        model: this.model,
+        temperature: 0,
+        maxTokens: 6000,
+        responseFormat: 'json',
+        messages: [
+          {
+            role: 'system',
+            content: this.buildRepairSystemPrompt(input.repairPrompt),
+          },
+          {
+            role: 'user',
+            content: this.buildRepairUserPrompt(input),
+          },
+        ],
+      },
+      runtimePatchProviderSchema,
+    );
+
+    const result = this.toPatchProposalResult({
+      input: {
+        planId: input.originalProposal.planId,
+        sessionId: input.originalProposal.sessionId,
+        projectRoot: input.originalProposal.projectRoot,
+        objective: `Repair failed patch proposal ${input.originalProposal.id}`,
+        riskLevel: input.originalProposal.riskLevel,
+        candidates: input.candidates,
+        verifyCommands: input.verifyCommands,
+        constraints: input.repairPrompt.constraints,
+      },
+      output: response.parsed,
+    });
+
+    return {
+      result,
+      audit: {
+        provider: this.providerName,
+        model: response.model,
+        ...(response.usage ? { usage: response.usage } : {}),
+        generatedAt: new Date().toISOString(),
+      },
+    };
+  }
   private toPatchProposalResult(input: {
     input: RuntimePatchProviderBridgeInput;
     output: RuntimePatchProviderOutput;
@@ -162,13 +223,17 @@ export class RuntimePatchProviderBridge {
         throw new Error('Provider patch create operations are disabled for this runtime stage.');
       }
 
-      return {
-        path: candidate.path,
-        operation: 'modify',
-        beforeHash: this.hashContent(candidate.content),
-        content: file.content,
-        reason: file.reason,
-      };
+      return this.fileReviewBuilder.build(
+        {
+          path: candidate.path,
+          operation: 'modify',
+          beforeHash: this.hashContent(candidate.content),
+          content: file.content,
+          reason: file.reason,
+          changesSummary: file.changesSummary,
+        },
+        input.output.files.length,
+      );
     });
   }
 
@@ -184,6 +249,7 @@ export class RuntimePatchProviderBridge {
       'Do not rename files.',
       'Do not modify backend, database, .env, secrets, build outputs or dependency files.',
       'Return full replacement content for each modified file.',
+      'Each file must include a concrete reason and changesSummary items.',
       'Keep the patch small, safe and focused.',
       'Prefer modifying one file unless multiple files are clearly necessary.',
       'Do not include secrets or credentials.',
@@ -219,6 +285,10 @@ export class RuntimePatchProviderBridge {
               operation: 'modify',
               content: 'Full replacement file content here.',
               reason: 'Explain why this file is being modified.',
+              changesSummary: [
+                'Describe the most important user-visible or code-level change.',
+                'Describe any behavior, layout, type safety or maintainability improvement.',
+              ],
             },
           ],
         },
@@ -227,7 +297,56 @@ export class RuntimePatchProviderBridge {
       ),
     ].join('\n');
   }
+  private buildRepairSystemPrompt(repairPrompt: PatchRepairPrompt): string {
+    return [
+      repairPrompt.system,
+      '',
+      'Additional runtime repair rules:',
+      'Return exactly one valid JSON object.',
+      'No markdown. No prose. No comments. No extra keys.',
+      'The returned JSON must match the runtime patch provider schema.',
+      'Do not expand scope beyond the failed patch unless the provided candidate list requires it.',
+      'The runtime will validate, diff, sandbox-verify and require approval again.',
+    ].join('\n');
+  }
 
+  private buildRepairUserPrompt(input: RuntimePatchProviderRepairInput): string {
+    return [
+      input.repairPrompt.user,
+      '',
+      'Current candidate files. You may only modify these exact paths:',
+      ...input.candidates.map((candidate, index) =>
+        [
+          `--- FILE ${String(index + 1)}: ${candidate.path}`,
+          `Reason: ${candidate.reason}`,
+          'Current content:',
+          candidate.content,
+          `--- END FILE ${String(index + 1)}`,
+        ].join('\n'),
+      ),
+      '',
+      'Return JSON with this exact shape:',
+      JSON.stringify(
+        {
+          summary: 'Short summary of the corrected patch.',
+          files: [
+            {
+              path: input.candidates[0]?.path ?? 'src/example.ts',
+              operation: 'modify',
+              content: 'Full replacement file content here.',
+              reason: 'Explain why this repaired file fixes the sandbox failure.',
+              changesSummary: [
+                'Describe how this corrected patch fixes the failed verification.',
+                'Describe why the correction stays inside the approved scope.',
+              ],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    ].join('\n');
+  }
   private normalizePath(filePath: string): string {
     return filePath
       .trim()

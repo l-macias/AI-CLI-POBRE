@@ -41,6 +41,10 @@ import type {
   RuntimeArtifactIndexResponse,
   RuntimeArtifactReadResponse,
   InteractiveSessionListResponse,
+  ApprovalDecisionResult,
+  RuntimePatchSandboxResponse,
+  RuntimePatchSandboxResult,
+  RuntimePatchRecoveryResponse,
 } from '../types/runtime';
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -527,6 +531,7 @@ export async function generatePatchProposal(input: {
 }
 export async function generatePatchDiff(input: {
   proposal: RuntimePatchProposalGenerateResult['proposal'];
+  selectedFilePaths?: string[];
 }): Promise<RuntimePatchDiffGenerateResult> {
   const response = await fetch('/api/patches/diff', {
     method: 'POST',
@@ -535,10 +540,51 @@ export async function generatePatchDiff(input: {
     },
     body: JSON.stringify({
       proposal: input.proposal,
+      ...(input.selectedFilePaths ? { selectedFilePaths: input.selectedFilePaths } : {}),
     }),
   });
 
   return readJson<RuntimePatchDiffGenerateResult>(response);
+}
+export async function verifyPatchSandbox(input: {
+  proposal: RuntimePatchProposalGenerateResult['proposal'];
+  selectedFilePaths?: string[];
+}): Promise<RuntimePatchSandboxResponse> {
+  const response = await fetch('/api/patches/sandbox/verify', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      proposal: input.proposal,
+      ...(input.selectedFilePaths ? { selectedFilePaths: input.selectedFilePaths } : {}),
+    }),
+  });
+
+  return readJson<RuntimePatchSandboxResponse>(response);
+}
+export async function preparePatchRecovery(input: {
+  originalObjective: string;
+  proposal: RuntimePatchProposalGenerateResult['proposal'];
+  sandboxResult: RuntimePatchSandboxResult;
+  currentAttempt?: number;
+  maxAttempts?: number;
+}): Promise<RuntimePatchRecoveryResponse> {
+  const response = await fetch('/api/patches/recovery/prepare', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      originalObjective: input.originalObjective,
+      proposal: input.proposal,
+      sandboxResult: input.sandboxResult,
+      ...(input.currentAttempt !== undefined ? { currentAttempt: input.currentAttempt } : {}),
+      ...(input.maxAttempts !== undefined ? { maxAttempts: input.maxAttempts } : {}),
+    }),
+  });
+
+  return readJson<RuntimePatchRecoveryResponse>(response);
 }
 export async function applyRuntimePatch(input: {
   proposal: RuntimePatchProposalGenerateResult['proposal'];
@@ -546,9 +592,12 @@ export async function applyRuntimePatch(input: {
   applyConfirmed: boolean;
   dryRun?: boolean;
   snapshotId?: string;
+  selectedFilePaths?: string[];
   allowDirtyWorkingTree?: boolean;
   allowMissingRepository?: boolean;
   backupEnabled?: boolean;
+  approvalDecision?: ApprovalDecisionResult;
+  sandboxResult?: RuntimePatchSandboxResult;
 }): Promise<RuntimePatchApplyResponse> {
   const response = await fetch('/api/patches/apply', {
     method: 'POST',
@@ -560,7 +609,7 @@ export async function applyRuntimePatch(input: {
       diff: input.diff,
       applyConfirmed: input.applyConfirmed,
       ...(input.dryRun !== undefined ? { dryRun: input.dryRun } : {}),
-      ...(input.snapshotId ? { snapshotId: input.snapshotId } : {}),
+      ...(input.selectedFilePaths ? { selectedFilePaths: input.selectedFilePaths } : {}),
       ...(input.allowDirtyWorkingTree !== undefined
         ? { allowDirtyWorkingTree: input.allowDirtyWorkingTree }
         : {}),
@@ -568,6 +617,8 @@ export async function applyRuntimePatch(input: {
         ? { allowMissingRepository: input.allowMissingRepository }
         : {}),
       ...(input.backupEnabled !== undefined ? { backupEnabled: input.backupEnabled } : {}),
+      ...(input.approvalDecision ? { approvalDecision: input.approvalDecision } : {}),
+      ...(input.sandboxResult ? { sandboxResult: input.sandboxResult } : {}),
     }),
   });
 
