@@ -64,15 +64,17 @@ export function GuidedWorkflowPanel(props: GuidedWorkflowPanelProps) {
     : buildNextAction(props);
 
   return (
-    <section className="panel guided-workflow-panel">
+    <section className="flex flex-col gap-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
       <WorkflowProgressHeader workflow={workflow} />
 
       <NextBestActionPanel action={action} />
 
-      <details className="workflow-technical-details workflow-advanced-details">
-        <summary>Show advanced workflow details</summary>
+      <details className="group border border-zinc-800/60 rounded-xl bg-zinc-950/30">
+        <summary className="cursor-pointer p-4 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors select-none">
+          Show advanced workflow details
+        </summary>
 
-        <div className="workflow-advanced-content">
+        <div className="flex flex-col gap-6 p-4 pt-0">
           <WorkflowHealthBadges
             runtimePlan={props.runtimePlan}
             patchProposal={props.patchProposal}
@@ -83,13 +85,16 @@ export function GuidedWorkflowPanel(props: GuidedWorkflowPanelProps) {
             rollbackResult={props.rollbackResult}
           />
 
-          <div className="workflow-runtime-source">
+          <div className="flex flex-col gap-2 p-4 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-400 font-mono">
             <span>
               Runtime source:{' '}
-              <strong>{usingRuntimeWorkflow ? 'state machine' : 'local fallback'}</strong>
+              <strong className="text-zinc-200">
+                {usingRuntimeWorkflow ? 'state machine' : 'local fallback'}
+              </strong>
             </span>
-
-            {props.runtimeWorkflowLoading ? <span>Refreshing workflow state...</span> : null}
+            {props.runtimeWorkflowLoading ? (
+              <span className="animate-pulse text-indigo-400">Refreshing workflow state...</span>
+            ) : null}
           </div>
 
           <WorkflowStepper workflow={workflow} />

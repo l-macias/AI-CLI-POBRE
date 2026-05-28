@@ -8,14 +8,14 @@ interface ApprovalRiskSummaryProps {
 export function ApprovalRiskSummary({ center }: ApprovalRiskSummaryProps) {
   if (!center) {
     return (
-      <section className="approval-risk-summary">
+      <section className="flex flex-wrap items-center gap-2">
         <Badge tone="slate">No approval center</Badge>
       </section>
     );
   }
 
   return (
-    <section className="approval-risk-summary">
+    <section className="flex flex-wrap items-center gap-2">
       <Badge tone={toneForRisk(center.highestRisk)}>{center.highestRisk} max risk</Badge>
       <Badge tone={center.pendingCount > 0 ? 'yellow' : 'green'}>
         {center.pendingCount} pending

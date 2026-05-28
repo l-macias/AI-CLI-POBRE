@@ -52,6 +52,30 @@ interface PatchStageView {
   icon: 'branch' | 'shield' | 'warning' | 'check';
 }
 
+const toneStyles: Record<PatchStageTone, string> = {
+  blue: 'border-blue-500/20 bg-blue-500/5',
+  green: 'border-emerald-500/20 bg-emerald-500/5',
+  yellow: 'border-yellow-500/20 bg-yellow-500/5',
+  red: 'border-red-500/20 bg-red-500/5',
+  slate: 'border-zinc-800/60 bg-zinc-900/40',
+};
+
+const textToneStyles: Record<PatchStageTone, string> = {
+  blue: 'text-blue-500/80',
+  green: 'text-emerald-500/80',
+  yellow: 'text-yellow-500/80',
+  red: 'text-red-500/80',
+  slate: 'text-zinc-500',
+};
+
+const iconToneStyles: Record<PatchStageTone, string> = {
+  blue: 'text-blue-400',
+  green: 'text-emerald-400',
+  yellow: 'text-yellow-400',
+  red: 'text-red-400',
+  slate: 'text-zinc-400',
+};
+
 export function PatchPanel({
   session,
   runtimePlan,
@@ -109,38 +133,83 @@ export function PatchPanel({
   });
 
   return (
-    <section id="runtime-patch-panel" className="panel session-patch-panel">
-      <article className={`patch-review-hero patch-review-hero-${stage.tone}`}>
-        <div className="patch-review-main">
-          <div className="panel-title-row">
-            <PatchStageIcon icon={stage.icon} />
+    <section
+      id="runtime-patch-panel"
+      className="flex flex-col rounded-xl border border-zinc-800/60 bg-zinc-900/40 overflow-hidden shadow-sm"
+    >
+      <article className={`flex flex-col lg:flex-row gap-6 p-6 border-b ${toneStyles[stage.tone]}`}>
+        <div className="flex-1 flex flex-col gap-5">
+          <div className="flex items-start gap-4">
+            <div className={`mt-1 shrink-0 ${iconToneStyles[stage.tone]}`}>
+              <PatchStageIcon icon={stage.icon} />
+            </div>
             <div>
-              <div className="workflow-kicker">
-                <GitBranch size={16} />
-                <span>Patch review center</span>
+              <div className="flex items-center gap-2 mb-1">
+                <GitBranch size={14} className={textToneStyles[stage.tone]} />
+                <span
+                  className={`text-xs font-bold uppercase tracking-wider ${textToneStyles[stage.tone]}`}
+                >
+                  Patch review center
+                </span>
                 <Badge tone={stage.tone}>{stage.statusLabel}</Badge>
               </div>
 
-              <h2>{stage.title}</h2>
-              <p className="muted">{stage.description}</p>
+              <h2 className="text-xl font-semibold text-zinc-100">{stage.title}</h2>
+              <p
+                className={`text-sm mt-1 max-w-xl ${stage.tone === 'slate' ? 'text-zinc-400' : 'text-zinc-300'}`}
+              >
+                {stage.description}
+              </p>
             </div>
           </div>
 
-          <div className={`patch-safety-message patch-safety-message-${safetyMessage.tone}`}>
-            {safetyMessage.tone === 'red' || safetyMessage.tone === 'yellow' ? (
-              <AlertTriangle size={18} />
-            ) : (
-              <ShieldCheck size={18} />
-            )}
+          <div
+            className={`flex items-start gap-3 p-4 rounded-lg border ${toneStyles[safetyMessage.tone]}`}
+          >
+            <div className={`mt-0.5 shrink-0 ${iconToneStyles[safetyMessage.tone]}`}>
+              {safetyMessage.tone === 'red' || safetyMessage.tone === 'yellow' ? (
+                <AlertTriangle size={18} />
+              ) : (
+                <ShieldCheck size={18} />
+              )}
+            </div>
 
             <div>
-              <strong>{safetyMessage.title}</strong>
-              <p>{safetyMessage.description}</p>
+              <strong
+                className={`block text-sm font-semibold mb-1 ${
+                  safetyMessage.tone === 'red'
+                    ? 'text-red-200'
+                    : safetyMessage.tone === 'green'
+                      ? 'text-emerald-200'
+                      : safetyMessage.tone === 'yellow'
+                        ? 'text-yellow-200'
+                        : safetyMessage.tone === 'blue'
+                          ? 'text-blue-200'
+                          : 'text-zinc-200'
+                }`}
+              >
+                {safetyMessage.title}
+              </strong>
+              <p
+                className={`text-xs leading-relaxed ${
+                  safetyMessage.tone === 'red'
+                    ? 'text-red-200/70'
+                    : safetyMessage.tone === 'green'
+                      ? 'text-emerald-200/70'
+                      : safetyMessage.tone === 'yellow'
+                        ? 'text-yellow-200/80'
+                        : safetyMessage.tone === 'blue'
+                          ? 'text-blue-200/70'
+                          : 'text-zinc-400'
+                }`}
+              >
+                {safetyMessage.description}
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="patch-review-checklist">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3 lg:w-72 shrink-0">
           {reviewItems.map((item) => (
             <PatchReviewItem
               key={item.label}
@@ -153,9 +222,11 @@ export function PatchPanel({
         </div>
       </article>
 
-      <details className="patch-review-help">
-        <summary>How to read this panel</summary>
-        <div>
+      <details className="group border-b border-zinc-800/60 bg-zinc-950/30 [&_summary::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer items-center justify-between p-4 text-sm font-medium text-indigo-400 hover:bg-zinc-900/50 transition-colors select-none">
+          How to read this panel
+        </summary>
+        <div className="px-4 pb-4 text-xs text-zinc-400 leading-relaxed space-y-3">
           <p>
             Start from the status above. Review the proposal and diff first, then run sandbox. Real
             apply stays locked until Zero has enough evidence and you explicitly confirm it.
@@ -167,52 +238,54 @@ export function PatchPanel({
         </div>
       </details>
 
-      <PatchProposalViewer
-        session={session}
-        runtimePlan={runtimePlan}
-        patchProposal={patchProposal}
-        patchDiff={patchDiff}
-        sandboxResult={sandboxResult}
-        recoveryResult={recoveryResult}
-        snapshot={snapshot}
-        applyResult={applyResult}
-        rollbackResult={rollbackResult}
-        loading={loading}
-        diffLoading={diffLoading}
-        sandboxLoading={sandboxLoading}
-        recoveryLoading={recoveryLoading}
-        applyLoading={applyLoading}
-        rollbackLoading={rollbackLoading}
-        onGeneratePatchProposal={onGeneratePatchProposal}
-        onGeneratePatchDiff={onGeneratePatchDiff}
-        recoveryProposalLoading={recoveryProposalLoading}
-        onGenerateRecoveryProposal={onGenerateRecoveryProposal}
-        onVerifySandbox={onVerifySandbox}
-        onPrepareRecovery={onPrepareRecovery}
-        onDryRunApply={onDryRunApply}
-        onApplyPatch={onApplyPatch}
-        onDryRunRollback={onDryRunRollback}
-        onRollbackPatch={onRollbackPatch}
-        onCommand={onCommand}
-      />
+      <div className="p-6">
+        <PatchProposalViewer
+          session={session}
+          runtimePlan={runtimePlan}
+          patchProposal={patchProposal}
+          patchDiff={patchDiff}
+          sandboxResult={sandboxResult}
+          recoveryResult={recoveryResult}
+          snapshot={snapshot}
+          applyResult={applyResult}
+          rollbackResult={rollbackResult}
+          loading={loading}
+          diffLoading={diffLoading}
+          sandboxLoading={sandboxLoading}
+          recoveryLoading={recoveryLoading}
+          applyLoading={applyLoading}
+          rollbackLoading={rollbackLoading}
+          onGeneratePatchProposal={onGeneratePatchProposal}
+          onGeneratePatchDiff={onGeneratePatchDiff}
+          recoveryProposalLoading={recoveryProposalLoading}
+          onGenerateRecoveryProposal={onGenerateRecoveryProposal}
+          onVerifySandbox={onVerifySandbox}
+          onPrepareRecovery={onPrepareRecovery}
+          onDryRunApply={onDryRunApply}
+          onApplyPatch={onApplyPatch}
+          onDryRunRollback={onDryRunRollback}
+          onRollbackPatch={onRollbackPatch}
+          onCommand={onCommand}
+        />
+      </div>
     </section>
   );
 }
 
 function PatchStageIcon({ icon }: { icon: PatchStageView['icon'] }) {
   if (icon === 'check') {
-    return <CheckCircle2 size={20} />;
+    return <CheckCircle2 size={24} />;
   }
 
   if (icon === 'shield') {
-    return <ShieldCheck size={20} />;
+    return <ShieldCheck size={24} />;
   }
 
   if (icon === 'warning') {
-    return <AlertTriangle size={20} />;
+    return <AlertTriangle size={24} />;
   }
 
-  return <GitBranch size={20} />;
+  return <GitBranch size={24} />;
 }
 
 function PatchReviewItem({
@@ -227,13 +300,42 @@ function PatchReviewItem({
   tone: PatchStageTone;
 }) {
   return (
-    <div className={`patch-review-item patch-review-item-${tone}`}>
-      <div>
-        <strong>{label}</strong>
-        <p>{description}</p>
+    <div className={`flex flex-col gap-2 p-3 rounded-lg border ${toneStyles[tone]}`}>
+      <div className="flex justify-between items-start gap-2">
+        <strong
+          className={`text-xs font-bold uppercase tracking-wider ${
+            tone === 'red'
+              ? 'text-red-300'
+              : tone === 'green'
+                ? 'text-emerald-300'
+                : tone === 'yellow'
+                  ? 'text-yellow-300'
+                  : tone === 'blue'
+                    ? 'text-blue-300'
+                    : 'text-zinc-300'
+          }`}
+        >
+          {label}
+        </strong>
+        <Badge tone={tone} className="shrink-0 text-[10px]">
+          {status}
+        </Badge>
       </div>
-
-      <Badge tone={tone}>{status}</Badge>
+      <p
+        className={`text-[11px] leading-relaxed ${
+          tone === 'red'
+            ? 'text-red-200/70'
+            : tone === 'green'
+              ? 'text-emerald-200/70'
+              : tone === 'yellow'
+                ? 'text-yellow-200/80'
+                : tone === 'blue'
+                  ? 'text-blue-200/70'
+                  : 'text-zinc-400'
+        }`}
+      >
+        {description}
+      </p>
     </div>
   );
 }

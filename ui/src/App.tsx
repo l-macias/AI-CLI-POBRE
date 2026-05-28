@@ -50,37 +50,39 @@ export function App() {
   }
 
   return (
-    <AppLayout page={page} health={health} onNavigate={setPage}>
-      {page === 'dashboard' ? (
-        <ProjectDashboard
-          selectedProject={selectedProject}
-          activeSession={activeSession}
-          health={health}
-          onNavigate={setPage}
-          onSessionLoaded={setActiveSession}
-        />
-      ) : null}
+    <div className="min-h-screen bg-zinc-950 text-zinc-300 font-sans flex flex-col">
+      <AppLayout page={page} health={health} onNavigate={setPage}>
+        {page === 'dashboard' ? (
+          <ProjectDashboard
+            selectedProject={selectedProject}
+            activeSession={activeSession}
+            health={health}
+            onNavigate={setPage}
+            onSessionLoaded={setActiveSession}
+          />
+        ) : null}
 
-      {page === 'projects' ? (
-        <ProjectsPage
-          selectedProject={selectedProject}
-          onProjectSelected={setSelectedProject}
-          onStartSession={openGuidedSession}
-        />
-      ) : null}
+        {page === 'projects' ? (
+          <ProjectsPage
+            selectedProject={selectedProject}
+            onProjectSelected={setSelectedProject}
+            onStartSession={openGuidedSession}
+          />
+        ) : null}
 
-      {page === 'session' ? (
-        <SessionPage
-          selectedProject={selectedProject}
-          initialSession={activeSession}
-          runtimeEvents={events}
-          onSessionChange={setActiveSession}
-        />
-      ) : null}
+        {page === 'session' ? (
+          <SessionPage
+            selectedProject={selectedProject}
+            initialSession={activeSession}
+            runtimeEvents={events}
+            onSessionChange={setActiveSession}
+          />
+        ) : null}
 
-      {page === 'settings' ? <SettingsPage /> : null}
+        {page === 'settings' ? <SettingsPage /> : null}
 
-      <EventTimeline events={events} />
-    </AppLayout>
+        <EventTimeline events={events} />
+      </AppLayout>
+    </div>
   );
 }

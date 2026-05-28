@@ -28,28 +28,36 @@ export function PlanViewer({
     : buildFallbackPlanViewModel(session);
 
   return (
-    <section className="plan-viewer">
-      <div className="panel-header">
-        <div className="panel-title-row">
-          <ListChecks size={18} />
+    <section className="flex flex-col gap-6 w-full">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
+        <div className="flex items-start gap-3">
+          <ListChecks size={20} className="text-indigo-400 mt-0.5 shrink-0" />
           <div>
-            <h2>Runtime Plan</h2>
-            <p className="muted">Structured runtime plan before patch generation.</p>
+            <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">Runtime Plan</h2>
+            <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
+              Structured runtime plan before patch generation.
+            </p>
           </div>
         </div>
 
-        {plan ? <RiskBadge risk={plan.riskLevel} /> : <Badge tone="slate">empty</Badge>}
+        <div className="shrink-0">
+          {plan ? <RiskBadge risk={plan.riskLevel} /> : <Badge tone="slate">empty</Badge>}
+        </div>
       </div>
 
-      <div className="plan-actions">
-        <button disabled={!session || loading} onClick={onGeneratePlan}>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          disabled={!session || loading}
+          onClick={onGeneratePlan}
+          className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
           {loading ? 'Generating...' : 'Generate Runtime Plan'}
         </button>
 
         <button
           disabled={!session || loading}
-          className="secondary-button"
           onClick={onGenerateProviderPlan}
+          className="rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-500"
         >
           {loading ? 'Generating...' : 'Generate with Provider'}
         </button>
@@ -57,13 +65,13 @@ export function PlanViewer({
 
       {plan ? (
         <>
-          <article className="plan-summary-card">
+          <article className="flex flex-col gap-5 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm mt-2">
             <div>
-              <strong>{plan.title}</strong>
-              <p>{plan.summary}</p>
+              <strong className="block text-base font-semibold text-zinc-100">{plan.title}</strong>
+              <p className="text-sm text-zinc-400 mt-1 leading-relaxed">{plan.summary}</p>
             </div>
 
-            <div className="plan-step-badges">
+            <div className="flex flex-wrap items-center gap-2 mt-2 border-t border-zinc-800/60 pt-4">
               <Badge tone={runtimePlan?.source === 'fallback' ? 'yellow' : 'blue'}>
                 source: {runtimePlan?.source ?? 'preview'}
               </Badge>
@@ -79,74 +87,78 @@ export function PlanViewer({
               <Badge tone="blue">{plan.steps.length} steps</Badge>
             </div>
           </article>
+
           {runtimePlan?.providerAudit ||
           runtimePlan?.fallbackReason ||
           runtimePlan?.providerFailure ? (
-            <article className="plan-summary-card">
-              <div>
-                <strong>Provider audit</strong>
-                <p className="muted">
+            <article className="flex flex-col gap-5 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm">
+              <div className="border-b border-zinc-800/60 pb-4">
+                <strong className="block text-base font-medium text-zinc-100">
+                  Provider audit
+                </strong>
+                <p className="text-sm text-zinc-400 mt-1">
                   Provider output is proposal-only. Runtime validation remains authoritative.
                 </p>
               </div>
 
               {runtimePlan.providerAudit ? (
-                <div className="plan-step-list">
-                  <article className="plan-step-card">
-                    <div className="plan-step-content">
-                      <div className="plan-step-header">
-                        <strong>
-                          {runtimePlan.providerAudit.provider} / {runtimePlan.providerAudit.model}
-                        </strong>
-                        <Badge tone="blue">provider</Badge>
-                      </div>
-                      <p>
-                        Tokens:{' '}
-                        {runtimePlan.providerAudit.usage?.totalTokens ??
-                          runtimePlan.providerAudit.usage?.promptTokens ??
-                          'unknown'}
-                      </p>
+                <div className="flex flex-col gap-3">
+                  <article className="flex flex-col gap-2 p-4 rounded-lg border border-zinc-800/40 bg-zinc-950/50">
+                    <div className="flex justify-between items-start gap-3">
+                      <strong className="text-sm font-semibold text-zinc-200">
+                        {runtimePlan.providerAudit.provider} / {runtimePlan.providerAudit.model}
+                      </strong>
+                      <Badge tone="blue">provider</Badge>
                     </div>
+                    <p className="text-xs text-zinc-400 mt-1">
+                      Tokens:{' '}
+                      {runtimePlan.providerAudit.usage?.totalTokens ??
+                        runtimePlan.providerAudit.usage?.promptTokens ??
+                        'unknown'}
+                    </p>
                   </article>
                 </div>
               ) : null}
 
               {runtimePlan.fallbackReason ? (
-                <div className="plan-step-list">
-                  <article className="plan-step-card">
-                    <div className="plan-step-content">
-                      <div className="plan-step-header">
-                        <strong>Fallback reason</strong>
-                        <Badge tone="yellow">fallback</Badge>
-                      </div>
-                      <p>{runtimePlan.fallbackReason}</p>
+                <div className="flex flex-col gap-3">
+                  <article className="flex flex-col gap-2 p-4 rounded-lg border border-zinc-800/40 bg-zinc-950/50">
+                    <div className="flex justify-between items-start gap-3">
+                      <strong className="text-sm font-semibold text-zinc-200">
+                        Fallback reason
+                      </strong>
+                      <Badge tone="yellow">fallback</Badge>
                     </div>
+                    <p className="text-sm text-zinc-300 mt-1">{runtimePlan.fallbackReason}</p>
                   </article>
                 </div>
               ) : null}
+
               {runtimePlan.providerFailure ? (
-                <div className="plan-step-list">
-                  <article className="plan-step-card">
-                    <div className="plan-step-content">
-                      <div className="plan-step-header">
-                        <strong>Provider failure details</strong>
-                        <Badge tone="red">debug</Badge>
-                      </div>
-
-                      <p>
-                        {runtimePlan.providerFailure.name}: {runtimePlan.providerFailure.message}
-                      </p>
-
-                      {runtimePlan.providerFailure.code ? (
-                        <span className="plan-step-target">{runtimePlan.providerFailure.code}</span>
-                      ) : null}
-
-                      {runtimePlan.providerFailure.cause ? (
-                        <pre className="provider-debug-preview">
-                          {JSON.stringify(runtimePlan.providerFailure.cause, null, 2)}
-                        </pre>
-                      ) : null}
+                <div className="flex flex-col gap-3">
+                  <article className="flex flex-col gap-3 p-4 rounded-lg border border-red-500/20 bg-red-500/5">
+                    <div className="flex justify-between items-start gap-3">
+                      <strong className="text-sm font-semibold text-red-300">
+                        Provider failure details
+                      </strong>
+                      <Badge tone="red">debug</Badge>
                     </div>
+
+                    <p className="text-sm text-red-200/80">
+                      {runtimePlan.providerFailure.name}: {runtimePlan.providerFailure.message}
+                    </p>
+
+                    {runtimePlan.providerFailure.code ? (
+                      <span className="inline-block px-2.5 py-1 rounded-md bg-red-500/10 border border-red-500/20 text-xs font-mono text-red-300 w-fit">
+                        {runtimePlan.providerFailure.code}
+                      </span>
+                    ) : null}
+
+                    {runtimePlan.providerFailure.cause ? (
+                      <pre className="p-3 rounded-md bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300 overflow-x-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+                        {JSON.stringify(runtimePlan.providerFailure.cause, null, 2)}
+                      </pre>
+                    ) : null}
                   </article>
                 </div>
               ) : null}
@@ -154,31 +166,37 @@ export function PlanViewer({
           ) : null}
 
           {plan.validationIssues && plan.validationIssues.length > 0 ? (
-            <article className="plan-summary-card">
-              <div className="panel-title-row">
-                <ShieldAlert size={18} />
+            <article className="flex flex-col gap-5 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm">
+              <div className="flex items-start gap-3 border-b border-zinc-800/60 pb-4">
+                <ShieldAlert size={18} className="text-yellow-400 mt-0.5 shrink-0" />
                 <div>
-                  <strong>Validation issues</strong>
-                  <p className="muted">Runtime policy rejected or warned about this plan.</p>
+                  <strong className="block text-base font-medium text-zinc-100">
+                    Validation issues
+                  </strong>
+                  <p className="text-sm text-zinc-400 mt-1">
+                    Runtime policy rejected or warned about this plan.
+                  </p>
                 </div>
               </div>
 
-              <div className="plan-step-list">
+              <div className="flex flex-col gap-3">
                 {plan.validationIssues.map((issue) => (
                   <article
-                    className="plan-step-card"
+                    className="flex flex-col gap-2 p-3 rounded-md border border-zinc-800/40 bg-zinc-950/50"
                     key={`${issue.code}-${issue.path ?? 'global'}`}
                   >
-                    <div className="plan-step-content">
-                      <div className="plan-step-header">
-                        <strong>{issue.code}</strong>
-                        <Badge tone={issue.severity === 'error' ? 'red' : 'yellow'}>
-                          {issue.severity}
-                        </Badge>
-                      </div>
-                      <p>{issue.message}</p>
-                      {issue.path ? <span className="plan-step-target">{issue.path}</span> : null}
+                    <div className="flex justify-between items-start gap-3">
+                      <strong className="text-sm font-semibold text-zinc-200">{issue.code}</strong>
+                      <Badge tone={issue.severity === 'error' ? 'red' : 'yellow'}>
+                        {issue.severity}
+                      </Badge>
                     </div>
+                    <p className="text-sm text-zinc-400">{issue.message}</p>
+                    {issue.path ? (
+                      <span className="inline-block mt-1 px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300 break-all w-fit">
+                        {issue.path}
+                      </span>
+                    ) : null}
                   </article>
                 ))}
               </div>
@@ -186,56 +204,62 @@ export function PlanViewer({
           ) : null}
 
           {plan.candidateFiles && plan.candidateFiles.length > 0 ? (
-            <article className="plan-summary-card">
-              <div>
-                <strong>Candidate files</strong>
-                <p className="muted">
+            <article className="flex flex-col gap-5 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm">
+              <div className="border-b border-zinc-800/60 pb-4">
+                <strong className="block text-base font-medium text-zinc-100">
+                  Candidate files
+                </strong>
+                <p className="text-sm text-zinc-400 mt-1">
                   Files selected or inferred for the next patch proposal stage.
                 </p>
               </div>
 
-              <div className="plan-step-list">
+              <div className="flex flex-col gap-3">
                 {plan.candidateFiles.map((file) => (
-                  <article className="plan-step-card" key={file.path}>
-                    <div className="plan-step-content">
-                      <div className="plan-step-header">
-                        <strong>{file.path}</strong>
-                        <Badge tone={file.existsKnown ? 'green' : 'slate'}>
-                          {file.existsKnown ? 'known' : 'inferred'}
-                        </Badge>
-                      </div>
-                      <p>{file.reason}</p>
+                  <article
+                    className="flex flex-col gap-2 p-4 rounded-lg border border-zinc-800/40 bg-zinc-950/50 hover:border-zinc-700/80 transition-colors"
+                    key={file.path}
+                  >
+                    <div className="flex justify-between items-start gap-3">
+                      <strong className="text-sm font-mono text-indigo-300 break-all">
+                        {file.path}
+                      </strong>
+                      <Badge tone={file.existsKnown ? 'green' : 'slate'} className="shrink-0">
+                        {file.existsKnown ? 'known' : 'inferred'}
+                      </Badge>
                     </div>
+                    <p className="text-sm text-zinc-400 leading-relaxed">{file.reason}</p>
                   </article>
                 ))}
               </div>
             </article>
           ) : null}
 
-          <div className="plan-step-list">
+          <div className="flex flex-col gap-4 mt-2">
             {plan.steps.map((step) => (
               <PlanStepCard step={step} key={step.id} />
             ))}
           </div>
 
           {plan.risks && plan.risks.length > 0 ? (
-            <article className="plan-summary-card">
-              <div>
-                <strong>Risks</strong>
-                <p className="muted">Runtime risk analysis for this plan.</p>
+            <article className="flex flex-col gap-5 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm mt-2">
+              <div className="border-b border-zinc-800/60 pb-4">
+                <strong className="block text-base font-medium text-zinc-100">Risks</strong>
+                <p className="text-sm text-zinc-400 mt-1">Runtime risk analysis for this plan.</p>
               </div>
 
-              <div className="plan-step-list">
+              <div className="flex flex-col gap-3">
                 {plan.risks.map((risk) => (
-                  <article className="plan-step-card" key={risk.code}>
-                    <div className="plan-step-content">
-                      <div className="plan-step-header">
-                        <strong>{risk.code}</strong>
-                        <RiskBadge risk={risk.level} />
-                      </div>
-                      <p>{risk.message}</p>
-                      <p className="muted">{risk.mitigation}</p>
+                  <article
+                    className="flex flex-col gap-2 p-4 rounded-lg border border-zinc-800/40 bg-zinc-950/50"
+                    key={risk.code}
+                  >
+                    <div className="flex justify-between items-start gap-3">
+                      <strong className="text-sm font-semibold text-zinc-200">{risk.code}</strong>
+                      <RiskBadge risk={risk.level} />
                     </div>
+                    <p className="text-sm text-zinc-300">{risk.message}</p>
+                    <p className="text-xs text-zinc-500 mt-1">{risk.mitigation}</p>
                   </article>
                 ))}
               </div>
@@ -243,27 +267,31 @@ export function PlanViewer({
           ) : null}
 
           {plan.verifyCommands && plan.verifyCommands.length > 0 ? (
-            <article className="plan-summary-card">
-              <div>
-                <strong>Suggested verify commands</strong>
-                <p className="muted">These still require explicit approval before execution.</p>
+            <article className="flex flex-col gap-5 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm mt-2">
+              <div className="border-b border-zinc-800/60 pb-4">
+                <strong className="block text-base font-medium text-zinc-100">
+                  Suggested verify commands
+                </strong>
+                <p className="text-sm text-zinc-400 mt-1">
+                  These still require explicit approval before execution.
+                </p>
               </div>
 
-              <div className="plan-step-list">
+              <div className="flex flex-col gap-3">
                 {plan.verifyCommands.map((verifyCommand) => (
                   <article
-                    className="plan-step-card"
+                    className="flex flex-col gap-3 p-4 rounded-lg border border-zinc-800/40 bg-zinc-950/50"
                     key={`${verifyCommand.command}-${verifyCommand.args.join('-')}`}
                   >
-                    <div className="plan-step-content">
-                      <div className="plan-step-header">
-                        <strong>
-                          {verifyCommand.command} {verifyCommand.args.join(' ')}
-                        </strong>
-                        <Badge tone="yellow">approval required</Badge>
-                      </div>
-                      <p>{verifyCommand.reason}</p>
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
+                      <strong className="text-sm font-mono text-indigo-300 break-all">
+                        {verifyCommand.command} {verifyCommand.args.join(' ')}
+                      </strong>
+                      <Badge tone="yellow" className="shrink-0">
+                        approval required
+                      </Badge>
                     </div>
+                    <p className="text-sm text-zinc-400">{verifyCommand.reason}</p>
                   </article>
                 ))}
               </div>
@@ -282,10 +310,18 @@ export function PlanViewer({
           />
         </>
       ) : (
-        <div className="empty-plan-state">
-          <strong>No runtime plan generated yet.</strong>
-          <p className="muted">Generate a structured runtime plan from the current session goal.</p>
-          <button disabled={!session || loading} onClick={onGeneratePlan}>
+        <div className="flex flex-col items-center justify-center gap-4 p-10 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50 mt-4 min-h-[300px]">
+          <strong className="block text-base font-medium text-zinc-300">
+            No runtime plan generated yet.
+          </strong>
+          <p className="text-sm text-zinc-500 max-w-md leading-relaxed">
+            Generate a structured runtime plan from the current session goal.
+          </p>
+          <button
+            disabled={!session || loading}
+            onClick={onGeneratePlan}
+            className="mt-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
             {loading ? 'Generating...' : 'Generate Runtime Plan'}
           </button>
         </div>

@@ -24,41 +24,49 @@ export function PatchRollbackPanel({
   const confirmed = confirmedText === 'ROLLBACK';
 
   return (
-    <article className="plan-summary-card">
-      <div className="panel-title-row">
-        <RotateCcw size={18} />
-        <div>
-          <strong>Controlled rollback</strong>
-          <p className="muted">Restores files from runtime backups. This does not use git reset.</p>
+    <article className="flex flex-col gap-5 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm mt-6">
+      <div className="flex items-start gap-3 border-b border-zinc-800/60 pb-4">
+        <RotateCcw size={18} className="text-yellow-400 mt-0.5 shrink-0" />
+        <div className="flex-1">
+          <strong className="block text-base font-medium text-zinc-100">Controlled rollback</strong>
+          <p className="text-sm text-zinc-400 mt-1">
+            Restores files from runtime backups. This does not use git reset.
+          </p>
         </div>
       </div>
 
-      <div className="plan-step-badges">
+      <div className="flex flex-wrap items-center gap-2">
         <Badge tone={canRollback ? 'green' : 'slate'}>apply: {applyResult?.status ?? 'none'}</Badge>
         <Badge tone="yellow">confirmation required</Badge>
       </div>
 
-      <div className="plan-actions">
+      <div className="flex items-center gap-3">
         <button
           disabled={!canRollback || loading}
-          className="secondary-button"
+          className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           onClick={onDryRunRollback}
         >
           {loading ? 'Running...' : 'Dry Run Rollback'}
         </button>
       </div>
 
-      <label>
-        Type ROLLBACK to enable rollback
-        <input
-          value={confirmedText}
-          onChange={(event) => setConfirmedText(event.target.value)}
-          placeholder="ROLLBACK"
-        />
-      </label>
+      <div className="flex flex-col gap-4 p-4 rounded-lg bg-zinc-950/50 border border-zinc-800/60">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-zinc-300">
+            Type <span className="font-mono text-yellow-400">ROLLBACK</span> to enable rollback
+          </span>
+          <input
+            className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+            value={confirmedText}
+            onChange={(event) => setConfirmedText(event.target.value)}
+            placeholder="ROLLBACK"
+          />
+        </label>
+      </div>
 
-      <div className="plan-actions">
+      <div className="flex items-center gap-3">
         <button
+          className="rounded-lg bg-yellow-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500"
           disabled={!canRollback || !confirmed || loading}
           onClick={() => onRollback({ confirmedText })}
         >
@@ -67,56 +75,66 @@ export function PatchRollbackPanel({
       </div>
 
       {rollbackResult ? (
-        <article className="plan-step-card">
-          <div className="plan-step-content">
-            <div className="plan-step-header">
-              <strong>Rollback result</strong>
-              <Badge tone={toneForRollbackStatus(rollbackResult.status)}>
-                {rollbackResult.status}
-              </Badge>
+        <article className="flex flex-col gap-4 p-5 rounded-lg border border-zinc-800/60 bg-zinc-950/50 mt-4">
+          <div className="flex justify-between items-start gap-4 border-b border-zinc-800/60 pb-3">
+            <div>
+              <strong className="block text-sm font-semibold text-zinc-200">Rollback result</strong>
+              <p className="text-xs text-zinc-500 mt-1 font-mono">
+                Rollback ID: {rollbackResult.id}
+              </p>
             </div>
-
-            <p className="muted">Rollback ID: {rollbackResult.id}</p>
-
-            {rollbackResult.operationResults.length > 0 ? (
-              <div className="plan-step-list">
-                {rollbackResult.operationResults.map((operation) => (
-                  <article className="plan-step-card" key={operation.targetFile}>
-                    <div className="plan-step-content">
-                      <div className="plan-step-header">
-                        <strong>{operation.targetFile}</strong>
-                        <Badge tone={toneForOperationStatus(operation.status)}>
-                          {operation.status}
-                        </Badge>
-                      </div>
-                      <p>{operation.message}</p>
-                      {operation.backupPath ? (
-                        <p className="muted">Backup: {operation.backupPath}</p>
-                      ) : null}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : null}
-
-            {rollbackResult.issues.length > 0 ? (
-              <div className="plan-step-list">
-                {rollbackResult.issues.map((issue) => (
-                  <article className="plan-step-card" key={`${issue.code}-${issue.message}`}>
-                    <div className="plan-step-content">
-                      <div className="plan-step-header">
-                        <strong>{issue.code}</strong>
-                        <Badge tone={issue.severity === 'error' ? 'red' : 'yellow'}>
-                          {issue.severity}
-                        </Badge>
-                      </div>
-                      <p>{issue.message}</p>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : null}
+            <Badge tone={toneForRollbackStatus(rollbackResult.status)}>
+              {rollbackResult.status}
+            </Badge>
           </div>
+
+          {rollbackResult.operationResults.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {rollbackResult.operationResults.map((operation) => (
+                <article
+                  className="flex flex-col gap-2 p-3 rounded-md border border-zinc-800/40 bg-zinc-900/50"
+                  key={operation.targetFile}
+                >
+                  <div className="flex justify-between items-start gap-3">
+                    <strong className="text-sm font-mono text-zinc-300 break-all">
+                      {operation.targetFile}
+                    </strong>
+                    <Badge tone={toneForOperationStatus(operation.status)} className="shrink-0">
+                      {operation.status}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-zinc-400">{operation.message}</p>
+                  {operation.backupPath ? (
+                    <p className="text-xs text-zinc-500 font-mono mt-1">
+                      Backup: {operation.backupPath}
+                    </p>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          ) : null}
+
+          {rollbackResult.issues.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {rollbackResult.issues.map((issue) => (
+                <article
+                  className="flex flex-col gap-2 p-3 rounded-md border border-red-500/20 bg-red-500/5"
+                  key={`${issue.code}-${issue.message}`}
+                >
+                  <div className="flex justify-between items-start gap-3">
+                    <strong className="text-sm font-semibold text-red-300">{issue.code}</strong>
+                    <Badge
+                      tone={issue.severity === 'error' ? 'red' : 'yellow'}
+                      className="shrink-0"
+                    >
+                      {issue.severity}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-red-200/70">{issue.message}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
         </article>
       ) : null}
     </article>

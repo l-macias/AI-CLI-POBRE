@@ -23,25 +23,34 @@ export function PatchDiffViewer({ session, onCommand }: PatchDiffViewerProps) {
 
   if (!patch) {
     return (
-      <section className="patch-diff-viewer">
-        <div className="panel-header">
-          <div className="panel-title-row">
-            <GitCompare size={18} />
+      <section className="flex flex-col rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm h-full">
+        <div className="flex justify-between items-start sm:items-center gap-4 border-b border-zinc-800/60 pb-5 mb-5">
+          <div className="flex items-start gap-3">
+            <GitCompare size={20} className="text-indigo-400 mt-0.5 shrink-0" />
             <div>
-              <h2>Patch Diff</h2>
-              <p className="muted">No patch proposal has been recorded yet.</p>
+              <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">Patch Diff</h2>
+              <p className="text-sm text-zinc-400 mt-1">No patch proposal has been recorded yet.</p>
             </div>
           </div>
 
           <Badge tone="slate">empty</Badge>
         </div>
 
-        <div className="empty-plan-state">
-          <strong>No diff available.</strong>
-          <p className="muted">
-            Send <code>/diff</code> or <code>/apply</code> to record patch intent.
-          </p>
-          <button disabled={!session} onClick={() => onCommand('/diff')}>
+        <div className="flex flex-col items-center justify-center gap-4 p-8 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50 flex-1 min-h-[300px]">
+          <GitCompare size={24} className="text-zinc-600" />
+          <div>
+            <strong className="block text-sm font-medium text-zinc-300">No diff available.</strong>
+            <p className="text-xs text-zinc-500 mt-1">
+              Send <code className="bg-zinc-800 px-1 py-0.5 rounded">/diff</code> or{' '}
+              <code className="bg-zinc-800 px-1 py-0.5 rounded">/apply</code> to record patch
+              intent.
+            </p>
+          </div>
+          <button
+            className="mt-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-500"
+            disabled={!session}
+            onClick={() => onCommand('/diff')}
+          >
             Request diff
           </button>
         </div>
@@ -50,17 +59,19 @@ export function PatchDiffViewer({ session, onCommand }: PatchDiffViewerProps) {
   }
 
   return (
-    <section className="patch-diff-viewer">
-      <div className="panel-header">
-        <div className="panel-title-row">
-          <GitCompare size={18} />
+    <section className="flex flex-col rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm h-full">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-800/60 pb-5 mb-5">
+        <div className="flex items-start gap-3">
+          <GitCompare size={20} className="text-indigo-400 mt-0.5 shrink-0" />
           <div>
-            <h2>Patch Diff</h2>
-            <p className="muted">Review file-level changes before approval.</p>
+            <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">Patch Diff</h2>
+            <p className="text-sm text-zinc-400 mt-1">Review file-level changes before approval.</p>
           </div>
         </div>
 
-        <Badge tone="yellow">preview</Badge>
+        <Badge tone="yellow" className="shrink-0">
+          preview
+        </Badge>
       </div>
 
       <PatchSummary patch={patch} />
@@ -72,12 +83,16 @@ export function PatchDiffViewer({ session, onCommand }: PatchDiffViewerProps) {
       />
 
       {activeFile ? (
-        <article className="diff-file-panel">
-          <div className="diff-file-header">
+        <article className="flex flex-col rounded-b-xl border border-t-0 border-zinc-800/60 bg-[#0d1117] overflow-hidden">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 border-b border-zinc-800/60 bg-zinc-900/80">
             <div>
-              <strong>{activeFile.path}</strong>
-              <p className="muted">
-                {activeFile.status} · +{activeFile.additions} -{activeFile.removals}
+              <strong className="block text-sm font-mono text-zinc-200 truncate">
+                {activeFile.path}
+              </strong>
+              <p className="text-xs text-zinc-400 mt-1">
+                {activeFile.status} ·{' '}
+                <span className="text-emerald-400">+{activeFile.additions}</span>{' '}
+                <span className="text-red-400">-{activeFile.removals}</span>
               </p>
             </div>
 
@@ -94,7 +109,7 @@ export function PatchDiffViewer({ session, onCommand }: PatchDiffViewerProps) {
             </Badge>
           </div>
 
-          <div className="diff-code">
+          <div className="overflow-x-auto py-2 h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
             {activeFile.lines.map((line) => (
               <DiffLine line={line} key={line.id} />
             ))}

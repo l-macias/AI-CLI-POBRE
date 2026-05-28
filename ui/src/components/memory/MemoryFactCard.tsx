@@ -16,11 +16,15 @@ export function MemoryFactCard({ entry, variant }: MemoryFactCardProps) {
   const content = variant === 'entry' ? entry.content : entry.summary;
 
   return (
-    <article className="memory-card">
-      <div className="memory-card-header">
-        <strong>{title}</strong>
+    <article className="flex flex-col gap-3 p-4 rounded-xl border border-zinc-800/60 bg-zinc-950/50 hover:border-zinc-700/80 transition-colors shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+        <strong
+          className={`text-sm font-semibold break-all ${variant === 'known-file' ? 'font-mono text-indigo-300' : 'text-zinc-200'}`}
+        >
+          {title}
+        </strong>
 
-        <div className="memory-badge-row">
+        <div className="flex flex-wrap gap-2 shrink-0">
           <Badge tone={toneForImportance(entry.importance)}>{entry.importance}</Badge>
           <Badge tone={entry.trustLevel === 'quarantined' ? 'red' : 'blue'}>
             {entry.trustLevel}
@@ -28,14 +32,14 @@ export function MemoryFactCard({ entry, variant }: MemoryFactCardProps) {
         </div>
       </div>
 
-      <p>{content}</p>
+      <p className="text-xs text-zinc-400 leading-relaxed">{content}</p>
 
-      <div className="memory-tags">
+      <div className="flex flex-wrap gap-2 mt-1 pt-3 border-t border-zinc-800/60">
         {entry.tags.length === 0 ? (
-          <span className="muted">No tags</span>
+          <span className="text-xs text-zinc-500 italic">No tags</span>
         ) : (
           entry.tags.map((tag) => (
-            <Badge key={tag} tone="slate">
+            <Badge key={tag} tone="slate" className="text-[10px]">
               {tag}
             </Badge>
           ))

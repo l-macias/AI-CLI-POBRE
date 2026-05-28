@@ -36,6 +36,8 @@ import {
   readRuntimeArtifact,
   listSessions,
 } from '../api/runtimeApi';
+
+// Imports de componentes (Asumimos que estos ya tienen o tendrán Tailwind)
 import { AuditTimeline } from '../components/audit/AuditTimeline';
 import { ProjectIntelligencePanel } from '../components/intelligence/ProjectIntelligencePanel';
 import { RuntimeQuestionsPanel } from '../components/questions/RuntimeQuestionsPanel';
@@ -63,7 +65,6 @@ import { ContextGraphPanel } from '../components/context/ContextGraphPanel';
 import { RuntimeArtifactStorePanel } from '../components/artifacts/RuntimeArtifactStorePanel';
 import { SessionResumePanel } from '../components/sessions/SessionResumePanel';
 import { Badge } from '../components/Badge';
-import { ClipboardList, FolderKanban, Route, ShieldCheck, Sparkles } from 'lucide-react';
 import type {
   ApiRouteMapResult,
   FrontendBackendLinkResult,
@@ -100,6 +101,7 @@ import type {
   RuntimePatchSandboxResult,
   RuntimePatchRecoveryResult,
 } from '../types/runtime';
+import { ClipboardList, FolderKanban, Route, ShieldCheck, Sparkles } from 'lucide-react';
 
 const sessionGoalTemplates = [
   {
@@ -1386,9 +1388,13 @@ export function SessionPage({
     done: boolean;
   }) {
     return (
-      <div className={done ? 'session-start-step done' : 'session-start-step'}>
-        <span>{number}</span>
-        <strong>{label}</strong>
+      <div className={`flex items-center gap-2 ${done ? 'text-emerald-400' : 'text-zinc-500'}`}>
+        <span
+          className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold border ${done ? 'bg-emerald-500/10 border-emerald-500/20' : 'border-zinc-700'}`}
+        >
+          {number}
+        </span>
+        <strong className="text-sm font-medium">{label}</strong>
       </div>
     );
   }
@@ -1404,23 +1410,27 @@ export function SessionPage({
     done: boolean;
   }) {
     return (
-      <div className={done ? 'session-start-readiness-item done' : 'session-start-readiness-item'}>
-        <span className="session-start-readiness-icon">{icon}</span>
-
-        <div>
-          <strong>{label}</strong>
-          <p>{detail}</p>
+      <div
+        className={`flex items-start gap-3 p-3 rounded-lg border ${done ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-zinc-800 bg-zinc-900/30'}`}
+      >
+        <span className={`mt-0.5 ${done ? 'text-emerald-400' : 'text-zinc-500'}`}>{icon}</span>
+        <div className="flex-1">
+          <strong className={`block text-sm ${done ? 'text-zinc-200' : 'text-zinc-400'}`}>
+            {label}
+          </strong>
+          <p className="text-xs text-zinc-500 mt-0.5">{detail}</p>
         </div>
-
         <Badge tone={done ? 'green' : 'slate'}>{done ? 'ready' : 'waiting'}</Badge>
       </div>
     );
   }
   function DemoCompletionItem({ done, label }: { done: boolean; label: string }) {
     return (
-      <div className={done ? 'demo-completion-item done' : 'demo-completion-item'}>
+      <div
+        className={`flex items-center gap-3 p-3 rounded-lg border ${done ? 'border-emerald-500/20 bg-emerald-500/5 text-zinc-200' : 'border-zinc-800 bg-zinc-950/50 text-zinc-500'}`}
+      >
         <Badge tone={done ? 'green' : 'slate'}>{done ? 'done' : 'todo'}</Badge>
-        <span>{label}</span>
+        <span className="text-sm font-medium">{label}</span>
       </div>
     );
   }
@@ -1464,15 +1474,16 @@ export function SessionPage({
   ]);
 
   return (
-    <section className="session-page">
+    <section className="flex flex-col gap-6 w-full max-w-[1600px] mx-auto pb-12">
       <RuntimeStatusBar session={session} />
 
-      <div className="session-page-toolbar">
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/60 pb-5">
         <div>
-          <strong>
+          <strong className="text-xl font-semibold text-zinc-100 block">
             {session ? session.projectName : (selectedProject?.name ?? 'No project selected')}
           </strong>
-          <p>
+          <p className="text-sm text-zinc-400 mt-1 max-w-2xl truncate">
             {session
               ? session.goal.current
               : selectedProject
@@ -1481,40 +1492,49 @@ export function SessionPage({
           </p>
         </div>
 
-        <div className="session-page-toolbar-actions">
-          <button className="secondary-button" onClick={() => void refreshSavedSessions()}>
+        <div className="flex items-center gap-3">
+          <button
+            className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium transition-colors"
+            onClick={() => void refreshSavedSessions()}
+          >
             Refresh sessions
           </button>
 
-          <button className="danger-button" onClick={startNewSessionView}>
+          <button
+            className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-sm font-medium transition-colors"
+            onClick={startNewSessionView}
+          >
             New session
           </button>
         </div>
       </div>
 
+      {/* Start Session Flow */}
       {!session ? (
         <article
           id="session-start-panel"
-          className="panel session-start-panel session-start-guided session-start-guided-modern"
+          className="flex flex-col gap-8 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 lg:p-8 shadow-sm backdrop-blur-md"
         >
-          <div className="session-start-hero">
-            <div>
-              <div className="session-start-kicker">
-                <Sparkles size={16} />
-                <span>Guided session</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="flex flex-col justify-center">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="flex items-center gap-1.5 text-indigo-400 text-sm font-medium uppercase tracking-wider">
+                  <Sparkles size={16} /> Guided session
+                </span>
                 <Badge tone={selectedProject ? 'green' : 'yellow'}>
                   {selectedProject ? 'project ready' : 'project required'}
                 </Badge>
               </div>
-
-              <h1>Create your guided runtime session</h1>
-              <p className="muted">
+              <h1 className="text-3xl font-semibold text-zinc-100 tracking-tight mb-3">
+                Create your guided runtime session
+              </h1>
+              <p className="text-base text-zinc-400 leading-relaxed">
                 Zero will guide you one safe step at a time: prepare context, create a plan, review
                 a patch, verify in sandbox and export evidence.
               </p>
             </div>
 
-            <div className="session-start-readiness-card">
+            <div className="flex flex-col gap-3">
               <StartReadinessItem
                 icon={<FolderKanban size={17} />}
                 label="Project"
@@ -1536,52 +1556,61 @@ export function SessionPage({
             </div>
           </div>
 
-          <div className="session-start-flow">
+          <div className="flex flex-wrap items-center gap-4 py-4 border-y border-zinc-800/60">
             <SessionStartStep number="1" label="Project ready" done={startReadiness.hasProject} />
+            <div className="h-[1px] w-8 bg-zinc-800 hidden sm:block" />
             <SessionStartStep number="2" label="Goal selected" done={startReadiness.hasGoal} />
+            <div className="h-[1px] w-8 bg-zinc-800 hidden sm:block" />
             <SessionStartStep number="3" label="Start session" done={startReadiness.canStart} />
           </div>
 
           {selectedProject ? (
-            <div className="selected-project-banner session-selected-project-modern">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg bg-indigo-500/5 border border-indigo-500/20">
               <div>
-                <strong>{selectedProject.name}</strong>
-                <p>Zero will use this local project as the runtime workspace.</p>
-                <small>{selectedProject.rootPath}</small>
+                <strong className="text-zinc-200 block text-sm">{selectedProject.name}</strong>
+                <p className="text-zinc-400 text-xs mt-0.5">
+                  Zero will use this local project as the runtime workspace.
+                </p>
+                <code className="text-zinc-500 text-[10px] mt-1 block font-mono">
+                  {selectedProject.rootPath}
+                </code>
               </div>
-
-              <div className="session-selected-project-badges">
+              <div className="flex gap-2">
                 <Badge tone="green">ready</Badge>
                 <Badge tone="blue">{selectedProject.workingMode}</Badge>
               </div>
             </div>
           ) : (
-            <div className="selected-project-banner warning">
+            <div className="flex items-center justify-between p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
               <div>
-                <strong>No project selected</strong>
-                <p>Go to Projects and select or scan a project first.</p>
+                <strong className="text-yellow-500 block text-sm">No project selected</strong>
+                <p className="text-yellow-600/70 text-xs mt-0.5">
+                  Go to Projects and select or scan a project first.
+                </p>
               </div>
-
               <Badge tone="yellow">missing</Badge>
             </div>
           )}
 
-          <details className="session-start-advanced-project-fields">
-            <summary>Show project fields</summary>
-
-            <div className="session-start-grid">
-              <label>
-                Project root
+          <details className="group [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
+              Show project fields
+            </summary>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 p-4 rounded-lg bg-zinc-950/50 border border-zinc-800/60">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-zinc-400">Project root</span>
                 <input
+                  className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 focus:border-indigo-500 focus:outline-none"
                   value={projectRoot}
                   readOnly={selectedProject !== null}
                   onChange={(event) => setProjectRoot(event.target.value)}
                 />
               </label>
 
-              <label>
-                Project name
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-zinc-400">Project name</span>
                 <input
+                  className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 focus:border-indigo-500 focus:outline-none"
                   value={projectName}
                   readOnly={selectedProject !== null}
                   onChange={(event) => setProjectName(event.target.value)}
@@ -1590,51 +1619,59 @@ export function SessionPage({
             </div>
           </details>
 
-          <section className="session-goal-template-section">
-            <div className="session-section-heading">
-              <div>
-                <span className="session-start-kicker-text">Step 2</span>
-                <h2>Choose what Zero should do</h2>
-                <p className="muted">
-                  Pick a safe template or write your own goal. You can edit the goal before
-                  starting.
-                </p>
-              </div>
+          <section className="flex flex-col gap-4 mt-2">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1 block">
+                Step 2
+              </span>
+              <h2 className="text-lg font-medium text-zinc-100">Choose what Zero should do</h2>
+              <p className="text-sm text-zinc-400 mt-1">
+                Pick a safe template or write your own goal. You can edit the goal before starting.
+              </p>
             </div>
 
-            <div className="session-goal-template-grid session-goal-template-grid-modern">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               {sessionGoalTemplates.map((template) => (
                 <button
-                  className={
-                    goal === template.goal
-                      ? 'secondary-button session-goal-template-button active'
-                      : 'secondary-button session-goal-template-button'
-                  }
                   key={template.label}
                   onClick={() => selectGoalTemplate(template.goal)}
+                  className={`flex flex-col text-left p-4 rounded-lg border transition-all ${
+                    goal === template.goal
+                      ? 'bg-indigo-500/10 border-indigo-500/40 ring-1 ring-indigo-500/40'
+                      : 'bg-zinc-950/50 border-zinc-800 hover:border-zinc-700'
+                  }`}
                 >
-                  <strong>{template.label}</strong>
-                  <span>{template.goal}</span>
+                  <strong
+                    className={`text-sm ${goal === template.goal ? 'text-indigo-300' : 'text-zinc-200'}`}
+                  >
+                    {template.label}
+                  </strong>
+                  <span className="text-xs text-zinc-500 mt-1 line-clamp-3 leading-relaxed">
+                    {template.goal}
+                  </span>
                 </button>
               ))}
             </div>
           </section>
 
-          <label id="session-goal-field" className="session-goal-field-modern">
-            Session goal
+          <label id="session-goal-field" className="flex flex-col gap-2 mt-2">
+            <span className="text-sm font-medium text-zinc-300">Session goal</span>
             <textarea
               rows={5}
               value={goal}
-              placeholder="Example: analyze the project and propose one small safe improvement without touching database, .env, Prisma, migrations or protected files."
+              placeholder="Example: analyze the project and propose one small safe improvement without touching database..."
               onChange={(event) => setGoal(event.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors resize-y shadow-inner"
             />
           </label>
 
-          <article className="session-start-safety-note session-start-safety-note-modern">
-            <Route size={18} />
+          <article className="flex items-start gap-3 p-4 rounded-lg bg-zinc-800/30 border border-zinc-700/50">
+            <Route size={18} className="text-indigo-400 mt-0.5" />
             <div>
-              <strong>Recommended first action after start</strong>
-              <p>
+              <strong className="text-sm text-zinc-200 block">
+                Recommended first action after start
+              </strong>
+              <p className="text-xs text-zinc-400 mt-1">
                 Start the session and Zero will automatically prepare the workflow: stack, routes,
                 frontend/backend links, safe scripts, tasks and questions.
               </p>
@@ -1642,7 +1679,7 @@ export function SessionPage({
           </article>
 
           <button
-            className="session-start-primary-action"
+            className="mt-2 w-full sm:w-auto self-end rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-500/20"
             disabled={!startReadiness.canStart || sessionStartLoading || workflowLoading}
             onClick={() => void createSession()}
           >
@@ -1653,42 +1690,52 @@ export function SessionPage({
         </article>
       ) : null}
 
-      <SessionWorkspaceTabs
-        activeTab={activeWorkspaceTab}
-        pendingApprovals={approvalCenter?.pendingCount ?? 0}
-        artifactCount={artifactIndex?.artifacts.length ?? 0}
-        questionCount={questions.length}
-        taskCount={tasks.length}
-        onChange={setActiveWorkspaceTab}
-      />
+      <div className="mt-2 sticky top-16 z-30 bg-zinc-950/80 backdrop-blur-md pt-2 pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+        <SessionWorkspaceTabs
+          activeTab={activeWorkspaceTab}
+          pendingApprovals={approvalCenter?.pendingCount ?? 0}
+          artifactCount={artifactIndex?.artifacts.length ?? 0}
+          questionCount={questions.length}
+          taskCount={tasks.length}
+          onChange={setActiveWorkspaceTab}
+        />
+      </div>
+
       {session && !workflowPrepared ? (
-        <article className="panel session-workflow-start-card">
+        <article className="flex flex-col md:flex-row gap-6 md:items-center justify-between rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
           <div>
-            <div className="session-start-kicker">
-              <Route size={16} />
-              <span>Preparing workflow</span>
+            <div className="flex items-center gap-2 mb-2">
+              <Route size={16} className={workflowLoading ? 'text-yellow-400' : 'text-blue-400'} />
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
+                Preparing workflow
+              </span>
               <Badge tone={workflowLoading ? 'yellow' : 'blue'}>
                 {workflowLoading ? 'running' : 'ready'}
               </Badge>
             </div>
-
-            <h2>
+            <h2 className="text-lg font-medium text-zinc-100">
               {workflowLoading ? 'Preparing project intelligence' : 'Prepare this project workflow'}
             </h2>
-            <p className="muted">
+            <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
               Zero is preparing the project context needed for the guided flow: stack, safe scripts,
               API routes, frontend/backend links, tasks and questions.
             </p>
           </div>
 
-          <button disabled={workflowLoading} onClick={() => void prepareWorkflow()}>
+          <button
+            className="whitespace-nowrap rounded-lg bg-zinc-200 px-5 py-2.5 text-sm font-semibold text-zinc-900 hover:bg-white disabled:opacity-50 transition-colors"
+            disabled={workflowLoading}
+            onClick={() => void prepareWorkflow()}
+          >
             {workflowLoading ? 'Preparing workflow...' : 'Prepare workflow'}
           </button>
         </article>
       ) : null}
-      <section className="session-tab-content">
+
+      {/* Tabs Content Sections */}
+      <section className="flex flex-col gap-6 w-full">
         {activeWorkspaceTab === 'overview' ? (
-          <div className="session-tab-grid">
+          <div className="flex flex-col gap-6">
             <GuidedWorkflowPanel
               session={session}
               runtimePlan={runtimePlan}
@@ -1717,20 +1764,18 @@ export function SessionPage({
                   runtimePlan?.plan.scope.candidateFiles.map((file) => file.path) ?? [
                     'package.json',
                   ];
-
                 void createSessionSnapshot(targetFiles);
               }}
               onExportReport={() => void exportReport()}
             />
 
-            <section className="session-workspace-grid">
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ChatPanel
                 session={session}
                 command={command}
                 onCommandChange={setCommand}
                 onSendCommand={() => void routeCommand()}
               />
-
               <SessionTimelinePanel session={session} />
             </section>
 
@@ -1759,7 +1804,7 @@ export function SessionPage({
         ) : null}
 
         {activeWorkspaceTab === 'plan' ? (
-          <div className="session-tab-grid">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <PlanPanel
               session={session}
               runtimePlan={runtimePlan}
@@ -1768,7 +1813,6 @@ export function SessionPage({
               onGenerateProviderPlan={() => void generatePlan(true)}
               onCommand={(input) => void routeCommand(input)}
             />
-
             <ApprovalPanel
               center={approvalCenter}
               loading={approvalCenterLoading}
@@ -1778,7 +1822,7 @@ export function SessionPage({
         ) : null}
 
         {activeWorkspaceTab === 'patch' ? (
-          <div className="session-tab-grid">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             <PatchPanel
               session={session}
               runtimePlan={runtimePlan}
@@ -1808,34 +1852,36 @@ export function SessionPage({
               onCommand={(input) => void routeCommand(input)}
             />
 
-            <SnapshotPanel
-              session={session}
-              snapshot={snapshot}
-              loading={snapshotLoading}
-              onCreateSnapshot={(targetFiles) => void createSessionSnapshot(targetFiles)}
-            />
-
-            <ApprovalPanel
-              center={approvalCenter}
-              loading={approvalCenterLoading}
-              onDecision={(input) => void handleApprovalDecision(input)}
-            />
+            <div className="flex flex-col gap-6">
+              <SnapshotPanel
+                session={session}
+                snapshot={snapshot}
+                loading={snapshotLoading}
+                onCreateSnapshot={(targetFiles) => void createSessionSnapshot(targetFiles)}
+              />
+              <ApprovalPanel
+                center={approvalCenter}
+                loading={approvalCenterLoading}
+                onDecision={(input) => void handleApprovalDecision(input)}
+              />
+            </div>
           </div>
         ) : null}
 
         {activeWorkspaceTab === 'context' ? (
-          <div className="session-tab-grid">
-            <ContextPanel session={session} />
-
-            <ProjectIntelligencePanel
-              stack={stackIntelligence}
-              routes={apiRoutes}
-              links={frontendBackendLinks}
-              loading={intelligenceLoading}
-              workflowLoading={workflowLoading}
-              onAnalyze={() => void analyzeProject()}
-              onPrepareWorkflow={() => void prepareWorkflow()}
-            />
+          <div className="flex flex-col gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ContextPanel session={session} />
+              <ProjectIntelligencePanel
+                stack={stackIntelligence}
+                routes={apiRoutes}
+                links={frontendBackendLinks}
+                loading={intelligenceLoading}
+                workflowLoading={workflowLoading}
+                onAnalyze={() => void analyzeProject()}
+                onPrepareWorkflow={() => void prepareWorkflow()}
+              />
+            </div>
 
             <IntelligentContextPanel routes={apiRoutes} links={frontendBackendLinks} />
 
@@ -1850,7 +1896,7 @@ export function SessionPage({
         ) : null}
 
         {activeWorkspaceTab === 'verify' ? (
-          <div className="session-tab-grid">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             <VerifyPanel
               commands={verifyCommands}
               scripts={packageScripts}
@@ -1882,17 +1928,18 @@ export function SessionPage({
         ) : null}
 
         {activeWorkspaceTab === 'artifacts' ? (
-          <div className="session-tab-grid">
-            <article className="panel demo-completion-card">
-              <div>
-                <h2>MVP demo completion</h2>
-                <p className="muted">
+          <div className="flex flex-col gap-6">
+            {/* Demo Completion Card ya refactorizada con Tailwind */}
+            <article className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
+              <div className="mb-5 border-b border-zinc-800/60 pb-4">
+                <h2 className="text-lg font-medium text-zinc-100">MVP demo completion</h2>
+                <p className="text-sm text-zinc-400 mt-1">
                   This is the final evidence area. Export the report and inspect artifacts to verify
                   what Zero proposed, blocked, tested and applied.
                 </p>
               </div>
 
-              <div className="demo-completion-grid">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <DemoCompletionItem
                   done={runtimePlan?.validation.valid === true}
                   label="Plan valid"

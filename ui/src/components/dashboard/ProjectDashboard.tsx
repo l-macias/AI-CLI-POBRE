@@ -50,27 +50,30 @@ export function ProjectDashboard({
   }
 
   return (
-    <section className="project-dashboard-page">
-      <header className="dashboard-hero panel">
+    <section className="flex flex-col gap-6 md:gap-8 w-full">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm backdrop-blur-md">
         <div>
-          <h1>Zero Runtime Dashboard</h1>
-          <p className="muted">
+          <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">
+            Zero Runtime Dashboard
+          </h1>
+          <p className="mt-1 text-sm text-zinc-400">
             Local project cockpit for runtime-controlled planning, patching, verification and audit.
           </p>
         </div>
 
-        <button className="secondary-button" onClick={() => void refreshDashboard()}>
+        <button
+          className="whitespace-nowrap rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-700 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-500"
+          onClick={() => void refreshDashboard()}
+        >
           Refresh dashboard
         </button>
       </header>
 
-      <section className="dashboard-grid">
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
         <CurrentProjectCard
           project={selectedProject}
           onOpenProjects={() => onNavigate('projects')}
         />
-
-        <RuntimeHealthCard health={health} />
 
         <DashboardQuickActions
           hasProject={selectedProject !== null}
@@ -79,6 +82,8 @@ export function ProjectDashboard({
           onOpenSession={() => onNavigate('session')}
           onOpenSettings={() => onNavigate('settings')}
         />
+
+        <RuntimeHealthCard health={health} />
 
         <RecentSessionsCard
           sessions={sessions}

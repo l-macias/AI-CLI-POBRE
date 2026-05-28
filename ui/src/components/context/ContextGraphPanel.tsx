@@ -45,28 +45,29 @@ export function ContextGraphPanel({
   }
 
   return (
-    <section className="panel context-graph-panel">
-      <div className="panel-header">
-        <div className="panel-title-row">
-          <Network size={18} />
+    <section className="flex flex-col rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-start gap-3">
+          <Network size={20} className="text-indigo-400 mt-0.5 shrink-0" />
           <div>
-            <h2>Context Graph</h2>
-            <p className="muted">
+            <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">Context Graph</h2>
+            <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
               Read-only code relationship graph: imports, importers, symbols and retrieval matches.
             </p>
           </div>
         </div>
 
-        <div className="context-summary-badges">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <Badge tone={graph ? 'green' : 'slate'}>{graph ? 'ready' : 'idle'}</Badge>
           <Badge tone="blue">{graph?.relatedFiles.length ?? 0} related</Badge>
         </div>
       </div>
 
-      <div className="context-graph-controls">
-        <label>
-          Target file
+      <div className="flex flex-col lg:flex-row items-end gap-4 mt-6 p-4 rounded-lg bg-zinc-950/50 border border-zinc-800/60">
+        <label className="flex flex-col gap-1.5 w-full lg:w-[40%]">
+          <span className="text-xs font-medium text-zinc-400">Target file</span>
           <input
+            className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors disabled:opacity-50"
             value={targetFilePath}
             disabled={disabled || loading}
             placeholder="src/pages/SessionPage.tsx"
@@ -74,9 +75,10 @@ export function ContextGraphPanel({
           />
         </label>
 
-        <label>
-          Query
+        <label className="flex flex-col gap-1.5 w-full lg:w-[40%]">
+          <span className="text-xs font-medium text-zinc-400">Query</span>
           <input
+            className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors disabled:opacity-50"
             value={query}
             disabled={disabled || loading}
             placeholder="approval flow, runtime plan, API usage..."
@@ -84,29 +86,41 @@ export function ContextGraphPanel({
           />
         </label>
 
-        <button disabled={disabled || loading} onClick={generate}>
-          {loading ? <RefreshCcw size={16} /> : <Search size={16} />}
+        <button
+          className="w-full lg:w-[20%] flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          disabled={disabled || loading}
+          onClick={generate}
+        >
+          {loading ? <RefreshCcw size={16} className="animate-spin" /> : <Search size={16} />}
           {loading ? 'Generating...' : 'Generate graph'}
         </button>
       </div>
 
       {!graph ? (
-        <article className="context-graph-empty">
-          <GitBranch size={20} />
+        <article className="flex flex-col items-center justify-center gap-4 mt-6 p-10 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50">
+          <GitBranch size={24} className="text-zinc-600" />
           <div>
-            <strong>No context graph generated.</strong>
-            <p>Run analysis for a target file or query before planning a patch.</p>
+            <strong className="block text-sm font-medium text-zinc-300">
+              No context graph generated.
+            </strong>
+            <p className="text-xs text-zinc-500 mt-1">
+              Run analysis for a target file or query before planning a patch.
+            </p>
           </div>
         </article>
       ) : (
-        <div className="context-graph-grid">
-          <section className="context-graph-main">
-            <article className="context-graph-target-card">
-              <strong>Target</strong>
-              <code>{graph.targetFilePath ?? 'not resolved'}</code>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+          <section className="lg:col-span-2 flex flex-col gap-8">
+            <article className="flex flex-col gap-2 p-5 rounded-lg border border-indigo-500/20 bg-indigo-500/5 shadow-sm">
+              <strong className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
+                Target
+              </strong>
+              <code className="text-sm font-mono text-zinc-200 break-all">
+                {graph.targetFilePath ?? 'not resolved'}
+              </code>
 
               {graph.targetExpansion ? (
-                <div className="context-graph-reasons">
+                <div className="flex flex-wrap gap-2 mt-2">
                   {graph.targetExpansion.reasons.map((reason) => (
                     <Badge key={reason} tone="slate">
                       {reason}
@@ -116,20 +130,29 @@ export function ContextGraphPanel({
               ) : null}
             </article>
 
-            <section className="context-graph-section">
-              <h3>Related files</h3>
+            <section className="flex flex-col gap-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 border-b border-zinc-800/60 pb-2">
+                Related files
+              </h3>
 
               {graph.relatedFiles.length === 0 ? (
-                <p className="muted">No related files found.</p>
+                <p className="text-sm text-zinc-500 italic">No related files found.</p>
               ) : (
                 graph.relatedFiles.map((file) => (
-                  <article className="context-graph-related-card" key={file.filePath}>
-                    <div>
-                      <strong>{file.filePath}</strong>
-                      <p>Score: {file.score}</p>
+                  <article
+                    className="flex flex-col gap-3 p-4 rounded-lg border border-zinc-800/60 bg-zinc-950/50 hover:border-zinc-700 transition-colors"
+                    key={file.filePath}
+                  >
+                    <div className="flex justify-between items-start gap-4">
+                      <strong className="text-sm font-mono text-zinc-200 break-all">
+                        {file.filePath}
+                      </strong>
+                      <span className="text-xs font-medium text-zinc-500 whitespace-nowrap bg-zinc-900 px-2 py-1 rounded">
+                        Score: {file.score}
+                      </span>
                     </div>
 
-                    <div className="context-graph-reasons">
+                    <div className="flex flex-wrap gap-2">
                       {file.reasons.map((reason) => (
                         <Badge key={reason} tone={toneForReason(reason)}>
                           {reason}
@@ -141,19 +164,25 @@ export function ContextGraphPanel({
               )}
             </section>
 
-            <section className="context-graph-section">
-              <h3>Imports</h3>
+            <section className="flex flex-col gap-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 border-b border-zinc-800/60 pb-2">
+                Imports
+              </h3>
 
               {graph.relationship?.imports.length ? (
                 graph.relationship.imports.map((item) => (
                   <article
-                    className="context-graph-import-card"
+                    className="flex flex-col gap-2 p-4 rounded-lg border border-zinc-800/60 bg-zinc-950/50 hover:border-zinc-700 transition-colors"
                     key={`${item.sourceFilePath}-${item.importedPath}-${item.resolvedPath ?? 'unresolved'}`}
                   >
-                    <strong>{item.importedPath}</strong>
-                    <p>{item.resolvedPath ?? 'unresolved'}</p>
+                    <strong className="text-sm font-mono text-zinc-200 break-all">
+                      {item.importedPath}
+                    </strong>
+                    <p className="text-xs text-zinc-500 font-mono break-all">
+                      {item.resolvedPath ?? 'unresolved'}
+                    </p>
 
-                    <div className="context-graph-reasons">
+                    <div className="flex flex-wrap gap-2 mt-2">
                       <Badge tone="blue">{item.importKind}</Badge>
                       {item.isTypeOnly ? <Badge tone="yellow">type only</Badge> : null}
                       {item.specifiers.map((specifier) => (
@@ -165,29 +194,38 @@ export function ContextGraphPanel({
                   </article>
                 ))
               ) : (
-                <p className="muted">No imports detected for target.</p>
+                <p className="text-sm text-zinc-500 italic">No imports detected for target.</p>
               )}
             </section>
 
-            <section className="context-graph-section">
-              <h3>Imported by</h3>
+            <section className="flex flex-col gap-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 border-b border-zinc-800/60 pb-2">
+                Imported by
+              </h3>
 
               {graph.relationship?.importedBy.length ? (
                 graph.relationship.importedBy.map((filePath) => (
-                  <article className="context-graph-import-card" key={filePath}>
-                    <strong>{filePath}</strong>
-                    <p>Imports target file.</p>
+                  <article
+                    className="flex flex-col gap-1.5 p-4 rounded-lg border border-zinc-800/60 bg-zinc-950/50 hover:border-zinc-700 transition-colors"
+                    key={filePath}
+                  >
+                    <strong className="text-sm font-mono text-zinc-200 break-all">
+                      {filePath}
+                    </strong>
+                    <p className="text-xs text-zinc-500">Imports target file.</p>
                   </article>
                 ))
               ) : (
-                <p className="muted">No importers detected for target.</p>
+                <p className="text-sm text-zinc-500 italic">No importers detected for target.</p>
               )}
             </section>
           </section>
 
-          <aside className="context-graph-side">
-            <section className="context-graph-section">
-              <h3>Exports</h3>
+          <aside className="lg:col-span-1 flex flex-col gap-8">
+            <section className="flex flex-col gap-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 border-b border-zinc-800/60 pb-2">
+                Exports
+              </h3>
 
               {selectedSymbols?.exports.length ? (
                 selectedSymbols.exports.map((symbol) => (
@@ -197,12 +235,14 @@ export function ContextGraphPanel({
                   />
                 ))
               ) : (
-                <p className="muted">No exports detected.</p>
+                <p className="text-sm text-zinc-500 italic">No exports detected.</p>
               )}
             </section>
 
-            <section className="context-graph-section">
-              <h3>Imported symbols</h3>
+            <section className="flex flex-col gap-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 border-b border-zinc-800/60 pb-2">
+                Imported symbols
+              </h3>
 
               {selectedSymbols?.imports.length ? (
                 selectedSymbols.imports.map((symbol) => (
@@ -212,43 +252,53 @@ export function ContextGraphPanel({
                   />
                 ))
               ) : (
-                <p className="muted">No imported symbols detected.</p>
+                <p className="text-sm text-zinc-500 italic">No imported symbols detected.</p>
               )}
             </section>
 
-            <section className="context-graph-section">
-              <h3>Type references</h3>
+            <section className="flex flex-col gap-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 border-b border-zinc-800/60 pb-2">
+                Type references
+              </h3>
 
               {selectedTypeReferences?.references.length ? (
                 selectedTypeReferences.references.slice(0, 24).map((reference) => (
                   <article
-                    className="context-graph-symbol-row"
+                    className="flex items-center justify-between gap-4 p-2.5 rounded-lg border border-zinc-800/60 bg-zinc-950/50 hover:border-zinc-700 transition-colors"
                     key={`${reference.filePath}-${reference.line}-${reference.name}`}
                   >
-                    <strong>{reference.name}</strong>
-                    <span>line {reference.line}</span>
+                    <strong className="text-sm font-mono text-zinc-300 truncate">
+                      {reference.name}
+                    </strong>
+                    <span className="text-xs text-zinc-500 whitespace-nowrap shrink-0">
+                      line {reference.line}
+                    </span>
                   </article>
                 ))
               ) : (
-                <p className="muted">No type references detected.</p>
+                <p className="text-sm text-zinc-500 italic">No type references detected.</p>
               )}
             </section>
 
-            <section className="context-graph-section">
-              <h3>Retrieval chunks</h3>
+            <section className="flex flex-col gap-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 border-b border-zinc-800/60 pb-2">
+                Retrieval chunks
+              </h3>
 
-              <div className="context-graph-reasons">
+              <div className="flex flex-wrap gap-2">
                 <Badge tone="blue">{graph.retrieval.filesScanned} files scanned</Badge>
                 <Badge tone="blue">{graph.retrieval.chunksScanned} chunks scanned</Badge>
               </div>
 
               {graph.retrieval.chunks.slice(0, 5).map((chunk) => (
                 <article
-                  className="context-graph-chunk-card"
+                  className="flex flex-col gap-1.5 p-3 rounded-lg border border-zinc-800/60 bg-zinc-950/50 hover:border-zinc-700 transition-colors"
                   key={`${chunk.chunk.filePath}-${chunk.chunk.startLine}-${chunk.chunk.endLine}`}
                 >
-                  <strong>{chunk.chunk.filePath}</strong>
-                  <p>
+                  <strong className="text-sm font-mono text-zinc-200 break-all">
+                    {chunk.chunk.filePath}
+                  </strong>
+                  <p className="text-xs text-zinc-500">
                     Lines {chunk.chunk.startLine}-{chunk.chunk.endLine} · score {chunk.score}
                   </p>
                 </article>
@@ -267,9 +317,9 @@ function SymbolRow({
   symbol: ContextGraphReport['symbols'][number]['exports'][number];
 }) {
   return (
-    <article className="context-graph-symbol-row">
-      <strong>{symbol.name}</strong>
-      <span>
+    <article className="flex items-center justify-between gap-4 p-2.5 rounded-lg border border-zinc-800/60 bg-zinc-950/50 hover:border-zinc-700 transition-colors">
+      <strong className="text-sm font-mono text-zinc-300 truncate">{symbol.name}</strong>
+      <span className="text-xs text-zinc-500 whitespace-nowrap shrink-0">
         {symbol.kind} · line {symbol.line}
       </span>
     </article>

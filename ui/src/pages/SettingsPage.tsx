@@ -158,12 +158,12 @@ export function SettingsPage() {
 
   if (!settings) {
     return (
-      <section className="settings-page">
-        <article className="panel settings-hero-panel settings-hero-panel-polished">
-          <div>
+      <section className="flex flex-col gap-6 md:gap-8 w-full max-w-[1600px] mx-auto pb-12">
+        <article className="flex flex-col gap-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 lg:p-8 shadow-sm backdrop-blur-md">
+          <div className="flex flex-col items-start gap-2">
             <Badge tone="blue">runtime settings</Badge>
-            <h1>Settings</h1>
-            <p className="muted">
+            <h1 className="text-3xl font-semibold text-zinc-100 tracking-tight">Settings</h1>
+            <p className="text-base text-zinc-400 mt-1">
               {loading ? 'Loading runtime settings...' : 'Settings unavailable.'}
             </p>
           </div>
@@ -173,56 +173,82 @@ export function SettingsPage() {
   }
 
   return (
-    <section className="settings-page">
-      <article className="panel settings-hero-panel settings-hero-panel-polished">
-        <div>
+    <section className="flex flex-col gap-6 md:gap-8 w-full max-w-[1600px] mx-auto pb-12">
+      <article className="flex flex-col gap-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 lg:p-8 shadow-sm backdrop-blur-md">
+        <div className="flex flex-col items-start gap-2">
           <Badge tone="blue">provider control</Badge>
-          <h1>Settings</h1>
-          <p className="muted">
+          <h1 className="text-3xl font-semibold text-zinc-100 tracking-tight">Settings</h1>
+          <p className="text-base text-zinc-400 mt-1">
             Configure provider, models, fallback behavior and runtime safety without touching code.
           </p>
         </div>
 
-        <div className="settings-provider-summary">
-          <div className="settings-provider-summary-card">
-            <span>Active provider</span>
-            <strong>{settings.provider.provider}</strong>
-            <Badge tone={activeProviderStatus?.configured ? 'green' : 'yellow'}>
-              {activeProviderStatus?.configured ? 'configured' : 'missing key'}
-            </Badge>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+          <div className="flex flex-col gap-2 p-5 rounded-lg border border-zinc-800/40 bg-zinc-950/50">
+            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Active provider
+            </span>
+            <strong className="text-base text-zinc-200">{settings.provider.provider}</strong>
+            <div className="mt-1">
+              <Badge tone={activeProviderStatus?.configured ? 'green' : 'yellow'}>
+                {activeProviderStatus?.configured ? 'configured' : 'missing key'}
+              </Badge>
+            </div>
           </div>
 
-          <div className="settings-provider-summary-card">
-            <span>Active model</span>
-            <strong>{providerStatus?.activeModel ?? settings.model.defaultModel}</strong>
-            <Badge tone="blue">{availableModels?.length ?? 0} available</Badge>
+          <div className="flex flex-col gap-2 p-5 rounded-lg border border-zinc-800/40 bg-zinc-950/50">
+            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Active model
+            </span>
+            <strong
+              className="text-base text-zinc-200 truncate"
+              title={providerStatus?.activeModel ?? settings.model.defaultModel}
+            >
+              {providerStatus?.activeModel ?? settings.model.defaultModel}
+            </strong>
+            <div className="mt-1">
+              <Badge tone="blue">{availableModels?.length ?? 0} available</Badge>
+            </div>
           </div>
 
-          <div className="settings-provider-summary-card">
-            <span>Fallback</span>
-            <strong>{settings.model.fallbackModel || 'not set'}</strong>
-            <Badge tone={settings.provider.allowPaidModels ? 'yellow' : 'green'}>
-              {settings.provider.allowPaidModels ? 'paid allowed' : 'free only'}
-            </Badge>
+          <div className="flex flex-col gap-2 p-5 rounded-lg border border-zinc-800/40 bg-zinc-950/50">
+            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Fallback
+            </span>
+            <strong
+              className="text-base text-zinc-200 truncate"
+              title={settings.model.fallbackModel || 'not set'}
+            >
+              {settings.model.fallbackModel || 'not set'}
+            </strong>
+            <div className="mt-1">
+              <Badge tone={settings.provider.allowPaidModels ? 'yellow' : 'green'}>
+                {settings.provider.allowPaidModels ? 'paid allowed' : 'free only'}
+              </Badge>
+            </div>
           </div>
         </div>
 
-        <div className="settings-actions">
+        <div className="flex flex-wrap items-center justify-end gap-3 mt-2 pt-6 border-t border-zinc-800/60">
           <button
-            className="secondary-button"
+            className="rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-500"
             disabled={!dirty || loading || !savedSettings}
             onClick={() => setSettings(savedSettings)}
           >
             Reset
           </button>
 
-          <button disabled={!dirty || loading} onClick={() => void saveSettings()}>
+          <button
+            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            disabled={!dirty || loading}
+            onClick={() => void saveSettings()}
+          >
             {loading ? 'Saving...' : dirty ? 'Save settings' : 'Saved'}
           </button>
         </div>
       </article>
 
-      <div className="settings-grid">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <ProviderSettingsPanel
           value={settings.provider}
           providerStatus={providerStatus}
@@ -269,17 +295,19 @@ export function SettingsPage() {
           }
         />
 
-        <RuntimeMaintenancePanel
-          inventory={inventory}
-          lastArchive={lastArchive}
-          lastRestore={lastRestore}
-          loading={inventoryLoading}
-          archiveLoading={archiveLoading}
-          restoreLoading={restoreLoading}
-          onRefresh={() => void refreshInventory()}
-          onArchiveSessions={(input) => void archiveSessions(input)}
-          onRestoreSessions={(input) => void restoreSessions(input)}
-        />
+        <div className="lg:col-span-2">
+          <RuntimeMaintenancePanel
+            inventory={inventory}
+            lastArchive={lastArchive}
+            lastRestore={lastRestore}
+            loading={inventoryLoading}
+            archiveLoading={archiveLoading}
+            restoreLoading={restoreLoading}
+            onRefresh={() => void refreshInventory()}
+            onArchiveSessions={(input) => void archiveSessions(input)}
+            onRestoreSessions={(input) => void restoreSessions(input)}
+          />
+        </div>
       </div>
     </section>
   );

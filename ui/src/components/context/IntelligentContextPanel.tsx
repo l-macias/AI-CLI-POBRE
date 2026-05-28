@@ -11,48 +11,59 @@ export function IntelligentContextPanel({ routes, links }: IntelligentContextPan
   const contextItems = buildContextItems(routes, links);
 
   return (
-    <section className="panel intelligent-context-panel">
-      <div className="panel-header">
-        <div className="panel-title-row">
-          <FileSearch size={18} />
+    <section className="flex flex-col rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-800/60 pb-5">
+        <div className="flex items-start gap-3">
+          <FileSearch size={20} className="text-indigo-400 mt-0.5 shrink-0" />
           <div>
-            <h2>Intelligent Context</h2>
-            <p className="muted">
+            <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">
+              Intelligent Context
+            </h2>
+            <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
               Files selected from frontend/backend links, routes, controllers and middlewares.
             </p>
           </div>
         </div>
 
-        <Badge tone={contextItems.length > 0 ? 'green' : 'slate'}>
+        <Badge tone={contextItems.length > 0 ? 'green' : 'slate'} className="shrink-0">
           {contextItems.length} context files
         </Badge>
       </div>
 
-      <div className="intelligent-context-list">
+      <div className="flex flex-col gap-4 mt-6">
         {contextItems.length > 0 ? (
           contextItems.map((item) => (
-            <article className="intelligent-context-card" key={`${item.file}-${item.reason}`}>
-              <div className="intelligent-context-card-header">
-                <div>
-                  <strong>{item.file}</strong>
-                  <p>{item.reason}</p>
+            <article
+              className="flex flex-col gap-3 p-4 rounded-lg border border-zinc-800/60 bg-zinc-950/50 hover:border-zinc-700 transition-colors"
+              key={`${item.file}-${item.reason}`}
+            >
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div className="min-w-0 flex-1">
+                  <strong className="block text-sm font-mono text-zinc-200 truncate">
+                    {item.file}
+                  </strong>
+                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">{item.reason}</p>
                 </div>
 
-                <Badge tone={toneForKind(item.kind)}>{item.kind}</Badge>
+                <Badge tone={toneForKind(item.kind)} className="shrink-0">
+                  {item.kind}
+                </Badge>
               </div>
 
               {item.endpoint ? (
-                <div className="context-endpoint-row">
-                  <Link2 size={14} />
-                  <code>{item.endpoint}</code>
+                <div className="flex items-center gap-2 mt-1 px-3 py-2 rounded-md bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300">
+                  <Link2 size={14} className="text-zinc-500 shrink-0" />
+                  <code className="truncate">{item.endpoint}</code>
                 </div>
               ) : null}
             </article>
           ))
         ) : (
-          <p className="muted">
-            Run Prepare Workflow or Analyze Project to generate intelligent context.
-          </p>
+          <div className="flex flex-col items-center justify-center p-8 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50">
+            <p className="text-sm text-zinc-400">
+              Run Prepare Workflow or Analyze Project to generate intelligent context.
+            </p>
+          </div>
         )}
       </div>
     </section>

@@ -8,15 +8,15 @@ interface PatchFileCardProps {
 
 export function PatchFileCard({ file }: PatchFileCardProps) {
   return (
-    <article className="plan-step-card">
-      <div className="plan-step-icon">
+    <article className="flex items-start gap-4 p-5 rounded-xl border border-zinc-800/60 bg-zinc-950/50 hover:border-zinc-700/80 transition-colors shadow-sm">
+      <div className="mt-0.5 shrink-0 text-zinc-500">
         <FilePenLine size={18} />
       </div>
 
-      <div className="plan-step-content">
-        <div className="plan-step-header">
-          <strong>{file.path}</strong>
-          <div className="plan-step-badges">
+      <div className="flex-1 min-w-0 flex flex-col gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3 border-b border-zinc-800/60 pb-3">
+          <strong className="text-sm font-mono text-zinc-200 truncate">{file.path}</strong>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <Badge tone={toneForOperation(file.operation)}>{file.operation}</Badge>
             <Badge tone={toneForRisk(file.riskLevel)}>risk: {file.riskLevel}</Badge>
             <Badge tone={file.userSelectable ? 'green' : 'red'}>
@@ -29,23 +29,33 @@ export function PatchFileCard({ file }: PatchFileCardProps) {
         </div>
 
         <div>
-          <strong>Summary</strong>
-          <ul className="compact-list">
+          <strong className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+            Summary
+          </strong>
+          <ul className="list-disc list-inside text-sm text-zinc-300 space-y-1.5">
             {file.changesSummary.map((item) => (
-              <li key={item}>{item}</li>
+              <li key={item} className="leading-relaxed">
+                {item}
+              </li>
             ))}
           </ul>
         </div>
 
         <div>
-          <strong>Reason</strong>
-          <p>{file.reason}</p>
+          <strong className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+            Reason
+          </strong>
+          <p className="text-sm text-zinc-300 leading-relaxed">{file.reason}</p>
         </div>
 
         {file.content ? (
-          <details>
-            <summary>Preview proposed content</summary>
-            <pre className="code-preview">{file.content}</pre>
+          <details className="group [&_summary::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors select-none">
+              Preview proposed content
+            </summary>
+            <pre className="mt-3 p-3 rounded-md bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300 overflow-x-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent leading-relaxed whitespace-pre-wrap break-all">
+              {file.content}
+            </pre>
           </details>
         ) : null}
       </div>

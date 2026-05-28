@@ -31,16 +31,18 @@ export function PatchApprovalCard({
   const selectableCount = request.fileReviews.filter((file) => file.userSelectable).length;
 
   return (
-    <article className="approval-request-card patch-approval-card">
-      <div className="panel-header">
-        <div>
-          <h3>{request.title}</h3>
-          <p className="muted">{request.description}</p>
+    <article className="flex flex-col rounded-xl border border-indigo-500/20 bg-zinc-900/40 p-6 shadow-sm relative overflow-hidden">
+      <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500/50" />
+
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-2">
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-zinc-100">{request.title}</h3>
+          <p className="text-sm text-zinc-400 mt-1">{request.description}</p>
         </div>
 
-        <div className="approval-risk-badges">
+        <div className="flex flex-wrap gap-2 shrink-0">
           <Badge tone={toneForRisk(request.riskLevel)}>{request.riskLevel} risk</Badge>
-          <Badge tone="blue">{request.kind}</Badge>
+          <Badge tone="indigo">{request.kind}</Badge>
           <Badge tone={request.status === 'pending' ? 'yellow' : 'green'}>{request.status}</Badge>
           <Badge tone={selectedCount > 0 ? 'green' : 'yellow'}>
             {selectedCount}/{selectableCount} selected
@@ -50,72 +52,101 @@ export function PatchApprovalCard({
 
       <ApprovalChecklist items={request.checklist} />
 
-      <section className="approval-file-review-list">
-        <div className="approval-file-review-header">
+      <section className="flex flex-col gap-4 mt-8">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-zinc-800/60 pb-3">
           <div>
-            <strong>File-level review</strong>
-            <p className="muted">
+            <strong className="block text-sm font-medium text-zinc-200">File-level review</strong>
+            <p className="text-xs text-zinc-400 mt-1">
               Approve all files or only selected files. High-risk files start unselected.
             </p>
           </div>
 
-          <div className="approval-file-review-actions">
-            <button className="secondary-button" type="button" onClick={onSelectAll}>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              className="rounded-md bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
+              type="button"
+              onClick={onSelectAll}
+            >
               Select all
             </button>
-            <button className="secondary-button" type="button" onClick={onClearSelection}>
+            <button
+              className="rounded-md bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
+              type="button"
+              onClick={onClearSelection}
+            >
               Clear
             </button>
           </div>
         </div>
 
-        {request.fileReviews.map((file) => {
-          const checked = selectedFilePaths.includes(file.path);
+        <div className="flex flex-col gap-3">
+          {request.fileReviews.map((file) => {
+            const checked = selectedFilePaths.includes(file.path);
 
-          return (
-            <label className="approval-file-review-card" key={file.path}>
-              <input
-                type="checkbox"
-                checked={checked}
-                disabled={!file.userSelectable}
-                onChange={() => onToggleFile(file.path)}
-              />
+            return (
+              <label
+                className={`flex items-start gap-4 p-4 rounded-lg border transition-colors cursor-pointer group ${
+                  checked
+                    ? 'border-indigo-500/30 bg-indigo-500/5'
+                    : 'border-zinc-800/60 bg-zinc-950/50 hover:border-zinc-700'
+                } ${!file.userSelectable && 'opacity-70 cursor-not-allowed'}`}
+                key={file.path}
+              >
+                <input
+                  type="checkbox"
+                  className="mt-1 rounded border-zinc-700 bg-zinc-900 text-indigo-500 focus:ring-indigo-500/50 cursor-pointer disabled:cursor-not-allowed"
+                  checked={checked}
+                  disabled={!file.userSelectable}
+                  onChange={() => onToggleFile(file.path)}
+                />
 
-              <div className="approval-file-review-content">
-                <div className="approval-file-review-title">
-                  <strong>{file.path}</strong>
-                  <div className="plan-step-badges">
-                    <Badge tone={toneForOperation(file.operation)}>{file.operation}</Badge>
-                    <Badge tone={toneForRisk(file.riskLevel)}>risk: {file.riskLevel}</Badge>
-                    <Badge tone={file.userSelectable ? 'green' : 'red'}>
-                      {file.userSelectable ? 'selectable' : 'locked'}
-                    </Badge>
+                <div className="flex flex-col flex-1 gap-3 w-full overflow-hidden">
+                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+                    <strong className="text-sm font-mono text-zinc-200 truncate">
+                      {file.path}
+                    </strong>
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                      <Badge tone={toneForOperation(file.operation)}>{file.operation}</Badge>
+                      <Badge tone={toneForRisk(file.riskLevel)}>risk: {file.riskLevel}</Badge>
+                      <Badge tone={file.userSelectable ? 'green' : 'red'}>
+                        {file.userSelectable ? 'selectable' : 'locked'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-1 border-t border-zinc-800/40 pt-3">
+                    <div>
+                      <strong className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+                        Summary
+                      </strong>
+                      <ul className="list-disc list-inside text-xs text-zinc-300 space-y-1.5">
+                        {file.changesSummary.map((item) => (
+                          <li key={item} className="leading-relaxed">
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div>
+                      <strong className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+                        Reason
+                      </strong>
+                      <p className="text-xs text-zinc-300 leading-relaxed">{file.reason}</p>
+                    </div>
                   </div>
                 </div>
-
-                <div>
-                  <strong>Summary</strong>
-                  <ul className="compact-list">
-                    {file.changesSummary.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <strong>Reason</strong>
-                  <p>{file.reason}</p>
-                </div>
-              </div>
-            </label>
-          );
-        })}
+              </label>
+            );
+          })}
+        </div>
       </section>
 
-      <div className="approval-actions-grid">
+      <div className="flex flex-wrap items-center gap-3 mt-8 pt-5 border-t border-zinc-800/60">
         <button
           disabled={!approveAction?.enabled}
           title={approveAction?.blockedReason}
+          className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           onClick={() =>
             onDecision({
               requestId: request.id,
@@ -130,12 +161,12 @@ export function PatchApprovalCard({
 
         <button
           disabled={!approveSelectedAction?.enabled || selectedFilePaths.length === 0}
-          className="secondary-button"
           title={
             selectedFilePaths.length === 0
               ? 'Select at least one file.'
               : approveSelectedAction?.blockedReason
           }
+          className="flex items-center gap-2 rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           onClick={() =>
             onDecision({
               requestId: request.id,
@@ -150,8 +181,8 @@ export function PatchApprovalCard({
 
         <button
           disabled={!askRevisionAction?.enabled}
-          className="secondary-button"
           title={askRevisionAction?.blockedReason}
+          className="flex items-center gap-2 rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           onClick={() =>
             onDecision({
               requestId: request.id,
@@ -166,8 +197,8 @@ export function PatchApprovalCard({
 
         <button
           disabled={!rejectAction?.enabled}
-          className="danger-button"
           title={rejectAction?.blockedReason}
+          className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-5 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           onClick={() =>
             onDecision({
               requestId: request.id,
@@ -188,11 +219,9 @@ function toneForOperation(operation: ApprovalRequest['fileReviews'][number]['ope
   if (operation === 'delete') {
     return 'red';
   }
-
   if (operation === 'create') {
     return 'yellow';
   }
-
   return 'blue';
 }
 
@@ -200,10 +229,8 @@ function toneForRisk(riskLevel: ApprovalRequest['riskLevel']) {
   if (riskLevel === 'high') {
     return 'red';
   }
-
   if (riskLevel === 'medium') {
     return 'yellow';
   }
-
   return 'green';
 }

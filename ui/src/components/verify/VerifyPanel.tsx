@@ -24,61 +24,81 @@ export function VerifyPanel({
   onRun,
 }: VerifyPanelProps) {
   return (
-    <section id="verify-panel" className="panel integration-panel">
-      <div className="panel-header">
-        <div className="panel-title-row">
-          <PlayCircle size={18} />
+    <section
+      id="verify-panel"
+      className="flex flex-col rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm"
+    >
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-800/60 pb-5 mb-5">
+        <div className="flex items-start gap-3">
+          <PlayCircle size={20} className="text-indigo-400 mt-0.5 shrink-0" />
           <div>
-            <h2>Safe Verify</h2>
-            <p className="muted">Approved safe verification commands only.</p>
+            <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">Safe Verify</h2>
+            <p className="text-sm text-zinc-400 mt-1">Approved safe verification commands only.</p>
           </div>
         </div>
 
-        <button className="secondary-button" onClick={onRefresh}>
+        <button
+          className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 transition-colors"
+          onClick={onRefresh}
+        >
           {loading ? 'Loading...' : 'Refresh'}
         </button>
       </div>
 
       {scripts ? (
-        <div className="integration-card">
-          <strong>Detected safe scripts</strong>
-          <div className="stack-row">
+        <article className="p-4 rounded-lg border border-zinc-800/60 bg-zinc-950/50 mb-5">
+          <strong className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+            Detected safe scripts
+          </strong>
+          <div className="flex flex-wrap gap-2">
             {scripts.safeVerifyScripts.map((script) => (
               <Badge key={script} tone="green">
                 {script}
               </Badge>
             ))}
           </div>
-        </div>
+        </article>
       ) : null}
 
-      <div className="integration-list">
+      <div className="flex flex-col gap-3">
         {commands.map((command) => (
-          <article className="integration-card" key={command.id}>
-            <div className="integration-card-header">
-              <strong>{command.label}</strong>
-              <Badge tone="blue">requires approval</Badge>
+          <article
+            className="flex flex-col gap-3 p-4 rounded-lg border border-zinc-800/60 bg-zinc-950/50 hover:border-zinc-700 transition-colors"
+            key={command.id}
+          >
+            <div className="flex justify-between items-start gap-3">
+              <strong className="text-sm font-semibold text-zinc-200">{command.label}</strong>
+              <Badge tone="blue" className="shrink-0">
+                requires approval
+              </Badge>
             </div>
 
-            <p>{command.description}</p>
+            <p className="text-sm text-zinc-400">{command.description}</p>
 
-            <button onClick={() => onRun(command)}>Approve and run</button>
+            <button
+              className="w-fit rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors"
+              onClick={() => onRun(command)}
+            >
+              Approve and run
+            </button>
           </article>
         ))}
       </div>
 
       {lastRun ? (
-        <article className="integration-card">
-          <div className="integration-card-header">
-            <strong>Last run: {lastRun.command}</strong>
+        <article className="mt-6 p-4 rounded-lg border border-zinc-800/60 bg-zinc-950/50">
+          <div className="flex justify-between items-center mb-3">
+            <strong className="text-sm font-semibold text-zinc-200 truncate">
+              Last run: {lastRun.command}
+            </strong>
             <Badge tone={lastRun.status === 'executed' && lastRun.exitCode === 0 ? 'green' : 'red'}>
               {lastRun.status}
             </Badge>
           </div>
 
-          <p>Exit code: {lastRun.exitCode ?? '-'}</p>
+          <p className="text-xs text-zinc-500 mb-3">Exit code: {lastRun.exitCode ?? '-'}</p>
 
-          <pre className="verify-output">
+          <pre className="p-3 rounded bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap break-all">
             {lastRun.stdoutSummary || lastRun.stderrSummary || 'No output.'}
           </pre>
         </article>

@@ -31,32 +31,45 @@ export function AuditTimeline({ session, runtimeEvents }: AuditTimelineProps) {
   const pendingCount = audit.events.filter((event) => event.status === 'pending').length;
 
   return (
-    <section className="panel audit-timeline-panel">
-      <div className="panel-header">
-        <div className="panel-title-row">
-          <ScrollText size={18} />
+    <section className="flex flex-col gap-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm backdrop-blur-md">
+        <div className="flex items-start gap-3">
+          <ScrollText size={20} className="text-indigo-400 mt-1 shrink-0" />
           <div>
-            <h2>Visual Audit Timeline</h2>
-            <p className="muted">
+            <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">
+              Visual Audit Timeline
+            </h2>
+            <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
               What the user requested, what Zero read, proposed, blocked, approved and left pending.
             </p>
           </div>
         </div>
 
-        <div className="audit-summary-badges">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <Badge tone="blue">{audit.events.length} events</Badge>
-          <Badge tone={blockedCount > 0 ? 'red' : 'green'}>{blockedCount} blocked</Badge>
-          <Badge tone={pendingCount > 0 ? 'yellow' : 'green'}>{pendingCount} pending</Badge>
+          {blockedCount > 0 && <Badge tone="red">{blockedCount} blocked</Badge>}
+          {pendingCount > 0 && <Badge tone="yellow">{pendingCount} pending</Badge>}
         </div>
       </div>
 
-      <div className="audit-timeline-list">
+      <div className="relative flex flex-col gap-5 py-2">
+        {/* Línea vertical para diseño tipo timeline (oculta en móviles muy pequeños) */}
+        <div className="absolute left-6 top-0 bottom-0 w-px bg-zinc-800/60 hidden sm:block"></div>
+
         {audit.events.length > 0 ? (
-          audit.events.map((event, index) =>
-            renderAuditEvent(event, `${event.id}-${String(index)}`),
-          )
+          audit.events.map((event, index) => (
+            <div key={`${event.id}-${String(index)}`} className="relative sm:pl-16">
+              {/* Punto indicador en el timeline */}
+              <div className="absolute left-[21px] top-6 w-2.5 h-2.5 rounded-full bg-zinc-700 hidden sm:block ring-4 ring-zinc-950"></div>
+              {renderAuditEvent(event, `${event.id}-${String(index)}`)}
+            </div>
+          ))
         ) : (
-          <p className="muted">No audit events yet. Start a session and send commands.</p>
+          <div className="flex flex-col items-center justify-center p-8 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50">
+            <p className="text-sm text-zinc-400">
+              No audit events yet. Start a session and send commands.
+            </p>
+          </div>
         )}
       </div>
     </section>
@@ -79,6 +92,7 @@ function renderAuditEvent(event: AuditTimelineEvent, key: string) {
   return <AuditEventCard event={event} key={key} />;
 }
 
+// --- LÓGICA DE AUDITORÍA MANTENIDA EXACTAMENTE IGUAL ---
 function buildAuditTimeline(input: AuditTimelineInput): AuditTimelineViewModel {
   const events: AuditTimelineEvent[] = [];
 

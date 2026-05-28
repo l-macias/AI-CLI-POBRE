@@ -90,28 +90,31 @@ export function PatchProposalViewer({
   );
 
   return (
-    <section className="plan-viewer">
-      <div className="panel-header">
-        <div className="panel-title-row">
-          <GitPullRequestDraft size={18} />
-          <div>
-            <h2>Patch Proposal</h2>
-            <p className="muted">
-              Generate, review, sandbox-verify and apply patches through runtime gates.
-            </p>
+    <section className="flex flex-col gap-6 w-full">
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
+          <div className="flex items-start gap-3">
+            <GitPullRequestDraft size={20} className="text-indigo-400 mt-0.5 shrink-0" />
+            <div>
+              <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">Patch Proposal</h2>
+              <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
+                Generate, review, sandbox-verify and apply patches through runtime gates.
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0">
+            {patchProposal ? (
+              <Badge tone={patchProposal.proposal.status === 'rejected' ? 'red' : 'blue'}>
+                {patchProposal.proposal.status}
+              </Badge>
+            ) : (
+              <Badge tone="slate">empty</Badge>
+            )}
           </div>
         </div>
 
-        {patchProposal ? (
-          <Badge tone={patchProposal.proposal.status === 'rejected' ? 'red' : 'blue'}>
-            {patchProposal.proposal.status}
-          </Badge>
-        ) : (
-          <Badge tone="slate">empty</Badge>
-        )}
-
         {patchDiff ? <PatchDiffPreview result={patchDiff} /> : null}
-
         {sandboxResult ? <PatchSandboxResultCard result={sandboxResult} /> : null}
         {recoveryResult ? <PatchRecoveryResultCard result={recoveryResult} /> : null}
 
@@ -139,14 +142,18 @@ export function PatchProposalViewer({
         ) : null}
       </div>
 
-      <div className="plan-actions">
-        <button disabled={!canGenerate || loading} onClick={onGeneratePatchProposal}>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          disabled={!canGenerate || loading}
+          onClick={onGeneratePatchProposal}
+        >
           {loading ? 'Generating...' : 'Generate Patch Proposal'}
         </button>
 
         <button
           disabled={!canGenerateDiff || diffLoading}
-          className="secondary-button"
+          className="rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-500"
           onClick={onGeneratePatchDiff}
         >
           {diffLoading ? 'Generating diff...' : 'Generate Diff Preview'}
@@ -154,11 +161,12 @@ export function PatchProposalViewer({
 
         <button
           disabled={!canVerifySandbox || sandboxLoading}
-          className="secondary-button"
+          className="rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-500"
           onClick={onVerifySandbox}
         >
           {sandboxLoading ? 'Verifying sandbox...' : 'Verify in Sandbox'}
         </button>
+
         <button
           disabled={
             !sandboxResult ||
@@ -167,7 +175,7 @@ export function PatchProposalViewer({
             recoveryResult?.status === 'max_attempts_reached' ||
             recoveryResult?.status === 'not_recoverable'
           }
-          className="secondary-button"
+          className="rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-500"
           onClick={onPrepareRecovery}
         >
           {recoveryLoading
@@ -178,20 +186,22 @@ export function PatchProposalViewer({
                 ? 'Not Recoverable'
                 : 'Prepare Recovery'}
         </button>
+
         <button
           disabled={
             !recoveryResult ||
             recoveryResult.status !== 'repair_prompt_ready' ||
             recoveryProposalLoading
           }
-          className="secondary-button"
+          className="rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-500"
           onClick={onGenerateRecoveryProposal}
         >
           {recoveryProposalLoading ? 'Generating repaired patch...' : 'Generate Repaired Patch'}
         </button>
+
         <button
           disabled={!session}
-          className="secondary-button"
+          className="rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-auto focus:outline-none focus:ring-2 focus:ring-zinc-500"
           onClick={() => onCommand('/context')}
         >
           View context
@@ -199,91 +209,110 @@ export function PatchProposalViewer({
       </div>
 
       {!runtimePlan ? (
-        <article className="empty-plan-state">
-          <strong>No runtime plan available.</strong>
-          <p className="muted">
+        <article className="flex flex-col items-center justify-center gap-3 p-10 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50 mt-6">
+          <strong className="block text-sm font-medium text-zinc-300">
+            No runtime plan available.
+          </strong>
+          <p className="text-xs text-zinc-500">
             Generate and validate a Runtime Plan before requesting a patch proposal.
           </p>
         </article>
       ) : null}
 
       {runtimePlan && !runtimePlan.validation.valid ? (
-        <article className="empty-plan-state">
-          <strong>Runtime plan is not valid.</strong>
-          <p className="muted">Patch proposals require a validated runtime plan.</p>
+        <article className="flex flex-col items-center justify-center gap-3 p-10 text-center rounded-xl border border-dashed border-red-500/30 bg-red-500/5 mt-6">
+          <strong className="block text-sm font-medium text-red-300">
+            Runtime plan is not valid.
+          </strong>
+          <p className="text-xs text-red-200/70">
+            Patch proposals require a validated runtime plan.
+          </p>
         </article>
       ) : null}
 
       {patchProposal ? (
-        <>
+        <div className="flex flex-col gap-6 mt-6">
           <PatchSummary result={patchProposal} />
 
           {patchProposal.validation.issues.length > 0 ? (
-            <article className="plan-summary-card">
-              <div className="panel-title-row">
-                <ShieldAlert size={18} />
+            <article className="flex flex-col gap-5 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm">
+              <div className="flex items-start gap-3 border-b border-zinc-800/60 pb-4">
+                <ShieldAlert size={18} className="text-yellow-400 mt-0.5 shrink-0" />
                 <div>
-                  <strong>Validation issues</strong>
-                  <p className="muted">Runtime policy warnings/errors for this patch proposal.</p>
+                  <strong className="block text-base font-medium text-zinc-100">
+                    Validation issues
+                  </strong>
+                  <p className="text-sm text-zinc-400 mt-1">
+                    Runtime policy warnings/errors for this patch proposal.
+                  </p>
                 </div>
               </div>
 
-              <div className="plan-step-list">
+              <div className="flex flex-col gap-3">
                 {patchProposal.validation.issues.map((issue) => (
                   <article
-                    className="plan-step-card"
+                    className="flex flex-col gap-2 p-3 rounded-md border border-zinc-800/40 bg-zinc-950/50"
                     key={`${issue.code}-${issue.path ?? 'global'}`}
                   >
-                    <div className="plan-step-content">
-                      <div className="plan-step-header">
-                        <strong>{issue.code}</strong>
-                        <Badge tone={issue.severity === 'error' ? 'red' : 'yellow'}>
-                          {issue.severity}
-                        </Badge>
-                      </div>
-                      <p>{issue.message}</p>
-                      {issue.path ? <span className="plan-step-target">{issue.path}</span> : null}
+                    <div className="flex justify-between items-start gap-3">
+                      <strong className="text-sm font-semibold text-zinc-200">{issue.code}</strong>
+                      <Badge
+                        tone={issue.severity === 'error' ? 'red' : 'yellow'}
+                        className="shrink-0"
+                      >
+                        {issue.severity}
+                      </Badge>
                     </div>
+                    <p className="text-xs text-zinc-400">{issue.message}</p>
+                    {issue.path ? (
+                      <span className="text-xs font-mono text-zinc-500 bg-zinc-900/50 p-1 rounded w-fit">
+                        {issue.path}
+                      </span>
+                    ) : null}
                   </article>
                 ))}
               </div>
             </article>
           ) : null}
 
-          <div className="plan-step-list">
+          <div className="flex flex-col gap-4">
             {patchProposal.proposal.files.map((file) => (
               <PatchFileCard file={file} key={file.path} />
             ))}
           </div>
 
           {patchProposal.proposal.risks.length > 0 ? (
-            <article className="plan-summary-card">
-              <div>
-                <strong>Risks</strong>
-                <p className="muted">Patch risk analysis before diff/apply stages.</p>
+            <article className="flex flex-col gap-5 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm">
+              <div className="border-b border-zinc-800/60 pb-4">
+                <strong className="block text-base font-medium text-zinc-100">Risks</strong>
+                <p className="text-sm text-zinc-400 mt-1">
+                  Patch risk analysis before diff/apply stages.
+                </p>
               </div>
 
-              <div className="plan-step-list">
+              <div className="flex flex-col gap-3">
                 {patchProposal.proposal.risks.map((risk) => (
-                  <article className="plan-step-card" key={risk.code}>
-                    <div className="plan-step-content">
-                      <div className="plan-step-header">
-                        <strong>{risk.code}</strong>
-                        <Badge
-                          tone={
-                            risk.level === 'high'
-                              ? 'red'
-                              : risk.level === 'medium'
-                                ? 'yellow'
-                                : 'green'
-                          }
-                        >
-                          {risk.level}
-                        </Badge>
-                      </div>
-                      <p>{risk.message}</p>
-                      <p className="muted">{risk.mitigation}</p>
+                  <article
+                    className="flex flex-col gap-2 p-3 rounded-md border border-zinc-800/40 bg-zinc-950/50"
+                    key={risk.code}
+                  >
+                    <div className="flex justify-between items-start gap-3">
+                      <strong className="text-sm font-semibold text-zinc-200">{risk.code}</strong>
+                      <Badge
+                        tone={
+                          risk.level === 'high'
+                            ? 'red'
+                            : risk.level === 'medium'
+                              ? 'yellow'
+                              : 'green'
+                        }
+                        className="shrink-0"
+                      >
+                        {risk.level}
+                      </Badge>
                     </div>
+                    <p className="text-sm text-zinc-300">{risk.message}</p>
+                    <p className="text-xs text-zinc-500">{risk.mitigation}</p>
                   </article>
                 ))}
               </div>
@@ -291,39 +320,43 @@ export function PatchProposalViewer({
           ) : null}
 
           {patchProposal.proposal.verifyCommands.length > 0 ? (
-            <article className="plan-summary-card">
-              <div>
-                <strong>Suggested verify commands</strong>
-                <p className="muted">
+            <article className="flex flex-col gap-5 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm">
+              <div className="border-b border-zinc-800/60 pb-4">
+                <strong className="block text-base font-medium text-zinc-100">
+                  Suggested verify commands
+                </strong>
+                <p className="text-sm text-zinc-400 mt-1">
                   Sandbox verification runs approved safe commands before real apply.
                 </p>
               </div>
 
-              <div className="plan-step-list">
+              <div className="flex flex-col gap-3">
                 {patchProposal.proposal.verifyCommands.map((verifyCommand) => (
                   <article
-                    className="plan-step-card"
+                    className="flex flex-col gap-2 p-4 rounded-md border border-zinc-800/40 bg-zinc-950/50"
                     key={`${verifyCommand.command}-${verifyCommand.args.join('-')}`}
                   >
-                    <div className="plan-step-content">
-                      <div className="plan-step-header">
-                        <strong>
-                          {verifyCommand.command} {verifyCommand.args.join(' ')}
-                        </strong>
-                        <Badge tone="yellow">approval required</Badge>
-                      </div>
-                      <p>{verifyCommand.reason}</p>
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
+                      <strong className="text-sm font-mono text-indigo-300 break-all">
+                        {verifyCommand.command} {verifyCommand.args.join(' ')}
+                      </strong>
+                      <Badge tone="yellow" className="shrink-0">
+                        approval required
+                      </Badge>
                     </div>
+                    <p className="text-xs text-zinc-400">{verifyCommand.reason}</p>
                   </article>
                 ))}
               </div>
             </article>
           ) : null}
-        </>
+        </div>
       ) : (
-        <article className="empty-plan-state">
-          <strong>No patch proposal generated yet.</strong>
-          <p className="muted">
+        <article className="flex flex-col items-center justify-center gap-3 p-10 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50 mt-6">
+          <strong className="block text-sm font-medium text-zinc-300">
+            No patch proposal generated yet.
+          </strong>
+          <p className="text-xs text-zinc-500">
             This stage only creates and validates a proposal. It does not write files.
           </p>
         </article>
@@ -337,71 +370,92 @@ function PatchSandboxResultCard({ result }: { result: RuntimePatchSandboxResult 
     result.status === 'passed' ? 'green' : result.status === 'blocked' ? 'yellow' : 'red';
 
   return (
-    <article className="plan-summary-card">
-      <div className="panel-title-row">
-        <ShieldCheck size={18} />
-        <div>
-          <strong>Sandbox verification</strong>
-          <p className="muted">Patch was tested inside a sandbox workspace before real apply.</p>
+    <article className="flex flex-col gap-5 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm mt-6">
+      <div className="flex items-start justify-between gap-4 border-b border-zinc-800/60 pb-4">
+        <div className="flex items-start gap-3">
+          <ShieldCheck size={18} className="text-emerald-400 mt-0.5 shrink-0" />
+          <div>
+            <strong className="block text-base font-medium text-zinc-100">
+              Sandbox verification
+            </strong>
+            <p className="text-sm text-zinc-400 mt-1">
+              Patch was tested inside a sandbox workspace before real apply.
+            </p>
+          </div>
         </div>
-        <Badge tone={tone}>{result.status}</Badge>
+        <Badge tone={tone} className="shrink-0">
+          {result.status}
+        </Badge>
       </div>
 
-      {result.workspace ? (
-        <p className="muted">Workspace: {result.workspace.workspaceRoot}</p>
-      ) : null}
+      <div className="flex flex-col gap-2">
+        {result.workspace ? (
+          <p className="text-xs text-zinc-500 font-mono">
+            Workspace: {result.workspace.workspaceRoot}
+          </p>
+        ) : null}
 
-      {result.applyResult ? (
-        <p className="muted">Sandbox apply: {result.applyResult.status}</p>
-      ) : null}
+        {result.applyResult ? (
+          <p className="text-xs text-zinc-500">Sandbox apply: {result.applyResult.status}</p>
+        ) : null}
+      </div>
 
       {result.verifyRuns.length > 0 ? (
-        <div className="plan-step-list">
+        <div className="flex flex-col gap-4 mt-2">
           {result.verifyRuns.map((run) => (
-            <article className="plan-step-card" key={`${run.command}-${run.startedAt}`}>
-              <div className="plan-step-content">
-                <div className="plan-step-header">
-                  <strong>{run.command}</strong>
-                  <Badge
-                    tone={
-                      run.status === 'blocked'
-                        ? 'yellow'
-                        : run.status === 'failed' || run.exitCode !== 0
-                          ? 'red'
-                          : 'green'
-                    }
-                  >
-                    {run.status}
-                    {run.exitCode !== undefined ? ` / ${run.exitCode}` : ''}
-                  </Badge>
-                </div>
-
-                {run.stdoutSummary ? (
-                  <pre className="runtime-code-block">{run.stdoutSummary}</pre>
-                ) : null}
-
-                {run.stderrSummary ? (
-                  <pre className="runtime-code-block">{run.stderrSummary}</pre>
-                ) : null}
+            <article
+              className="flex flex-col gap-3 p-4 rounded-lg border border-zinc-800/40 bg-zinc-950/50"
+              key={`${run.command}-${run.startedAt}`}
+            >
+              <div className="flex justify-between items-start gap-3">
+                <strong className="text-sm font-mono text-indigo-300 break-all">
+                  {run.command}
+                </strong>
+                <Badge
+                  tone={
+                    run.status === 'blocked'
+                      ? 'yellow'
+                      : run.status === 'failed' || run.exitCode !== 0
+                        ? 'red'
+                        : 'green'
+                  }
+                  className="shrink-0"
+                >
+                  {run.status}
+                  {run.exitCode !== undefined ? ` / ${run.exitCode}` : ''}
+                </Badge>
               </div>
+
+              {run.stdoutSummary ? (
+                <pre className="p-3 rounded bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300 overflow-x-auto break-all">
+                  {run.stdoutSummary}
+                </pre>
+              ) : null}
+
+              {run.stderrSummary ? (
+                <pre className="p-3 rounded bg-red-500/10 border border-red-500/20 text-xs font-mono text-red-300 overflow-x-auto break-all">
+                  {run.stderrSummary}
+                </pre>
+              ) : null}
             </article>
           ))}
         </div>
       ) : null}
 
       {result.issues.length > 0 ? (
-        <div className="plan-step-list">
+        <div className="flex flex-col gap-3 mt-2">
           {result.issues.map((issue) => (
-            <article className="plan-step-card" key={`${issue.code}-${issue.message}`}>
-              <div className="plan-step-content">
-                <div className="plan-step-header">
-                  <strong>{issue.code}</strong>
-                  <Badge tone={issue.severity === 'error' ? 'red' : 'yellow'}>
-                    {issue.severity}
-                  </Badge>
-                </div>
-                <p>{issue.message}</p>
+            <article
+              className="flex flex-col gap-2 p-3 rounded-md border border-red-500/20 bg-red-500/5"
+              key={`${issue.code}-${issue.message}`}
+            >
+              <div className="flex justify-between items-start gap-3">
+                <strong className="text-sm font-semibold text-red-300">{issue.code}</strong>
+                <Badge tone={issue.severity === 'error' ? 'red' : 'yellow'} className="shrink-0">
+                  {issue.severity}
+                </Badge>
               </div>
+              <p className="text-xs text-red-200/70">{issue.message}</p>
             </article>
           ))}
         </div>
@@ -409,6 +463,7 @@ function PatchSandboxResultCard({ result }: { result: RuntimePatchSandboxResult 
     </article>
   );
 }
+
 function PatchRecoveryResultCard({ result }: { result: RuntimePatchRecoveryResult }) {
   const tone =
     result.status === 'repair_prompt_ready'
@@ -420,70 +475,92 @@ function PatchRecoveryResultCard({ result }: { result: RuntimePatchRecoveryResul
   const firstAttempt = result.attempts[0];
 
   return (
-    <article className="plan-summary-card">
-      <div className="panel-title-row">
-        <ShieldAlert size={18} />
-        <div>
-          <strong>Patch recovery</strong>
-          <p className="muted">
-            Runtime prepared a failure report and repair prompt after sandbox failure.
-          </p>
+    <article className="flex flex-col gap-5 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm mt-6">
+      <div className="flex items-start justify-between gap-4 border-b border-zinc-800/60 pb-4">
+        <div className="flex items-start gap-3">
+          <ShieldAlert size={18} className="text-yellow-400 mt-0.5 shrink-0" />
+          <div>
+            <strong className="block text-base font-medium text-zinc-100">Patch recovery</strong>
+            <p className="text-sm text-zinc-400 mt-1">
+              Runtime prepared a failure report and repair prompt after sandbox failure.
+            </p>
+          </div>
         </div>
-        <Badge tone={tone}>{result.status}</Badge>
+        <Badge tone={tone} className="shrink-0">
+          {result.status}
+        </Badge>
       </div>
 
-      <p className="muted">
-        Attempt {Math.min(result.currentAttempt, result.maxAttempts)}/{result.maxAttempts}
-        {result.currentAttempt > result.maxAttempts ? ' · limit reached' : ''}
-      </p>
-      {result.status === 'max_attempts_reached' ? (
-        <p className="muted">
-          Recovery stopped because the maximum number of repair attempts was reached. Review the
-          failure report manually before continuing.
+      <div className="flex flex-col gap-2">
+        <p className="text-sm text-zinc-400">
+          Attempt{' '}
+          <strong className="text-zinc-200">
+            {Math.min(result.currentAttempt, result.maxAttempts)}/{result.maxAttempts}
+          </strong>
+          {result.currentAttempt > result.maxAttempts ? ' · limit reached' : ''}
         </p>
-      ) : null}
 
-      {result.status === 'not_recoverable' ? (
-        <p className="muted">
-          Runtime marked this patch failure as not recoverable. Review the issues before requesting
-          another patch.
-        </p>
-      ) : null}
+        {result.status === 'max_attempts_reached' ? (
+          <p className="text-sm text-yellow-500/80">
+            Recovery stopped because the maximum number of repair attempts was reached. Review the
+            failure report manually before continuing.
+          </p>
+        ) : null}
+
+        {result.status === 'not_recoverable' ? (
+          <p className="text-sm text-red-400/80">
+            Runtime marked this patch failure as not recoverable. Review the issues before
+            requesting another patch.
+          </p>
+        ) : null}
+      </div>
+
       {result.issues.length > 0 ? (
-        <div className="plan-step-list">
+        <div className="flex flex-col gap-3 mt-2">
           {result.issues.map((issue) => (
-            <article className="plan-step-card" key={`${issue.code}-${issue.message}`}>
-              <div className="plan-step-content">
-                <div className="plan-step-header">
-                  <strong>{issue.code}</strong>
-                  <Badge tone={issue.severity === 'error' ? 'red' : 'yellow'}>
-                    {issue.severity}
-                  </Badge>
-                </div>
-                <p>{issue.message}</p>
+            <article
+              className="flex flex-col gap-2 p-3 rounded-md border border-red-500/20 bg-red-500/5"
+              key={`${issue.code}-${issue.message}`}
+            >
+              <div className="flex justify-between items-start gap-3">
+                <strong className="text-sm font-semibold text-red-300">{issue.code}</strong>
+                <Badge tone={issue.severity === 'error' ? 'red' : 'yellow'} className="shrink-0">
+                  {issue.severity}
+                </Badge>
               </div>
+              <p className="text-xs text-red-200/70">{issue.message}</p>
             </article>
           ))}
         </div>
       ) : null}
 
       {firstAttempt ? (
-        <div className="plan-step-list">
-          <article className="plan-step-card">
-            <div className="plan-step-content">
-              <div className="plan-step-header">
-                <strong>{firstAttempt.failureReport.summary}</strong>
-                <Badge tone={firstAttempt.failureReport.status === 'failed' ? 'red' : 'yellow'}>
-                  {firstAttempt.failureReport.status}
-                </Badge>
-              </div>
+        <div className="flex flex-col gap-4 mt-2">
+          <article className="flex flex-col gap-4 p-5 rounded-lg border border-zinc-800/40 bg-zinc-950/50">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-zinc-800/60 pb-3">
+              <strong className="text-sm font-semibold text-zinc-200">
+                {firstAttempt.failureReport.summary}
+              </strong>
+              <Badge
+                tone={firstAttempt.failureReport.status === 'failed' ? 'red' : 'yellow'}
+                className="shrink-0"
+              >
+                {firstAttempt.failureReport.status}
+              </Badge>
+            </div>
 
-              <p className="muted">
-                Failed files: {firstAttempt.failureReport.failedFiles.join(', ')}
-              </p>
+            <p className="text-sm text-zinc-400">
+              <span className="font-semibold text-zinc-500 mr-2">Failed files:</span>
+              <span className="font-mono">{firstAttempt.failureReport.failedFiles.join(', ')}</span>
+            </p>
 
-              <strong>Repair prompt</strong>
-              <pre className="runtime-code-block">{firstAttempt.repairPrompt.user}</pre>
+            <div className="flex flex-col gap-2 mt-2">
+              <strong className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Repair prompt
+              </strong>
+              <pre className="p-4 rounded-md bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+                {firstAttempt.repairPrompt.user}
+              </pre>
             </div>
           </article>
         </div>

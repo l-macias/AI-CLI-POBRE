@@ -7,7 +7,7 @@ interface ContextPanelProps {
 
 export function ContextPanel({ session }: ContextPanelProps) {
   return (
-    <section className="panel session-context-panel">
+    <section className="flex flex-col rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
       <ContextViewer session={session} />
     </section>
   );

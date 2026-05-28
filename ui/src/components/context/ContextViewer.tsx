@@ -16,26 +16,36 @@ export function ContextViewer({ session }: ContextViewerProps) {
   ).length;
 
   return (
-    <section className="context-viewer">
-      <div className="panel-header">
+    <section className="flex flex-col gap-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2>Context Viewer</h2>
-          <p className="muted">Files selected, related, blocked and protected by runtime policy.</p>
+          <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">Context Viewer</h2>
+          <p className="text-sm text-zinc-400 mt-1">
+            Files selected, related, blocked and protected by runtime policy.
+          </p>
         </div>
 
-        <div className="context-summary-badges">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge tone="blue">{files.length} files</Badge>
-          <Badge tone={blockedCount > 0 ? 'red' : 'green'}>{blockedCount} blocked</Badge>
+          {blockedCount > 0 ? (
+            <Badge tone="red">{blockedCount} blocked</Badge>
+          ) : (
+            <Badge tone="green">0 blocked</Badge>
+          )}
         </div>
       </div>
 
       <RelatedFilesGraph files={files} />
 
-      <div className="context-file-list">
+      <div className="flex flex-col gap-3">
         {files.length > 0 ? (
           files.map((file) => <ContextFileCard file={file} key={file.path} />)
         ) : (
-          <p className="muted">No context collected yet. Send /context or start a planning flow.</p>
+          <div className="flex flex-col items-center justify-center p-8 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50">
+            <p className="text-sm text-zinc-400">
+              No context collected yet. Send /context or start a planning flow.
+            </p>
+          </div>
         )}
       </div>
     </section>

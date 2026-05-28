@@ -41,11 +41,11 @@ export function ApprovalCenter({ center, loading = false, onDecision }: Approval
 
   if (!center) {
     return (
-      <section className="approval-viewer">
-        <div className="panel-header">
+      <section className="flex flex-col gap-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
           <div>
-            <h2>Approval Center</h2>
-            <p className="muted">
+            <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">Approval Center</h2>
+            <p className="text-sm text-zinc-400 mt-1">
               Runtime approvals appear here after a plan, patch, verify command or risk gate is
               ready.
             </p>
@@ -54,9 +54,11 @@ export function ApprovalCenter({ center, loading = false, onDecision }: Approval
           <Badge tone={loading ? 'yellow' : 'slate'}>{loading ? 'loading' : 'idle'}</Badge>
         </div>
 
-        <article className="approval-blocker-note">
-          <strong>No approval center loaded.</strong>
-          <p>Prepare workflow, generate a patch, or refresh approvals after creating a diff.</p>
+        <article className="flex flex-col items-center justify-center p-8 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50">
+          <strong className="text-sm font-medium text-zinc-300">No approval center loaded.</strong>
+          <p className="text-xs text-zinc-500 mt-2 max-w-sm">
+            Prepare workflow, generate a patch, or refresh approvals after creating a diff.
+          </p>
         </article>
       </section>
     );
@@ -69,16 +71,16 @@ export function ApprovalCenter({ center, loading = false, onDecision }: Approval
   ).length;
 
   return (
-    <section className="approval-viewer">
-      <div className="panel-header">
+    <section className="flex flex-col gap-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
         <div>
-          <h2>Approval Center</h2>
-          <p className="muted">
+          <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">Approval Center</h2>
+          <p className="text-sm text-zinc-400 mt-1">
             Central runtime approval queue. LLM proposes, runtime validates, user approves.
           </p>
         </div>
 
-        <div className="approval-risk-badges">
+        <div className="flex flex-wrap gap-2">
           <Badge tone={center.pendingCount > 0 ? 'yellow' : 'green'}>
             {loading ? 'refreshing' : `${center.pendingCount} pending`}
           </Badge>
@@ -90,15 +92,15 @@ export function ApprovalCenter({ center, loading = false, onDecision }: Approval
       </div>
 
       {center.requests.length === 0 ? (
-        <article className="approval-blocker-note">
-          <strong>No pending approvals.</strong>
-          <p>
+        <article className="flex flex-col items-center justify-center p-8 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50">
+          <strong className="text-sm font-medium text-zinc-300">No pending approvals.</strong>
+          <p className="text-xs text-zinc-500 mt-2 max-w-md">
             Runtime has no approval gate waiting for user decision. Generate a diff or run a gated
             action to create a new request.
           </p>
         </article>
       ) : (
-        <div className="approval-request-list">
+        <div className="flex flex-col gap-6">
           {center.requests.map((request) => (
             <ApprovalCardRouter
               key={request.id}

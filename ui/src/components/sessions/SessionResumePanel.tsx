@@ -19,34 +19,42 @@ export function SessionResumePanel({
   onResume,
 }: SessionResumePanelProps) {
   return (
-    <section className="panel session-resume-panel">
-      <div className="panel-header">
-        <div className="panel-title-row">
-          <RotateCcw size={18} />
+    <section className="flex flex-col rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-800/60 pb-5 mb-5">
+        <div className="flex items-start gap-3">
+          <RotateCcw size={20} className="text-indigo-400 mt-0.5 shrink-0" />
           <div>
-            <h2>Resume active session</h2>
-            <p className="muted">
+            <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">
+              Resume active session
+            </h2>
+            <p className="text-sm text-zinc-400 mt-1 max-w-xl">
               Continue a non-archived runtime session. Archived sessions can be restored from
               Settings &gt; Runtime data.
             </p>
           </div>
         </div>
 
-        <div className="session-resume-actions">
+        <div className="flex items-center gap-3 shrink-0">
           <Badge tone={sessions.length > 0 ? 'green' : 'slate'}>{sessions.length} active</Badge>
 
-          <button className="secondary-button" disabled={loading} onClick={onRefresh}>
-            <RefreshCcw size={16} />
+          <button
+            className="flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-500"
+            disabled={loading}
+            onClick={onRefresh}
+          >
+            <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
             Refresh
           </button>
         </div>
       </div>
 
-      <div className="session-resume-list">
+      <div className="flex flex-col gap-4 overflow-y-auto max-h-[600px] pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
         {sessions.length === 0 ? (
-          <article className="session-resume-empty">
-            <strong>No active sessions found.</strong>
-            <p>Start a new session or restore an archived one from Settings &gt; Runtime data.</p>
+          <article className="flex flex-col items-center justify-center p-10 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50">
+            <strong className="text-sm font-medium text-zinc-300">No active sessions found.</strong>
+            <p className="text-xs text-zinc-500 mt-2 max-w-sm">
+              Start a new session or restore an archived one from Settings &gt; Runtime data.
+            </p>
           </article>
         ) : (
           sessions.map((savedSession) => (
