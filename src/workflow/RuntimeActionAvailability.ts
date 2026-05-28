@@ -7,6 +7,9 @@ export type RuntimeWorkflowActionId =
   | 'generate_patch_proposal'
   | 'generate_diff_preview'
   | 'create_snapshot'
+  | 'verify_sandbox'
+  | 'prepare_recovery'
+  | 'generate_repaired_patch'
   | 'dry_run_apply'
   | 'apply_patch'
   | 'rollback_patch'
@@ -112,6 +115,33 @@ export class RuntimeActionAvailabilityResolver {
           relatedStepId: stepId,
         };
 
+      case 'sandbox':
+        return {
+          actionId: 'verify_sandbox',
+          title: 'Verify in sandbox',
+          description: 'Run sandbox verification before real apply.',
+          enabled: true,
+          relatedStepId: stepId,
+        };
+
+      case 'recovery_prepare':
+        return {
+          actionId: 'prepare_recovery',
+          title: 'Prepare recovery',
+          description: 'Build recovery context from the failed sandbox result.',
+          enabled: true,
+          relatedStepId: stepId,
+        };
+
+      case 'repaired_patch':
+        return {
+          actionId: 'generate_repaired_patch',
+          title: 'Generate repaired patch',
+          description: 'Generate a repaired proposal after sandbox failure.',
+          enabled: true,
+          relatedStepId: stepId,
+        };
+
       case 'dry_run':
         return {
           actionId: 'dry_run_apply',
@@ -125,7 +155,7 @@ export class RuntimeActionAvailabilityResolver {
         return {
           actionId: 'apply_patch',
           title: 'Apply patch',
-          description: 'Apply patch after explicit confirmation.',
+          description: 'Apply patch after explicit confirmation and passed sandbox verification.',
           enabled: false,
           blockedReason: 'Real apply requires explicit confirmation in the UI.',
           relatedStepId: stepId,

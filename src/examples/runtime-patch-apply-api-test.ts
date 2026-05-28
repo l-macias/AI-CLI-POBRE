@@ -46,6 +46,14 @@ function getObject(value: unknown, label: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function getArray(value: unknown, label: string): unknown[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} should be an array`);
+  }
+
+  return value;
+}
+
 function getString(value: unknown, label: string): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error(`${label} should be a non-empty string`);
@@ -65,6 +73,40 @@ async function resetGitFixture(projectRoot: string): Promise<void> {
   });
 
   await writeFile(path.join(projectRoot, 'src', 'example.ts'), 'export const value = 1;\n', 'utf8');
+
+  await writeFile(
+    path.join(projectRoot, 'package.json'),
+    `${JSON.stringify(
+      {
+        type: 'module',
+        scripts: {
+          typecheck: 'echo api sandbox typecheck ok',
+        },
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  );
+
+  await writeFile(
+    path.join(projectRoot, 'tsconfig.json'),
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          target: 'ES2022',
+          module: 'ESNext',
+          moduleResolution: 'Bundler',
+          strict: true,
+          noEmit: true,
+        },
+        include: ['src/**/*.ts'],
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  );
 
   await execFileAsync('git', ['init', '-b', 'test-branch'], {
     cwd: projectRoot,
@@ -93,10 +135,14 @@ async function resetGitFixture(projectRoot: string): Promise<void> {
 
   await writeFile(path.join(projectRoot, '.gitattributes'), '* text eol=lf\n', 'utf8');
 
-  await execFileAsync('git', ['add', '.gitattributes', 'src/example.ts'], {
-    cwd: projectRoot,
-    windowsHide: true,
-  });
+  await execFileAsync(
+    'git',
+    ['add', '.gitattributes', 'package.json', 'tsconfig.json', 'src/example.ts'],
+    {
+      cwd: projectRoot,
+      windowsHide: true,
+    },
+  );
 
   await execFileAsync('git', ['commit', '-m', 'initial commit'], {
     cwd: projectRoot,
@@ -183,13 +229,17 @@ try {
     body: {
       proposal,
       diff,
-      applyConfirmed: false,
+      applyConfirmed: true,
       allowMissingRepository: false,
       allowDirtyWorkingTree: false,
+      backupEnabled: true,
     },
   });
 
-  assert(blockedApplyResponse.status === 'error', 'apply without confirmation should error');
+  assert(
+    blockedApplyResponse.status === 'error',
+    'real apply without sandbox and approval should error',
+  );
 
   const dryRunResponse = await request({
     url: `${started.url}/patches/apply`,
@@ -214,7 +264,55 @@ try {
 
   assert(dryRunContent === 'export const value = 1;\n', 'dry run must not apply patch');
 
-  const applyResponse = await request({
+  const approvalArtifactState = {
+    sessionId,
+    projectRoot,
+    plan: null,
+    proposal,
+    diff,
+    applyResult: null,
+    lastVerifyRun: null,
+    snapshotAvailable: false,
+    dirtyWorkingTree: false,
+  };
+
+  const approvalCenterResponse = await request({
+    url: `${started.url}/approvals/center`,
+    method: 'POST',
+    body: {
+      artifactState: approvalArtifactState,
+    },
+  });
+
+  assert(approvalCenterResponse.status === 'ok', JSON.stringify(approvalCenterResponse, null, 2));
+
+  const approvalCenter = getObject(approvalCenterResponse['approvalCenter'], 'approval center');
+  const approvalRequests = getArray(approvalCenter['requests'], 'approval requests');
+  const patchApprovalRequest = approvalRequests
+    .map((item) => getObject(item, 'approval request'))
+    .find((requestItem) => requestItem['kind'] === 'patch');
+
+  assert(patchApprovalRequest, 'Expected patch approval request.');
+
+  const approvalResolveResponse = await request({
+    url: `${started.url}/approvals/resolve`,
+    method: 'POST',
+    body: {
+      artifactState: approvalArtifactState,
+      decision: {
+        requestId: getString(patchApprovalRequest['id'], 'patch approval request id'),
+        action: 'approve',
+      },
+    },
+  });
+
+  assert(approvalResolveResponse.status === 'ok', JSON.stringify(approvalResolveResponse, null, 2));
+
+  const approvalDecision = getObject(approvalResolveResponse['decision'], 'approval decision');
+
+  assert(approvalDecision['accepted'] === true, 'Expected approval decision to be accepted.');
+
+  const applyWithoutSandboxAfterApprovalResponse = await request({
     url: `${started.url}/patches/apply`,
     method: 'POST',
     body: {
@@ -227,11 +325,66 @@ try {
     },
   });
 
+  assert(
+    applyWithoutSandboxAfterApprovalResponse.status === 'error',
+    'real apply with approval but without sandbox should still error',
+  );
+
+  const sandboxResponse = await request({
+    url: `${started.url}/patches/sandbox/verify`,
+    method: 'POST',
+    body: {
+      proposal,
+    },
+  });
+
+  assert(sandboxResponse.status === 'ok', JSON.stringify(sandboxResponse, null, 2));
+
+  const sandbox = getObject(sandboxResponse['sandbox'], 'sandbox result');
+
+  assert(sandbox['status'] === 'passed', JSON.stringify(sandboxResponse, null, 2));
+
+  const wrongSandboxApplyResponse = await request({
+    url: `${started.url}/patches/apply`,
+    method: 'POST',
+    body: {
+      proposal,
+      diff,
+      sandboxResult: {
+        ...sandbox,
+        proposalId: 'wrong-proposal-id',
+      },
+      applyConfirmed: true,
+      allowMissingRepository: false,
+      allowDirtyWorkingTree: false,
+      backupEnabled: true,
+    },
+  });
+
+  assert(
+    wrongSandboxApplyResponse.status === 'error',
+    'real apply with wrong sandbox proposalId should error',
+  );
+
+  const applyResponse = await request({
+    url: `${started.url}/patches/apply`,
+    method: 'POST',
+    body: {
+      proposal,
+      diff,
+      sandboxResult: sandbox,
+      applyConfirmed: true,
+      allowMissingRepository: false,
+      allowDirtyWorkingTree: false,
+      backupEnabled: true,
+    },
+  });
+
   assert(applyResponse.status === 'ok', JSON.stringify(applyResponse, null, 2));
 
   const apply = getObject(applyResponse['apply'], 'apply');
 
-  assert(apply['status'] === 'applied', 'confirmed apply should write');
+  assert(apply['status'] === 'applied', 'confirmed apply should write after approval + sandbox');
 
   const appliedContent = await readFile(path.join(projectRoot, 'src', 'example.ts'), 'utf8');
 
@@ -249,6 +402,9 @@ try {
         proposalId: proposal['id'],
         diffId: diff['id'],
         dryRunStatus: dryRunApply['status'],
+        approvalAccepted: approvalDecision['accepted'],
+        sandboxStatus: sandbox['status'],
+        wrongSandboxApplyStatus: wrongSandboxApplyResponse.status,
         applyStatus: apply['status'],
       },
       null,

@@ -20,6 +20,16 @@ function baseState(
     patchProposalRejected: false,
     diffReady: false,
     diffBlocked: false,
+
+    sandboxPassed: false,
+    sandboxFailed: false,
+    sandboxBlocked: false,
+
+    recoveryAvailable: false,
+    recoveryPrepared: false,
+    recoveryMaxAttemptsReached: false,
+    repairedProposalGenerated: false,
+
     snapshotAvailable: false,
     dryRunCompleted: false,
     applyApplied: false,
@@ -84,7 +94,7 @@ assert(
   'Expected create snapshot action.',
 );
 
-const readyForDryRun = machine.build(
+const readyForSandbox = machine.build(
   baseState({
     sessionStarted: true,
     workflowPrepared: true,
@@ -96,7 +106,126 @@ const readyForDryRun = machine.build(
   }),
 );
 
-assert(readyForDryRun.currentStepId === 'dry_run', 'Expected dry-run after snapshot.');
+assert(readyForSandbox.currentStepId === 'sandbox', 'Expected sandbox after snapshot.');
+assert(
+  actions.resolve(readyForSandbox).actionId === 'verify_sandbox',
+  'Expected sandbox verification action.',
+);
+
+const sandboxFailed = machine.build(
+  baseState({
+    sessionStarted: true,
+    workflowPrepared: true,
+    planValid: true,
+    patchProposalValid: true,
+    diffReady: true,
+    snapshotAvailable: true,
+    sandboxFailed: true,
+    recoveryAvailable: true,
+    riskLevel: 'high',
+  }),
+);
+
+assert(
+  sandboxFailed.currentStepId === 'recovery_prepare',
+  'Failed sandbox should move current step to recovery preparation.',
+);
+assert(
+  !sandboxFailed.canContinue,
+  'Failed sandbox should block continuation until recovery flow runs.',
+);
+assert(
+  actions.resolve(sandboxFailed).actionId === 'prepare_recovery',
+  'Expected prepare recovery action after failed sandbox.',
+);
+assert(
+  sandboxFailed.blockedReasons.includes(
+    'Sandbox verification failed. Recovery is required before apply.',
+  ),
+  'Expected sandbox failure blocked reason.',
+);
+
+const recoveryPrepared = machine.build(
+  baseState({
+    sessionStarted: true,
+    workflowPrepared: true,
+    planValid: true,
+    patchProposalValid: true,
+    diffReady: true,
+    snapshotAvailable: true,
+    sandboxFailed: true,
+    recoveryAvailable: true,
+    recoveryPrepared: true,
+    riskLevel: 'high',
+  }),
+);
+
+assert(
+  recoveryPrepared.currentStepId === 'repaired_patch',
+  'Prepared recovery should move current step to repaired patch generation.',
+);
+assert(
+  actions.resolve(recoveryPrepared).actionId === 'generate_repaired_patch',
+  'Expected generate repaired patch action after recovery preparation.',
+);
+const repairedPatchReadyForDiff = machine.build(
+  baseState({
+    sessionStarted: true,
+    workflowPrepared: true,
+    planValid: true,
+    patchProposalValid: true,
+    repairedProposalGenerated: true,
+    recoveryAvailable: true,
+    recoveryPrepared: true,
+    riskLevel: 'high',
+  }),
+);
+
+assert(
+  repairedPatchReadyForDiff.currentStepId === 'diff_preview',
+  'Repaired patch should return workflow to diff preview.',
+);
+assert(
+  actions.resolve(repairedPatchReadyForDiff).actionId === 'generate_diff_preview',
+  'Expected diff preview action after repaired patch.',
+);
+
+const maxAttemptsReached = machine.build(
+  baseState({
+    sessionStarted: true,
+    workflowPrepared: true,
+    planValid: true,
+    patchProposalValid: true,
+    diffReady: true,
+    snapshotAvailable: true,
+    sandboxFailed: true,
+    recoveryAvailable: true,
+    recoveryPrepared: true,
+    recoveryMaxAttemptsReached: true,
+    riskLevel: 'high',
+  }),
+);
+
+assert(!maxAttemptsReached.canContinue, 'Max recovery attempts should block continuation.');
+assert(
+  maxAttemptsReached.blockedReasons.includes('Maximum recovery attempts reached.'),
+  'Expected max attempts blocked reason.',
+);
+
+const sandboxPassed = machine.build(
+  baseState({
+    sessionStarted: true,
+    workflowPrepared: true,
+    planValid: true,
+    patchProposalValid: true,
+    diffReady: true,
+    snapshotAvailable: true,
+    sandboxPassed: true,
+    riskLevel: 'high',
+  }),
+);
+
+assert(sandboxPassed.currentStepId === 'dry_run', 'Expected dry-run after passed sandbox.');
 
 const readyForApply = machine.build(
   baseState({
@@ -106,6 +235,7 @@ const readyForApply = machine.build(
     patchProposalValid: true,
     diffReady: true,
     snapshotAvailable: true,
+    sandboxPassed: true,
     dryRunCompleted: true,
     riskLevel: 'high',
   }),
@@ -129,6 +259,7 @@ const applied = machine.build(
     patchProposalValid: true,
     diffReady: true,
     snapshotAvailable: true,
+    sandboxPassed: true,
     dryRunCompleted: true,
     applyApplied: true,
     riskLevel: 'medium',
@@ -145,6 +276,7 @@ const completed = machine.build(
     patchProposalValid: true,
     diffReady: true,
     snapshotAvailable: true,
+    sandboxPassed: true,
     dryRunCompleted: true,
     applyApplied: true,
     rollbackCompleted: true,
@@ -164,6 +296,8 @@ console.log(
       emptyCurrentStep: empty.currentStepId,
       preparedAction: actions.resolve(prepared).actionId,
       highRiskSnapshotRequired: highRiskNeedsSnapshot.snapshotRequired,
+      readyForSandboxAction: actions.resolve(readyForSandbox).actionId,
+      repairedPatchCurrentStep: repairedPatchReadyForDiff.currentStepId,
       readyForApplyAction: actions.resolve(readyForApply).actionId,
       completedPercentage: completed.percentage,
     },

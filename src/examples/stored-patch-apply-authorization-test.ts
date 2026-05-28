@@ -147,7 +147,27 @@ assert(
   wrongDiffAuthorization.issues.some((issue) => issue.code === 'APPROVAL_DECISION_REQUIRED'),
   'Expected wrong diff lookup to produce APPROVAL_DECISION_REQUIRED.',
 );
+const wrongProjectRootLookup = await store.findLatest({
+  sessionId: proposal.sessionId,
+  projectRoot: '/wrong/project/root',
+  proposalId: proposal.id,
+  diffId: diff.id,
+});
 
+const wrongProjectRootAuthorization = authorization.authorize({
+  proposal,
+  diff,
+  decision: wrongProjectRootLookup?.decision ?? null,
+});
+
+assert(
+  !wrongProjectRootAuthorization.authorized,
+  'Expected wrong projectRoot lookup to block authorization.',
+);
+assert(
+  wrongProjectRootAuthorization.issues.some((issue) => issue.code === 'APPROVAL_DECISION_REQUIRED'),
+  'Expected wrong projectRoot lookup to produce APPROVAL_DECISION_REQUIRED.',
+);
 console.log(
   JSON.stringify(
     {
@@ -155,6 +175,7 @@ console.log(
       missingAuthorization,
       storedAuthorization,
       wrongDiffAuthorization,
+      wrongProjectRootAuthorization,
       stored,
     },
     null,

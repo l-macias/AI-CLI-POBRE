@@ -1,6 +1,6 @@
 export type RuntimeStatus = 'ok' | 'error';
 
-export interface ApiEnvelope<TData> {
+export interface ApiEnvelope {
   status: RuntimeStatus;
   issues?: {
     code: string;
@@ -791,6 +791,25 @@ export interface RuntimePatchRecoveryResponse {
     activeRecoveryPath: string;
   };
 }
+export interface RuntimePatchRecoveryProposalResponse {
+  source: 'provider';
+  proposal: RuntimePatchProposal;
+  validation: RuntimePatchValidationResult;
+  files: {
+    proposalPath: string;
+    activeProposalPath: string;
+  };
+  providerAudit: {
+    provider: string;
+    model: string;
+    usage?: {
+      promptTokens?: number;
+      completionTokens?: number;
+      totalTokens?: number;
+    };
+    generatedAt: string;
+  };
+}
 export interface RuntimePatchApplyResponse {
   apply: RuntimePatchApplyResult;
 }
@@ -831,6 +850,9 @@ export type RuntimeWorkflowStepId =
   | 'patch_proposal'
   | 'diff_preview'
   | 'snapshot'
+  | 'sandbox'
+  | 'recovery_prepare'
+  | 'repaired_patch'
   | 'dry_run'
   | 'apply'
   | 'rollback'
@@ -848,6 +870,16 @@ export interface RuntimeWorkflowArtifactState {
   patchProposalRejected: boolean;
   diffReady: boolean;
   diffBlocked: boolean;
+
+  sandboxPassed: boolean;
+  sandboxFailed: boolean;
+  sandboxBlocked: boolean;
+
+  recoveryAvailable: boolean;
+  recoveryPrepared: boolean;
+  recoveryMaxAttemptsReached: boolean;
+  repairedProposalGenerated: boolean;
+
   snapshotAvailable: boolean;
   dryRunCompleted: boolean;
   applyApplied: boolean;
@@ -889,6 +921,9 @@ export type RuntimeWorkflowActionId =
   | 'generate_patch_proposal'
   | 'generate_diff_preview'
   | 'create_snapshot'
+  | 'verify_sandbox'
+  | 'prepare_recovery'
+  | 'generate_repaired_patch'
   | 'dry_run_apply'
   | 'apply_patch'
   | 'rollback_patch'
@@ -1271,6 +1306,8 @@ export type RuntimeArtifactKind =
   | 'active_plan'
   | 'active_patch_proposal'
   | 'active_patch_diff'
+  | 'sandbox_result'
+  | 'patch_recovery'
   | 'unknown';
 
 export interface RuntimeArtifactSummary {
@@ -1303,4 +1340,92 @@ export interface RuntimeArtifactReadResponse {
 }
 export interface InteractiveSessionListResponse {
   sessions: InteractiveSessionState[];
+}
+export interface RuntimeDataInventoryCount {
+  total: number;
+  active: number;
+  archived: number;
+  suspectedTest: number;
+}
+
+export interface RuntimeDataInventoryDirectory {
+  name: string;
+  path: string;
+  exists: boolean;
+  fileCount: number;
+  directoryCount: number;
+  sizeBytes: number;
+}
+
+export interface RuntimeDataInventorySession {
+  sessionId: string;
+  status: 'active' | 'archived';
+  suspectedTest: boolean;
+  artifactCount: number;
+  sizeBytes: number;
+  updatedAt?: string;
+}
+
+export interface RuntimeDataInventoryReport {
+  version: 1;
+  runtimeRoot: string;
+  generatedAt: string;
+  totals: {
+    files: number;
+    directories: number;
+    sizeBytes: number;
+    sessions: RuntimeDataInventoryCount;
+    artifacts: RuntimeDataInventoryCount;
+  };
+  directories: RuntimeDataInventoryDirectory[];
+  sessions: RuntimeDataInventorySession[];
+  recommendations: string[];
+}
+
+export interface RuntimeDataInventoryResponse {
+  inventory: RuntimeDataInventoryReport;
+}
+export interface RuntimeArchiveMovedPath {
+  from: string;
+  to: string;
+  kind: 'file' | 'directory';
+}
+
+export interface RuntimeArchiveSessionResult {
+  sessionId: string;
+  archived: boolean;
+  dryRun: boolean;
+  moved: RuntimeArchiveMovedPath[];
+  skipped: string[];
+}
+
+export interface RuntimeArchiveSessionsResult {
+  version: 1;
+  archivedAt: string;
+  dryRun: boolean;
+  results: RuntimeArchiveSessionResult[];
+}
+
+export interface RuntimeArchiveSessionsResponse {
+  archive: RuntimeArchiveSessionsResult;
+  inventory: RuntimeDataInventoryReport;
+}
+export interface RuntimeRestoreSessionResult {
+  sessionId: string;
+  restored: boolean;
+  dryRun: boolean;
+  moved: RuntimeArchiveMovedPath[];
+  skipped: string[];
+}
+
+export interface RuntimeRestoreSessionsResult {
+  version: 1;
+  restoredAt: string;
+  dryRun: boolean;
+  results: RuntimeRestoreSessionResult[];
+}
+
+export interface RuntimeRestoreSessionsResponse {
+  restore: RuntimeRestoreSessionsResult;
+  inventory: RuntimeDataInventoryReport;
 }

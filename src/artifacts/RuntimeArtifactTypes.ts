@@ -14,6 +14,8 @@ export type RuntimeArtifactKind =
   | 'active_plan'
   | 'active_patch_proposal'
   | 'active_patch_diff'
+  | 'sandbox_result'
+  | 'patch_recovery'
   | 'unknown';
 
 export interface RuntimeArtifactSummary {

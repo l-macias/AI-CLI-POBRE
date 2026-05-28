@@ -24,13 +24,16 @@ export function SessionResumePanel({
         <div className="panel-title-row">
           <RotateCcw size={18} />
           <div>
-            <h2>Resume Session</h2>
-            <p className="muted">Restore a previous runtime session from local state.</p>
+            <h2>Resume active session</h2>
+            <p className="muted">
+              Continue a non-archived runtime session. Archived sessions can be restored from
+              Settings &gt; Runtime data.
+            </p>
           </div>
         </div>
 
         <div className="session-resume-actions">
-          <Badge tone={sessions.length > 0 ? 'green' : 'slate'}>{sessions.length} saved</Badge>
+          <Badge tone={sessions.length > 0 ? 'green' : 'slate'}>{sessions.length} active</Badge>
 
           <button className="secondary-button" disabled={loading} onClick={onRefresh}>
             <RefreshCcw size={16} />
@@ -42,8 +45,8 @@ export function SessionResumePanel({
       <div className="session-resume-list">
         {sessions.length === 0 ? (
           <article className="session-resume-empty">
-            <strong>No saved sessions found.</strong>
-            <p>Start a session first. It will be saved under .runtime/interactive-sessions.</p>
+            <strong>No active sessions found.</strong>
+            <p>Start a new session or restore an archived one from Settings &gt; Runtime data.</p>
           </article>
         ) : (
           sessions.map((savedSession) => (

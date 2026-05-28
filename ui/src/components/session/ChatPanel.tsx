@@ -14,8 +14,11 @@ export function ChatPanel({ session, command, onCommandChange, onSendCommand }: 
     <section className="panel session-chat-panel">
       <div className="panel-header">
         <div>
-          <h2>Chat</h2>
-          <p className="muted">Send slash commands or natural language instructions.</p>
+          <h2>Session notes</h2>
+          <p className="muted">
+            Send instructions to the session. For the main MVP flow, use the recommended action card
+            above first.
+          </p>
         </div>
         <Badge tone={session ? 'green' : 'slate'}>{session ? 'connected' : 'idle'}</Badge>
       </div>
@@ -32,7 +35,14 @@ export function ChatPanel({ session, command, onCommandChange, onSendCommand }: 
             </article>
           ))
         ) : (
-          <p className="muted">No messages yet.</p>
+          <article className="chat-empty-state">
+            <strong>No session messages yet.</strong>
+            <p>
+              Use this area for extra instructions. The safest path is to follow the guided
+              workflow: prepare project → create plan → create patch → preview diff → sandbox →
+              dry-run/apply.
+            </p>
+          </article>
         )}
       </div>
 
@@ -40,7 +50,7 @@ export function ChatPanel({ session, command, onCommandChange, onSendCommand }: 
         <textarea
           rows={3}
           value={command}
-          placeholder="/plan or Ahora revisá el backend"
+          placeholder="Ej: No tocar base de datos, .env, prisma ni migraciones en esta sesión."
           onChange={(event) => onCommandChange(event.target.value)}
         />
         <button disabled={!session || command.trim().length === 0} onClick={onSendCommand}>

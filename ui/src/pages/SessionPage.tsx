@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   answerRuntimeQuestion,
   createSessionTask,
@@ -23,6 +23,7 @@ import {
   generatePatchDiff,
   verifyPatchSandbox,
   preparePatchRecovery,
+  generatePatchRecoveryProposal,
   applyRuntimePatch,
   rollbackRuntimePatch,
   buildRuntimeWorkflowState,
@@ -62,6 +63,7 @@ import { ContextGraphPanel } from '../components/context/ContextGraphPanel';
 import { RuntimeArtifactStorePanel } from '../components/artifacts/RuntimeArtifactStorePanel';
 import { SessionResumePanel } from '../components/sessions/SessionResumePanel';
 import { Badge } from '../components/Badge';
+import { ClipboardList, FolderKanban, Route, ShieldCheck, Sparkles } from 'lucide-react';
 import type {
   ApiRouteMapResult,
   FrontendBackendLinkResult,
@@ -85,6 +87,7 @@ import type {
   RuntimePatchRollbackResult,
   RuntimeWorkflowArtifactState,
   RuntimeWorkflowStateResponse,
+  RuntimeWorkflowPrepareResult,
   ApprovalCenterArtifactState,
   ApprovalCenterResult,
   ApprovalDecisionInput,
@@ -97,6 +100,25 @@ import type {
   RuntimePatchSandboxResult,
   RuntimePatchRecoveryResult,
 } from '../types/runtime';
+
+const sessionGoalTemplates = [
+  {
+    label: 'Safe small improvement',
+    goal: 'Analyze the project and propose one small, safe improvement. Do not touch database, .env, Prisma, migrations or protected files.',
+  },
+  {
+    label: 'Find and fix TypeScript issue',
+    goal: 'Analyze the project, find a small TypeScript or UI issue, propose a controlled plan, generate a patch, run sandbox verification and export a report.',
+  },
+  {
+    label: 'UI polish only',
+    goal: 'Improve a small UI/UX detail only. Do not touch backend, database, authentication, .env, Prisma or migrations.',
+  },
+  {
+    label: 'Read-only analysis',
+    goal: 'Analyze the project and produce recommendations only. Do not generate or apply patches in this session.',
+  },
+];
 
 interface SessionPageProps {
   selectedProject: ProjectProfile | null;
@@ -116,6 +138,7 @@ export function SessionPage({
   const [goal, setGoal] = useState('');
   const [command, setCommand] = useState('/plan');
   const [session, setSession] = useState<InteractiveSessionState | null>(initialSession);
+  const [sessionStartLoading, setSessionStartLoading] = useState(false);
   const [savedSessions, setSavedSessions] = useState<InteractiveSessionState[]>([]);
   const [savedSessionsLoading, setSavedSessionsLoading] = useState(false);
 
@@ -167,6 +190,7 @@ export function SessionPage({
     null,
   );
   const [patchRecoveryLoading, setPatchRecoveryLoading] = useState(false);
+  const [patchRecoveryProposalLoading, setPatchRecoveryProposalLoading] = useState(false);
   const [patchApplyResult, setPatchApplyResult] = useState<RuntimePatchApplyResult | null>(null);
   const [patchApplyLoading, setPatchApplyLoading] = useState(false);
   const [patchRollbackResult, setPatchRollbackResult] = useState<RuntimePatchRollbackResult | null>(
@@ -193,7 +217,26 @@ export function SessionPage({
   const [snapshotLoading, setSnapshotLoading] = useState(false);
 
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<SessionWorkspaceTab>('overview');
+  const startReadiness = useMemo(
+    () => ({
+      hasProject: selectedProject !== null || projectRoot.trim().length > 0,
+      hasProjectName: projectName.trim().length > 0,
+      hasGoal: goal.trim().length > 0,
+      canStart:
+        projectRoot.trim().length > 0 && projectName.trim().length > 0 && goal.trim().length > 0,
+    }),
+    [goal, projectName, projectRoot, selectedProject],
+  );
 
+  const workflowPrepared = Boolean(
+    stackIntelligence ||
+    apiRoutes ||
+    frontendBackendLinks ||
+    tasks.length > 0 ||
+    packageScripts ||
+    questions.length > 0 ||
+    suggestions.length > 0,
+  );
   function resetSessionArtifacts() {
     setSuggestions([]);
     setQuestions([]);
@@ -215,6 +258,7 @@ export function SessionPage({
     setPatchDiff(null);
     setPatchSandboxResult(null);
     setPatchRecoveryResult(null);
+    setPatchRecoveryProposalLoading(false);
     setPatchApplyResult(null);
     setPatchRollbackResult(null);
     setReportExport(null);
@@ -225,7 +269,16 @@ export function SessionPage({
     setSessionMemory(null);
     setSnapshot(null);
   }
+  function moveToWorkspaceTab(tab: SessionWorkspaceTab): void {
+    setActiveWorkspaceTab(tab);
 
+    window.setTimeout(() => {
+      document.querySelector('.session-workspace-tabs')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 80);
+  }
   function startNewSessionView() {
     setSession(null);
     onSessionChange(null);
@@ -239,7 +292,16 @@ export function SessionPage({
       setProjectName(selectedProject.name);
     }
   }
+  function selectGoalTemplate(nextGoal: string) {
+    setGoal(nextGoal);
 
+    window.setTimeout(() => {
+      document.querySelector('#session-goal-field')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 80);
+  }
   useEffect(() => {
     if (!selectedProject || session) {
       return;
@@ -257,23 +319,57 @@ export function SessionPage({
     void resumeSession(initialSession);
   }, [initialSession, session]);
 
-  async function createSession() {
-    const created = await startSession({
-      projectRoot: projectRoot || selectedProject?.rootPath || '',
-      projectName: projectName || selectedProject?.name || '',
-      goal,
-    });
+  function applyPreparedWorkflow(workflow: RuntimeWorkflowPrepareResult): void {
+    setTasks(workflow.tasks.tasks);
+    setTaskProgress(workflow.taskProgress);
 
-    setSession(created);
-    onSessionChange(created);
-    setActiveWorkspaceTab('overview');
-    void refreshSuggestions(created);
-    void refreshQuestions(created);
-    void refreshTasks(created);
-    void refreshVerify(created);
-    void refreshRuntimeSettings();
-    void refreshSessionMemory(created);
-    void refreshArtifactStore();
+    setStackIntelligence(workflow.stack);
+    setApiRoutes(workflow.apiRoutes);
+    setFrontendBackendLinks(workflow.frontendBackend);
+
+    setQuestions(workflow.questions.questions);
+    setSuggestions(workflow.suggestions);
+
+    setPackageScripts(workflow.verifyScripts);
+  }
+
+  async function prepareWorkflowForSession(targetSession: InteractiveSessionState): Promise<void> {
+    setWorkflowLoading(true);
+
+    try {
+      const workflow = await prepareRuntimeWorkflow({
+        sessionId: targetSession.id,
+        workspaceMode: 'local_snapshot',
+        createDefaultTasks: true,
+      });
+
+      applyPreparedWorkflow(workflow);
+    } finally {
+      setWorkflowLoading(false);
+    }
+  }
+  async function createSession() {
+    setSessionStartLoading(true);
+
+    try {
+      const created = await startSession({
+        projectRoot: projectRoot || selectedProject?.rootPath || '',
+        projectName: projectName || selectedProject?.name || '',
+        goal,
+      });
+
+      setSession(created);
+      onSessionChange(created);
+      setActiveWorkspaceTab('overview');
+
+      await prepareWorkflowForSession(created);
+
+      void refreshRuntimeSettings();
+      void refreshSessionMemory(created);
+      void refreshArtifactStore();
+    } finally {
+      setSessionStartLoading(false);
+    }
   }
 
   async function routeCommand(input = command) {
@@ -523,6 +619,7 @@ export function SessionPage({
       });
 
       setLastVerifyRun(result);
+      moveToWorkspaceTab('verify');
     } finally {
       setVerifyLoading(false);
     }
@@ -642,6 +739,8 @@ export function SessionPage({
       const result = await exportSessionReport(session.id);
 
       setReportExport(result);
+      moveToWorkspaceTab('artifacts');
+      void refreshArtifactStore();
     } finally {
       setReportLoading(false);
     }
@@ -652,29 +751,8 @@ export function SessionPage({
       return;
     }
 
-    setWorkflowLoading(true);
-
-    try {
-      const workflow = await prepareRuntimeWorkflow({
-        sessionId: session.id,
-        workspaceMode: 'local_snapshot',
-        createDefaultTasks: true,
-      });
-
-      setTasks(workflow.tasks.tasks);
-      setTaskProgress(workflow.taskProgress);
-
-      setStackIntelligence(workflow.stack);
-      setApiRoutes(workflow.apiRoutes);
-      setFrontendBackendLinks(workflow.frontendBackend);
-
-      setQuestions(workflow.questions.questions);
-      setSuggestions(workflow.suggestions);
-
-      setPackageScripts(workflow.verifyScripts);
-    } finally {
-      setWorkflowLoading(false);
-    }
+    await prepareWorkflowForSession(session);
+    moveToWorkspaceTab('context');
   }
 
   function collectKnownFiles(): string[] {
@@ -728,6 +806,19 @@ export function SessionPage({
       suggestions.length > 0,
     );
 
+    const sandboxPassed = patchSandboxResult?.status === 'passed';
+    const sandboxFailed = patchSandboxResult?.status === 'failed';
+    const sandboxBlocked = patchSandboxResult?.status === 'blocked';
+
+    const recoveryAvailable = sandboxFailed || sandboxBlocked || patchRecoveryResult !== null;
+    const recoveryPrepared = patchRecoveryResult?.status === 'repair_prompt_ready';
+    const recoveryMaxAttemptsReached = patchRecoveryResult?.status === 'max_attempts_reached';
+
+    const repairedProposalGenerated =
+      patchRecoveryResult !== null &&
+      patchProposal !== null &&
+      patchProposal.proposal.id !== patchRecoveryResult.proposalId;
+
     return {
       sessionStarted: session !== null,
       workflowPrepared,
@@ -737,6 +828,16 @@ export function SessionPage({
       patchProposalRejected: patchProposal?.validation.valid === false,
       diffReady: patchDiff?.diff.safeToPreview === true,
       diffBlocked: patchDiff ? !patchDiff.diff.safeToPreview : false,
+
+      sandboxPassed,
+      sandboxFailed,
+      sandboxBlocked,
+
+      recoveryAvailable,
+      recoveryPrepared,
+      recoveryMaxAttemptsReached,
+      repairedProposalGenerated,
+
       snapshotAvailable: snapshot !== null,
       dryRunCompleted:
         patchApplyResult?.status === 'dry_run' || patchApplyResult?.status === 'applied',
@@ -749,8 +850,7 @@ export function SessionPage({
       rollbackBlocked: patchRollbackResult?.status === 'blocked',
       rollbackFailed: patchRollbackResult?.status === 'failed',
       verifyCompleted:
-        (lastVerifyRun?.status === 'executed' && lastVerifyRun.exitCode === 0) ||
-        patchSandboxResult?.status === 'passed',
+        (lastVerifyRun?.status === 'executed' && lastVerifyRun.exitCode === 0) || sandboxPassed,
       reportExported: reportExport !== null,
       riskLevel: patchProposal?.proposal.riskLevel ?? runtimePlan?.plan.riskLevel ?? null,
     };
@@ -857,6 +957,7 @@ export function SessionPage({
 
       setApprovedPatchFilePaths(nextSelectedFiles);
       setApprovedPatchDecision(result.decision);
+      moveToWorkspaceTab('patch');
 
       await generateDiff(nextSelectedFiles);
       return;
@@ -907,7 +1008,7 @@ export function SessionPage({
       });
 
       setRuntimePlan(result);
-
+      moveToWorkspaceTab('plan');
       const refreshed = await sendSessionCommand({
         sessionId: session.id,
         command:
@@ -960,7 +1061,7 @@ export function SessionPage({
       setPatchApplyResult(null);
 
       setPatchRollbackResult(null);
-
+      moveToWorkspaceTab('patch');
       const refreshed = await sendSessionCommand({
         sessionId: session.id,
         command: 'Patch proposal generado y registrado. No se aplicaron archivos.',
@@ -990,6 +1091,7 @@ export function SessionPage({
       setPatchRecoveryResult(null);
       setPatchApplyResult(null);
       setPatchRollbackResult(null);
+      moveToWorkspaceTab('patch');
 
       const refreshed = await sendSessionCommand({
         sessionId: session.id,
@@ -1019,6 +1121,8 @@ export function SessionPage({
 
       setPatchSandboxResult(result.sandbox);
       setPatchRecoveryResult(null);
+      moveToWorkspaceTab('patch');
+
       const refreshed = await sendSessionCommand({
         sessionId: session.id,
         command:
@@ -1049,11 +1153,11 @@ export function SessionPage({
         originalObjective: session.goal.current || session.goal.original,
         proposal: patchProposal.proposal,
         sandboxResult: patchSandboxResult,
-        currentAttempt: 1,
         maxAttempts: 2,
       });
 
       setPatchRecoveryResult(result.recovery);
+      moveToWorkspaceTab('patch');
 
       const refreshed = await sendSessionCommand({
         sessionId: session.id,
@@ -1064,6 +1168,52 @@ export function SessionPage({
       void refreshArtifactStore();
     } finally {
       setPatchRecoveryLoading(false);
+    }
+  }
+  async function generateRecoveryProposal() {
+    if (!session || !patchProposal || !patchRecoveryResult) {
+      return;
+    }
+
+    if (patchRecoveryResult.status !== 'repair_prompt_ready') {
+      return;
+    }
+
+    setPatchRecoveryProposalLoading(true);
+
+    try {
+      const result = await generatePatchRecoveryProposal({
+        originalProposal: patchProposal.proposal,
+        recovery: patchRecoveryResult,
+        ...(runtimeSettings?.model.defaultModel
+          ? { model: runtimeSettings.model.defaultModel }
+          : {}),
+      });
+
+      setPatchProposal({
+        proposal: result.proposal,
+        validation: result.validation,
+        files: result.files,
+      });
+
+      setPatchDiff(null);
+      setPatchSandboxResult(null);
+      setPatchApplyResult(null);
+      setPatchRollbackResult(null);
+      setApprovedPatchFilePaths(null);
+      setApprovedPatchDecision(null);
+      moveToWorkspaceTab('patch');
+
+      const refreshed = await sendSessionCommand({
+        sessionId: session.id,
+        command: `Provider generó propuesta reparada ${result.proposal.id}. Revisar diff y sandbox nuevamente.`,
+      });
+
+      setSession(refreshed);
+      void refreshApprovalCenter();
+      void refreshArtifactStore();
+    } finally {
+      setPatchRecoveryProposalLoading(false);
     }
   }
   async function dryRunApplyPatch(selectedFilePaths: string[] | null = selectedPatchFiles()) {
@@ -1087,7 +1237,7 @@ export function SessionPage({
 
       setPatchApplyResult(result.apply);
       setPatchRollbackResult(null);
-
+      moveToWorkspaceTab('patch');
       const refreshed = await sendSessionCommand({
         sessionId: session.id,
         command:
@@ -1184,6 +1334,7 @@ export function SessionPage({
 
       setPatchApplyResult(result.apply);
       setPatchRollbackResult(null);
+      moveToWorkspaceTab('patch');
 
       const refreshed = await sendSessionCommand({
         sessionId: session.id,
@@ -1225,7 +1376,54 @@ export function SessionPage({
       setSnapshotLoading(false);
     }
   }
+  function SessionStartStep({
+    number,
+    label,
+    done,
+  }: {
+    number: string;
+    label: string;
+    done: boolean;
+  }) {
+    return (
+      <div className={done ? 'session-start-step done' : 'session-start-step'}>
+        <span>{number}</span>
+        <strong>{label}</strong>
+      </div>
+    );
+  }
+  function StartReadinessItem({
+    icon,
+    label,
+    detail,
+    done,
+  }: {
+    icon: React.ReactNode;
+    label: string;
+    detail: string;
+    done: boolean;
+  }) {
+    return (
+      <div className={done ? 'session-start-readiness-item done' : 'session-start-readiness-item'}>
+        <span className="session-start-readiness-icon">{icon}</span>
 
+        <div>
+          <strong>{label}</strong>
+          <p>{detail}</p>
+        </div>
+
+        <Badge tone={done ? 'green' : 'slate'}>{done ? 'ready' : 'waiting'}</Badge>
+      </div>
+    );
+  }
+  function DemoCompletionItem({ done, label }: { done: boolean; label: string }) {
+    return (
+      <div className={done ? 'demo-completion-item done' : 'demo-completion-item'}>
+        <Badge tone={done ? 'green' : 'slate'}>{done ? 'done' : 'todo'}</Badge>
+        <span>{label}</span>
+      </div>
+    );
+  }
   useEffect(() => {
     void refreshSavedSessions();
   }, []);
@@ -1256,6 +1454,8 @@ export function SessionPage({
     runtimePlan,
     patchProposal,
     patchDiff,
+    patchSandboxResult,
+    patchRecoveryResult,
     snapshot,
     patchApplyResult,
     patchRollbackResult,
@@ -1293,23 +1493,67 @@ export function SessionPage({
       </div>
 
       {!session ? (
-        <article id="session-start-panel" className="panel session-start-panel">
-          <div>
-            <h1>Start interactive session</h1>
-            <p className="muted">
-              Create a persistent runtime session for the selected local project.
-            </p>
+        <article
+          id="session-start-panel"
+          className="panel session-start-panel session-start-guided session-start-guided-modern"
+        >
+          <div className="session-start-hero">
+            <div>
+              <div className="session-start-kicker">
+                <Sparkles size={16} />
+                <span>Guided session</span>
+                <Badge tone={selectedProject ? 'green' : 'yellow'}>
+                  {selectedProject ? 'project ready' : 'project required'}
+                </Badge>
+              </div>
+
+              <h1>Create your guided runtime session</h1>
+              <p className="muted">
+                Zero will guide you one safe step at a time: prepare context, create a plan, review
+                a patch, verify in sandbox and export evidence.
+              </p>
+            </div>
+
+            <div className="session-start-readiness-card">
+              <StartReadinessItem
+                icon={<FolderKanban size={17} />}
+                label="Project"
+                done={startReadiness.hasProject}
+                detail={selectedProject?.name ?? 'Select a project first'}
+              />
+              <StartReadinessItem
+                icon={<ClipboardList size={17} />}
+                label="Goal"
+                done={startReadiness.hasGoal}
+                detail={startReadiness.hasGoal ? 'Goal ready' : 'Choose a template or write one'}
+              />
+              <StartReadinessItem
+                icon={<ShieldCheck size={17} />}
+                label="Safety"
+                done={startReadiness.canStart}
+                detail={startReadiness.canStart ? 'Ready to start' : 'Waiting for required info'}
+              />
+            </div>
+          </div>
+
+          <div className="session-start-flow">
+            <SessionStartStep number="1" label="Project ready" done={startReadiness.hasProject} />
+            <SessionStartStep number="2" label="Goal selected" done={startReadiness.hasGoal} />
+            <SessionStartStep number="3" label="Start session" done={startReadiness.canStart} />
           </div>
 
           {selectedProject ? (
-            <div className="selected-project-banner">
+            <div className="selected-project-banner session-selected-project-modern">
               <div>
-                <strong>Selected project</strong>
-                <p>{selectedProject.name}</p>
+                <strong>{selectedProject.name}</strong>
+                <p>Zero will use this local project as the runtime workspace.</p>
                 <small>{selectedProject.rootPath}</small>
               </div>
 
-              <Badge tone="green">ready</Badge>
+              <div className="session-selected-project-badges">
+                <Badge tone="green">ready</Badge>
+                <Badge tone="blue">{selectedProject.workingMode}</Badge>
+              </div>
             </div>
           ) : (
             <div className="selected-project-banner warning">
@@ -1322,45 +1566,89 @@ export function SessionPage({
             </div>
           )}
 
-          <div className="session-start-grid">
-            <label>
-              Project root
-              <input
-                value={projectRoot}
-                readOnly={selectedProject !== null}
-                onChange={(event) => setProjectRoot(event.target.value)}
-              />
-            </label>
+          <details className="session-start-advanced-project-fields">
+            <summary>Show project fields</summary>
 
-            <label>
-              Project name
-              <input
-                value={projectName}
-                readOnly={selectedProject !== null}
-                onChange={(event) => setProjectName(event.target.value)}
-              />
-            </label>
-          </div>
+            <div className="session-start-grid">
+              <label>
+                Project root
+                <input
+                  value={projectRoot}
+                  readOnly={selectedProject !== null}
+                  onChange={(event) => setProjectRoot(event.target.value)}
+                />
+              </label>
 
-          <label>
-            Goal
+              <label>
+                Project name
+                <input
+                  value={projectName}
+                  readOnly={selectedProject !== null}
+                  onChange={(event) => setProjectName(event.target.value)}
+                />
+              </label>
+            </div>
+          </details>
+
+          <section className="session-goal-template-section">
+            <div className="session-section-heading">
+              <div>
+                <span className="session-start-kicker-text">Step 2</span>
+                <h2>Choose what Zero should do</h2>
+                <p className="muted">
+                  Pick a safe template or write your own goal. You can edit the goal before
+                  starting.
+                </p>
+              </div>
+            </div>
+
+            <div className="session-goal-template-grid session-goal-template-grid-modern">
+              {sessionGoalTemplates.map((template) => (
+                <button
+                  className={
+                    goal === template.goal
+                      ? 'secondary-button session-goal-template-button active'
+                      : 'secondary-button session-goal-template-button'
+                  }
+                  key={template.label}
+                  onClick={() => selectGoalTemplate(template.goal)}
+                >
+                  <strong>{template.label}</strong>
+                  <span>{template.goal}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <label id="session-goal-field" className="session-goal-field-modern">
+            Session goal
             <textarea
-              rows={4}
+              rows={5}
               value={goal}
-              placeholder="Ej: Analizar el proyecto y proponer una mejora pequeña y segura sin tocar base de datos, .env ni archivos protegidos."
+              placeholder="Example: analyze the project and propose one small safe improvement without touching database, .env, Prisma, migrations or protected files."
               onChange={(event) => setGoal(event.target.value)}
             />
           </label>
 
+          <article className="session-start-safety-note session-start-safety-note-modern">
+            <Route size={18} />
+            <div>
+              <strong>Recommended first action after start</strong>
+              <p>
+                Start the session and Zero will automatically prepare the workflow: stack, routes,
+                frontend/backend links, safe scripts, tasks and questions.
+              </p>
+            </div>
+          </article>
+
           <button
-            disabled={
-              projectRoot.trim().length === 0 ||
-              projectName.trim().length === 0 ||
-              goal.trim().length === 0
-            }
+            className="session-start-primary-action"
+            disabled={!startReadiness.canStart || sessionStartLoading || workflowLoading}
             onClick={() => void createSession()}
           >
-            Start session
+            {sessionStartLoading || workflowLoading
+              ? 'Starting and preparing workflow...'
+              : 'Start guided session'}
           </button>
         </article>
       ) : null}
@@ -1373,7 +1661,31 @@ export function SessionPage({
         taskCount={tasks.length}
         onChange={setActiveWorkspaceTab}
       />
+      {session && !workflowPrepared ? (
+        <article className="panel session-workflow-start-card">
+          <div>
+            <div className="session-start-kicker">
+              <Route size={16} />
+              <span>Preparing workflow</span>
+              <Badge tone={workflowLoading ? 'yellow' : 'blue'}>
+                {workflowLoading ? 'running' : 'ready'}
+              </Badge>
+            </div>
 
+            <h2>
+              {workflowLoading ? 'Preparing project intelligence' : 'Prepare this project workflow'}
+            </h2>
+            <p className="muted">
+              Zero is preparing the project context needed for the guided flow: stack, safe scripts,
+              API routes, frontend/backend links, tasks and questions.
+            </p>
+          </div>
+
+          <button disabled={workflowLoading} onClick={() => void prepareWorkflow()}>
+            {workflowLoading ? 'Preparing workflow...' : 'Prepare workflow'}
+          </button>
+        </article>
+      ) : null}
       <section className="session-tab-content">
         {activeWorkspaceTab === 'overview' ? (
           <div className="session-tab-grid">
@@ -1389,12 +1701,15 @@ export function SessionPage({
               runtimeWorkflow={runtimeWorkflow}
               runtimeWorkflowLoading={runtimeWorkflowLoading}
               patchSandboxResult={patchSandboxResult}
+              patchRecoveryResult={patchRecoveryResult}
               onPrepareWorkflow={() => void prepareWorkflow()}
               onGeneratePlan={() => void generatePlan(false)}
               onGenerateProviderPlan={() => void generatePlan(true)}
               onGeneratePatchProposal={() => void generatePatch()}
               onGeneratePatchDiff={() => void generateDiff()}
               onVerifySandbox={() => void verifySandbox()}
+              onPrepareRecovery={() => void prepareRecovery()}
+              onGenerateRecoveryProposal={() => void generateRecoveryProposal()}
               onDryRunApply={() => void dryRunApplyPatch()}
               onCreateSnapshot={() => {
                 const targetFiles = selectedPatchFiles() ??
@@ -1483,6 +1798,8 @@ export function SessionPage({
               recoveryResult={patchRecoveryResult}
               recoveryLoading={patchRecoveryLoading}
               onPrepareRecovery={() => void prepareRecovery()}
+              recoveryProposalLoading={patchRecoveryProposalLoading}
+              onGenerateRecoveryProposal={() => void generateRecoveryProposal()}
               onVerifySandbox={() => void verifySandbox()}
               onDryRunApply={() => void dryRunApplyPatch()}
               onApplyPatch={(input) => void applyPatch(input)}
@@ -1566,6 +1883,40 @@ export function SessionPage({
 
         {activeWorkspaceTab === 'artifacts' ? (
           <div className="session-tab-grid">
+            <article className="panel demo-completion-card">
+              <div>
+                <h2>MVP demo completion</h2>
+                <p className="muted">
+                  This is the final evidence area. Export the report and inspect artifacts to verify
+                  what Zero proposed, blocked, tested and applied.
+                </p>
+              </div>
+
+              <div className="demo-completion-grid">
+                <DemoCompletionItem
+                  done={runtimePlan?.validation.valid === true}
+                  label="Plan valid"
+                />
+                <DemoCompletionItem
+                  done={patchProposal?.validation.valid === true}
+                  label="Patch proposal valid"
+                />
+                <DemoCompletionItem
+                  done={patchDiff?.diff.safeToPreview === true}
+                  label="Diff ready"
+                />
+                <DemoCompletionItem
+                  done={patchSandboxResult?.status === 'passed'}
+                  label="Sandbox passed"
+                />
+                <DemoCompletionItem
+                  done={patchApplyResult !== null}
+                  label="Apply/dry-run executed"
+                />
+                <DemoCompletionItem done={reportExport !== null} label="Report exported" />
+              </div>
+            </article>
+
             <ReportExportPanel
               result={reportExport}
               loading={reportLoading}

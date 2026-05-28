@@ -109,6 +109,7 @@ export class RuntimeArtifactStore {
     return (
       normalized.includes('/node_modules/') ||
       normalized.includes('/.git/') ||
+      normalized.includes('/archive/') ||
       normalized.includes('/patch-apply-tests/') ||
       normalized.includes('/runtime-patch-apply-bridge-test/') ||
       normalized.includes('/runtime-patch-rollback-test/')
@@ -159,7 +160,13 @@ export class RuntimeArtifactStore {
     if (relativePath.startsWith('patch-diffs/') && relativePath.endsWith('.json')) {
       return 'patch_diff';
     }
+    if (relativePath.startsWith('sandbox-results/') && relativePath.endsWith('.json')) {
+      return 'sandbox_result';
+    }
 
+    if (relativePath.startsWith('patch-recoveries/') && relativePath.endsWith('.json')) {
+      return 'patch_recovery';
+    }
     if (
       relativePath.startsWith('interactive-sessions/') &&
       relativePath.endsWith('session-state.json')
@@ -197,6 +204,8 @@ export class RuntimeArtifactStore {
       parts[0] === 'plans' ||
       parts[0] === 'patch-proposals' ||
       parts[0] === 'patch-diffs' ||
+      parts[0] === 'sandbox-results' ||
+      parts[0] === 'patch-recoveries' ||
       parts[0] === 'interactive-sessions' ||
       parts[0] === 'tasks' ||
       parts[0] === 'verify-runs' ||

@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { ArrowRight, LockKeyhole, Sparkles } from 'lucide-react';
 import { Badge } from '../Badge';
 import type { NextWorkflowAction } from './WorkflowTypes';
 
@@ -7,31 +7,55 @@ interface NextBestActionPanelProps {
 }
 
 export function NextBestActionPanel({ action }: NextBestActionPanelProps) {
+  const isBlocked = Boolean(action.blockedReason);
+  const isReady = !action.disabled && !isBlocked;
+
   return (
-    <article className="next-best-action-panel">
-      <div className="panel-title-row">
-        <Sparkles size={18} />
-        <div>
-          <strong>{action.title}</strong>
-          <p className="muted">{action.description}</p>
+    <article
+      className={
+        isBlocked
+          ? 'next-best-action-panel next-best-action-panel-friendly blocked'
+          : 'next-best-action-panel next-best-action-panel-friendly'
+      }
+    >
+      <div className="next-action-main">
+        <div className="next-action-kicker">
+          {isBlocked ? <LockKeyhole size={16} /> : <Sparkles size={16} />}
+          <span>Next safe step</span>
+          <Badge tone={isBlocked ? 'red' : isReady ? 'green' : 'slate'}>
+            {isBlocked ? 'blocked' : isReady ? 'ready' : 'waiting'}
+          </Badge>
         </div>
+
+        <h3>{action.title}</h3>
+        <p>{action.description}</p>
+
+        {action.blockedReason ? (
+          <div className="workflow-blocked-reason">
+            <Badge tone="red">why blocked</Badge>
+            <span>{action.blockedReason}</span>
+          </div>
+        ) : (
+          <div className="workflow-ready-reason">
+            <Badge tone="green">safe to continue</Badge>
+            <span>This is the recommended action for the current runtime state.</span>
+          </div>
+        )}
       </div>
 
-      {action.blockedReason ? (
-        <div className="workflow-blocked-reason">
-          <Badge tone="red">blocked</Badge>
-          <span>{action.blockedReason}</span>
-        </div>
-      ) : null}
-
-      <div className="workflow-action-buttons">
-        <button disabled={action.disabled} onClick={action.onRun}>
+      <div className="workflow-action-buttons next-action-buttons">
+        <button
+          className="primary-workflow-action"
+          disabled={action.disabled}
+          onClick={action.onRun}
+        >
           {action.buttonLabel}
+          {!action.disabled ? <ArrowRight size={18} /> : null}
         </button>
 
         {action.secondaryButtonLabel && action.onRunSecondary ? (
           <button
-            className="secondary-button"
+            className="secondary-button secondary-workflow-action"
             disabled={action.disabled}
             onClick={action.onRunSecondary}
           >

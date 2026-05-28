@@ -9,6 +9,13 @@ export class RuntimeWorkflowStateMachine {
   public build(input: RuntimeWorkflowArtifactState): RuntimeWorkflowState {
     const snapshotRequired = input.riskLevel === 'medium' || input.riskLevel === 'high';
 
+    const sandboxNeedsRecovery =
+      input.sandboxFailed || input.sandboxBlocked || input.recoveryAvailable;
+
+    const patchReadyForDiff = input.patchProposalValid || input.repairedProposalGenerated;
+
+    const diffReadyForApply = input.diffReady && input.sandboxPassed;
+
     const steps: RuntimeWorkflowStep[] = [
       {
         id: 'session',
@@ -40,12 +47,10 @@ export class RuntimeWorkflowStateMachine {
       {
         id: 'patch_proposal',
         title: 'Patch proposal',
-        description: 'Generate and validate a patch proposal.',
-        status: this.validatedOrBlocked({
-          canStart: input.planValid,
-          valid: input.patchProposalValid,
-          rejected: input.patchProposalRejected,
-        }),
+        description: input.repairedProposalGenerated
+          ? 'A repaired patch proposal was generated after recovery.'
+          : 'Generate and validate a patch proposal.',
+        status: this.patchProposalStatus(input),
         required: true,
         blockedReason: input.patchProposalRejected
           ? 'Patch proposal validation failed.'
@@ -54,8 +59,14 @@ export class RuntimeWorkflowStateMachine {
       {
         id: 'diff_preview',
         title: 'Diff preview',
-        description: 'Generate a safe diff preview before writes.',
-        status: this.diffStatus(input),
+        description: input.repairedProposalGenerated
+          ? 'Generate a new diff preview for the repaired patch proposal.'
+          : 'Generate a safe diff preview before writes.',
+        status: this.diffStatus({
+          canStart: patchReadyForDiff,
+          diffReady: input.diffReady,
+          diffBlocked: input.diffBlocked,
+        }),
         required: true,
         blockedReason: input.diffBlocked ? 'Diff preview is blocked.' : undefined,
       },
@@ -77,18 +88,51 @@ export class RuntimeWorkflowStateMachine {
             : undefined,
       },
       {
+        id: 'sandbox',
+        title: 'Sandbox verification',
+        description: 'Verify the patch in an isolated sandbox before real apply.',
+        status: this.sandboxStatus(input),
+        required: true,
+        blockedReason: this.sandboxBlockedReason(input),
+      },
+      {
+        id: 'recovery_prepare',
+        title: 'Prepare recovery',
+        description: 'Build a failure report and recovery context after sandbox failure.',
+        status: this.recoveryPrepareStatus(input),
+        required: sandboxNeedsRecovery,
+        blockedReason: input.recoveryMaxAttemptsReached
+          ? 'Maximum recovery attempts reached.'
+          : undefined,
+      },
+      {
+        id: 'repaired_patch',
+        title: 'Generate repaired patch',
+        description: 'Ask the provider to generate a repaired patch proposal.',
+        status: this.repairedPatchStatus(input),
+        required: sandboxNeedsRecovery,
+        blockedReason: input.recoveryMaxAttemptsReached
+          ? 'Maximum recovery attempts reached.'
+          : undefined,
+      },
+      {
         id: 'dry_run',
         title: 'Dry run',
         description: 'Validate apply without writing files.',
-        status: this.statusAfter(input.diffReady, input.dryRunCompleted || input.applyApplied),
+        status: this.statusAfter(diffReadyForApply, input.dryRunCompleted || input.applyApplied),
         required: true,
+        blockedReason:
+          !input.sandboxPassed && input.diffReady
+            ? 'Sandbox verification must pass before dry-run apply.'
+            : undefined,
       },
       {
         id: 'apply',
         title: 'Apply',
-        description: 'Apply patch with explicit confirmation and runtime gates.',
+        description: 'Apply patch with explicit confirmation, approval and sandbox gates.',
         status: this.applyStatus({
           diffReady: input.diffReady,
+          sandboxPassed: input.sandboxPassed,
           snapshotAvailable: input.snapshotAvailable,
           snapshotRequired,
           applyApplied: input.applyApplied,
@@ -96,12 +140,10 @@ export class RuntimeWorkflowStateMachine {
           applyFailed: input.applyFailed,
         }),
         required: true,
-        blockedReason:
-          input.applyBlocked || input.applyFailed
-            ? 'Apply failed or was blocked by runtime policy.'
-            : snapshotRequired && !input.snapshotAvailable
-              ? 'Snapshot is required before apply.'
-              : undefined,
+        blockedReason: this.applyBlockedReason({
+          input,
+          snapshotRequired,
+        }),
       },
       {
         id: 'rollback',
@@ -130,7 +172,9 @@ export class RuntimeWorkflowStateMachine {
           input.dryRunCompleted ||
             input.applyApplied ||
             input.rollbackCompleted ||
-            input.verifyCompleted,
+            input.verifyCompleted ||
+            input.sandboxPassed ||
+            input.repairedProposalGenerated,
           input.reportExported,
         ),
         required: true,
@@ -138,10 +182,9 @@ export class RuntimeWorkflowStateMachine {
     ];
 
     const completed = steps.filter((step) => step.status === 'completed').length;
-    const current = steps.find(
-      (step) =>
-        step.status === 'active' || step.status === 'available' || step.status === 'blocked',
-    );
+    const current =
+      steps.find((step) => step.status === 'active' || step.status === 'available') ??
+      steps.find((step) => step.status === 'blocked');
 
     const blockedReasons = steps
       .map((step) => step.blockedReason)
@@ -191,7 +234,27 @@ export class RuntimeWorkflowStateMachine {
     return 'locked';
   }
 
-  private diffStatus(input: RuntimeWorkflowArtifactState): RuntimeWorkflowStepStatus {
+  private patchProposalStatus(input: RuntimeWorkflowArtifactState): RuntimeWorkflowStepStatus {
+    if (input.patchProposalValid || input.repairedProposalGenerated) {
+      return 'completed';
+    }
+
+    if (input.patchProposalRejected) {
+      return 'blocked';
+    }
+
+    if (input.planValid) {
+      return 'available';
+    }
+
+    return 'locked';
+  }
+
+  private diffStatus(input: {
+    canStart: boolean;
+    diffReady: boolean;
+    diffBlocked: boolean;
+  }): RuntimeWorkflowStepStatus {
     if (input.diffReady) {
       return 'completed';
     }
@@ -200,7 +263,7 @@ export class RuntimeWorkflowStateMachine {
       return 'blocked';
     }
 
-    if (input.patchProposalValid) {
+    if (input.canStart) {
       return 'available';
     }
 
@@ -223,8 +286,95 @@ export class RuntimeWorkflowStateMachine {
     return input.snapshotRequired ? 'active' : 'available';
   }
 
+  private sandboxStatus(input: RuntimeWorkflowArtifactState): RuntimeWorkflowStepStatus {
+    if (input.sandboxPassed) {
+      return 'completed';
+    }
+
+    if (input.recoveryMaxAttemptsReached) {
+      return 'blocked';
+    }
+
+    if (input.sandboxFailed || input.sandboxBlocked) {
+      return 'blocked';
+    }
+
+    if (input.diffReady) {
+      return 'available';
+    }
+
+    return 'locked';
+  }
+
+  private sandboxBlockedReason(input: RuntimeWorkflowArtifactState): string | undefined {
+    if (input.recoveryMaxAttemptsReached) {
+      return 'Maximum recovery attempts reached.';
+    }
+
+    if (input.sandboxBlocked) {
+      return 'Sandbox verification was blocked by runtime policy.';
+    }
+
+    if (input.sandboxFailed) {
+      return 'Sandbox verification failed. Recovery is required before apply.';
+    }
+
+    return undefined;
+  }
+
+  private recoveryPrepareStatus(input: RuntimeWorkflowArtifactState): RuntimeWorkflowStepStatus {
+    if (
+      input.sandboxPassed &&
+      !input.recoveryAvailable &&
+      !input.sandboxFailed &&
+      !input.sandboxBlocked
+    ) {
+      return 'completed';
+    }
+
+    if (input.recoveryPrepared) {
+      return 'completed';
+    }
+
+    if (input.recoveryMaxAttemptsReached) {
+      return 'blocked';
+    }
+
+    if (input.sandboxFailed || input.sandboxBlocked || input.recoveryAvailable) {
+      return 'available';
+    }
+
+    return 'locked';
+  }
+
+  private repairedPatchStatus(input: RuntimeWorkflowArtifactState): RuntimeWorkflowStepStatus {
+    if (
+      input.sandboxPassed &&
+      !input.recoveryAvailable &&
+      !input.sandboxFailed &&
+      !input.sandboxBlocked
+    ) {
+      return 'completed';
+    }
+
+    if (input.repairedProposalGenerated) {
+      return 'completed';
+    }
+
+    if (input.recoveryMaxAttemptsReached) {
+      return 'blocked';
+    }
+
+    if (input.recoveryPrepared) {
+      return 'available';
+    }
+
+    return 'locked';
+  }
+
   private applyStatus(input: {
     diffReady: boolean;
+    sandboxPassed: boolean;
     snapshotAvailable: boolean;
     snapshotRequired: boolean;
     applyApplied: boolean;
@@ -243,11 +393,34 @@ export class RuntimeWorkflowStateMachine {
       return 'locked';
     }
 
+    if (!input.sandboxPassed) {
+      return 'locked';
+    }
+
     if (input.snapshotRequired && !input.snapshotAvailable) {
       return 'locked';
     }
 
     return 'available';
+  }
+
+  private applyBlockedReason(input: {
+    input: RuntimeWorkflowArtifactState;
+    snapshotRequired: boolean;
+  }): string | undefined {
+    if (input.input.applyBlocked || input.input.applyFailed) {
+      return 'Apply failed or was blocked by runtime policy.';
+    }
+
+    if (input.input.diffReady && !input.input.sandboxPassed) {
+      return 'Sandbox verification must pass before real apply.';
+    }
+
+    if (input.snapshotRequired && !input.input.snapshotAvailable) {
+      return 'Snapshot is required before apply.';
+    }
+
+    return undefined;
   }
 
   private rollbackStatus(input: RuntimeWorkflowArtifactState): RuntimeWorkflowStepStatus {

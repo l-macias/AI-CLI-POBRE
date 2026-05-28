@@ -27,6 +27,10 @@ export class MarkdownReportExporter {
       `| Completed tasks | ${report.summary.completedTasks} |`,
       `| Verify runs | ${report.summary.verifyRuns} |`,
       `| Failed verify runs | ${report.summary.failedVerifyRuns} |`,
+      `| Sandbox results | ${report.summary.sandboxResults} |`,
+      `| Failed sandbox results | ${report.summary.failedSandboxResults} |`,
+      `| Patch recoveries | ${report.summary.patchRecoveries} |`,
+      `| Recovery attempts | ${report.summary.recoveryAttempts} |`,
       ``,
       this.sectionMessages(report),
       this.sectionRuntimeActions(report),
@@ -35,6 +39,8 @@ export class MarkdownReportExporter {
       this.sectionQuestionAnswers(report),
       this.sectionTasks(report),
       this.sectionVerifyRuns(report),
+      this.sectionSandboxResults(report),
+      this.sectionPatchRecoveries(report),
     ].join('\n');
   }
 
@@ -180,7 +186,85 @@ export class MarkdownReportExporter {
       ]),
     ].join('\n');
   }
+  private sectionSandboxResults(report: SessionReport): string {
+    if (report.sandboxResults.length === 0) {
+      return ['## Sandbox Results', '', '_No sandbox results recorded._', ''].join('\n');
+    }
 
+    return [
+      `## Sandbox Results`,
+      ``,
+      `| Status | Proposal ID | Verify runs | Issues | Completed at |`,
+      `| --- | --- | ---: | ---: | --- |`,
+      ...report.sandboxResults.map((result) => {
+        return `| ${this.escape(result.status)} | \`${this.escape(result.proposalId)}\` | ${
+          result.verifyRuns.length
+        } | ${result.issues.length} | ${this.escape(result.completedAt)} |`;
+      }),
+      ``,
+      ...report.sandboxResults.flatMap((result, index) => [
+        `### Sandbox result ${index + 1}: \`${result.id}\``,
+        ``,
+        `- Status: ${result.status}`,
+        `- Proposal ID: \`${result.proposalId}\``,
+        `- Apply status: ${result.applyResult?.status ?? 'not_applied'}`,
+        `- Workspace: \`${result.workspace?.workspaceRoot ?? 'n/a'}\``,
+        ``,
+        ...(result.issues.length > 0
+          ? [
+              `**Issues**`,
+              ``,
+              ...result.issues.map((issue) => `- ${issue.code}: ${issue.message}`),
+              ``,
+            ]
+          : []),
+      ]),
+    ].join('\n');
+  }
+
+  private sectionPatchRecoveries(report: SessionReport): string {
+    if (report.patchRecoveries.length === 0) {
+      return ['## Patch Recoveries', '', '_No patch recoveries recorded._', ''].join('\n');
+    }
+
+    return [
+      `## Patch Recoveries`,
+      ``,
+      `| Status | Proposal ID | Attempt | Max attempts | Issues | Created at |`,
+      `| --- | --- | ---: | ---: | ---: | --- |`,
+      ...report.patchRecoveries.map((recovery) => {
+        return `| ${this.escape(recovery.status)} | \`${this.escape(recovery.proposalId)}\` | ${
+          recovery.currentAttempt
+        } | ${recovery.maxAttempts} | ${recovery.issues.length} | ${this.escape(
+          recovery.createdAt,
+        )} |`;
+      }),
+      ``,
+      ...report.patchRecoveries.flatMap((recovery, index) => [
+        `### Patch recovery ${index + 1}: \`${recovery.id}\``,
+        ``,
+        `- Status: ${recovery.status}`,
+        `- Proposal ID: \`${recovery.proposalId}\``,
+        `- Attempts: ${recovery.currentAttempt}/${recovery.maxAttempts}`,
+        ``,
+        ...recovery.attempts.flatMap((attempt) => [
+          `#### Attempt ${attempt.attemptNumber}`,
+          ``,
+          `- Sandbox result: \`${attempt.sandboxResultId}\``,
+          `- Failure report: \`${attempt.failureReport.id}\``,
+          `- Summary: ${attempt.failureReport.summary}`,
+          `- Failed files: ${attempt.failureReport.failedFiles.join(', ') || '-'}`,
+          ``,
+          `**Repair prompt**`,
+          ``,
+          '```txt',
+          attempt.repairPrompt.user,
+          '```',
+          ``,
+        ]),
+      ]),
+    ].join('\n');
+  }
   private escape(value: string): string {
     return value.replaceAll('|', '\\|').replaceAll('\n', '<br />');
   }

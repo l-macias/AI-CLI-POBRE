@@ -16,7 +16,7 @@ export function CurrentProjectCard({ project, onOpenProjects }: CurrentProjectCa
           <strong>Current project</strong>
         </div>
 
-        <Badge tone={project ? 'green' : 'yellow'}>{project ? 'selected' : 'missing'}</Badge>
+        <Badge tone={project ? 'green' : 'yellow'}>{project ? 'ready' : 'required'}</Badge>
       </div>
 
       {project ? (
@@ -42,14 +42,17 @@ export function CurrentProjectCard({ project, onOpenProjects }: CurrentProjectCa
           </div>
         </>
       ) : (
-        <div className="dashboard-empty-block">
-          <strong>No project selected.</strong>
-          <p>Select or scan a local project before starting a runtime session.</p>
+        <div className="dashboard-empty-block dashboard-empty-block-strong">
+          <strong>No project selected yet.</strong>
+          <p>
+            Start by scanning or selecting a local project. After that, Zero can create a guided
+            runtime session and walk you through plan, patch, sandbox and report.
+          </p>
         </div>
       )}
 
       <button className="secondary-button" onClick={onOpenProjects}>
-        Open Projects
+        {project ? 'Open Projects' : 'Select Project'}
       </button>
     </article>
   );

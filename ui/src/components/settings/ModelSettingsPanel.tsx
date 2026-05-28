@@ -1,8 +1,12 @@
-import { BrainCircuit } from 'lucide-react';
+import { BrainCircuit, Cpu, RotateCcw, Sparkles } from 'lucide-react';
 import { Badge } from '../Badge';
 import { SettingsSection } from './SettingsSection';
 import type { ModelSettings } from './SettingsTypes';
-import type { ProviderStatusReport, RuntimeProviderName } from '../../types/runtime';
+import type {
+  ProviderStatusReport,
+  RuntimeModelOption,
+  RuntimeProviderName,
+} from '../../types/runtime';
 
 interface ModelSettingsPanelProps {
   value: ModelSettings;
@@ -20,19 +24,51 @@ export function ModelSettingsPanel({
   onChange,
 }: ModelSettingsPanelProps) {
   const provider = providerStatus?.providers.find((item) => item.provider === activeProvider);
-  const modelOptions = (provider?.models ?? []).filter((model) => allowPaidModels || model.free);
+  const rawModelOptions = provider?.models ?? [];
+  const modelOptions = rawModelOptions.filter((model) => allowPaidModels || model.free);
+  const recommendedModels = modelOptions.filter((model) => model.recommended);
+  const selectedModel =
+    modelOptions.find((model) => model.id === value.defaultModel) ??
+    rawModelOptions.find((model) => model.id === value.defaultModel) ??
+    null;
 
   return (
     <SettingsSection
       title="Models"
-      description="Set model preferences without hardcoding provider-specific assumptions."
+      description="Choose the default model, review recommended options and configure fallback behavior."
     >
-      <div className="settings-row">
+      <article className="model-settings-hero">
+        <div>
+          <div className="settings-mini-kicker">
+            <BrainCircuit size={14} />
+            <span>Model selection</span>
+            <Badge tone={allowPaidModels ? 'yellow' : 'green'}>
+              {allowPaidModels ? 'paid visible' : 'free only'}
+            </Badge>
+          </div>
+
+          <h3>{selectedModel?.label ?? value.defaultModel}</h3>
+          <p>
+            {selectedModel?.description ??
+              'This model is currently selected but was not returned by the provider status list.'}
+          </p>
+        </div>
+
+        <div className="model-settings-hero-badges">
+          <Badge tone={selectedModel?.free === false ? 'yellow' : 'green'}>
+            {selectedModel?.free === false ? 'paid' : 'free/fallback'}
+          </Badge>
+          {selectedModel?.recommended ? <Badge tone="blue">recommended</Badge> : null}
+          <Badge tone="slate">{activeProvider}</Badge>
+        </div>
+      </article>
+
+      <div className="settings-row settings-row-polished">
         <div className="settings-row-title">
-          <BrainCircuit size={18} />
+          <Cpu size={18} />
           <div>
             <strong>Default model</strong>
-            <span>Used when runtime policy allows external LLM calls.</span>
+            <span>Used when runtime policy allows external model calls.</span>
           </div>
         </div>
 
@@ -47,7 +83,7 @@ export function ModelSettingsPanel({
         >
           {modelOptions.map((model) => (
             <option key={model.id} value={model.id}>
-              {model.label}
+              {modelLabel(model)}
             </option>
           ))}
 
@@ -57,10 +93,54 @@ export function ModelSettingsPanel({
         </select>
       </div>
 
+      {recommendedModels.length > 0 ? (
+        <article className="recommended-models-card">
+          <div className="settings-mini-kicker">
+            <Sparkles size={14} />
+            <span>Recommended models</span>
+          </div>
+
+          <div className="recommended-models-grid">
+            {recommendedModels.map((model) => (
+              <button
+                className={
+                  model.id === value.defaultModel
+                    ? 'recommended-model-card active'
+                    : 'recommended-model-card'
+                }
+                key={model.id}
+                onClick={() =>
+                  onChange({
+                    ...value,
+                    defaultModel: model.id,
+                  })
+                }
+              >
+                <strong>{model.label}</strong>
+                <span>{model.description}</span>
+                <code>{model.id}</code>
+
+                <div className="suggestion-badges">
+                  <Badge tone={model.free ? 'green' : 'yellow'}>
+                    {model.free ? 'free' : 'paid'}
+                  </Badge>
+                  <Badge tone="blue">recommended</Badge>
+                </div>
+              </button>
+            ))}
+          </div>
+        </article>
+      ) : null}
+
       {modelOptions.length > 0 ? (
-        <div className="model-options-list">
+        <div className="model-options-list model-options-list-polished">
           {modelOptions.map((model) => (
-            <article className="model-option-card" key={model.id}>
+            <article
+              className={
+                model.id === value.defaultModel ? 'model-option-card active' : 'model-option-card'
+              }
+              key={model.id}
+            >
               <div>
                 <strong>{model.label}</strong>
                 <p>{model.description}</p>
@@ -70,18 +150,31 @@ export function ModelSettingsPanel({
               <div className="suggestion-badges">
                 <Badge tone={model.free ? 'green' : 'yellow'}>{model.free ? 'free' : 'paid'}</Badge>
                 {model.recommended ? <Badge tone="blue">recommended</Badge> : null}
+                {model.id === value.defaultModel ? <Badge tone="green">selected</Badge> : null}
               </div>
             </article>
           ))}
         </div>
       ) : (
-        <p className="muted">No model options available for this provider yet.</p>
+        <article className="settings-explainer-card warning">
+          <BrainCircuit size={18} />
+          <div>
+            <strong>No model options available</strong>
+            <p>
+              This provider did not return visible model options. Check provider configuration or
+              use mock/local fallback behavior.
+            </p>
+          </div>
+        </article>
       )}
 
-      <div className="settings-row">
-        <div>
-          <strong>Fallback model</strong>
-          <span>Optional cheaper or safer backup model.</span>
+      <div className="settings-row settings-row-polished">
+        <div className="settings-row-title">
+          <RotateCcw size={18} />
+          <div>
+            <strong>Fallback model</strong>
+            <span>Used when the default provider/model is unavailable or blocked.</span>
+          </div>
         </div>
 
         <input
@@ -95,7 +188,7 @@ export function ModelSettingsPanel({
         />
       </div>
 
-      <div className="settings-row">
+      <div className="settings-row settings-row-polished">
         <div>
           <strong>Max context tokens</strong>
           <span>Budget hint before context compression.</span>
@@ -115,4 +208,12 @@ export function ModelSettingsPanel({
       </div>
     </SettingsSection>
   );
+}
+
+function modelLabel(model: RuntimeModelOption): string {
+  const tags = [model.free ? 'free' : 'paid', model.recommended ? 'recommended' : null]
+    .filter(Boolean)
+    .join(', ');
+
+  return `${model.label} (${tags})`;
 }

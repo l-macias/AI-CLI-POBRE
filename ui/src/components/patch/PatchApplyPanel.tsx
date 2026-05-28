@@ -5,12 +5,14 @@ import type {
   RuntimePatchApplyResult,
   RuntimePatchDiffGenerateResult,
   RuntimePatchProposalGenerateResult,
+  RuntimePatchSandboxResult,
   SnapshotManifest,
 } from '../../types/runtime';
 
 interface PatchApplyPanelProps {
   patchProposal: RuntimePatchProposalGenerateResult | null;
   patchDiff: RuntimePatchDiffGenerateResult | null;
+  sandboxResult: RuntimePatchSandboxResult | null;
   snapshot: { snapshot: SnapshotManifest } | null;
   applyResult: RuntimePatchApplyResult | null;
   loading: boolean;
@@ -21,6 +23,7 @@ interface PatchApplyPanelProps {
 export function PatchApplyPanel({
   patchProposal,
   patchDiff,
+  sandboxResult,
   snapshot,
   applyResult,
   loading,
@@ -36,11 +39,14 @@ export function PatchApplyPanel({
     patchDiff?.diff.safeToPreview,
   );
 
+  const sandboxPassed = sandboxResult?.status === 'passed';
+
   const requiresSnapshot =
     patchProposal?.proposal.riskLevel === 'medium' || patchProposal?.proposal.riskLevel === 'high';
 
-  const canApply =
-    canDryRun && confirmedText === 'APPLY' && (!requiresSnapshot || snapshot?.snapshot.snapshotId);
+  const snapshotReady = !requiresSnapshot || Boolean(snapshot?.snapshot.snapshotId);
+
+  const canApply = canDryRun && sandboxPassed && snapshotReady && confirmedText === 'APPLY';
 
   return (
     <article className="plan-summary-card">
@@ -49,13 +55,17 @@ export function PatchApplyPanel({
         <div>
           <strong>Controlled apply</strong>
           <p className="muted">
-            Writes are blocked unless proposal, diff, approval and runtime gates are valid.
+            Real writes require safe diff, passed sandbox verification, approval and explicit text
+            confirmation.
           </p>
         </div>
       </div>
 
       <div className="plan-step-badges">
         <Badge tone={canDryRun ? 'green' : 'slate'}>diff: {canDryRun ? 'ready' : 'missing'}</Badge>
+        <Badge tone={sandboxTone(sandboxResult)}>
+          sandbox: {sandboxResult?.status ?? 'missing'}
+        </Badge>
         <Badge tone={requiresSnapshot ? 'yellow' : 'green'}>
           snapshot: {requiresSnapshot ? 'required' : 'optional'}
         </Badge>
@@ -69,6 +79,16 @@ export function PatchApplyPanel({
           {loading ? 'Running...' : 'Dry Run Apply'}
         </button>
       </div>
+
+      {!sandboxPassed ? (
+        <p className="muted">
+          Real apply is locked until sandbox verification passes for the current proposal.
+        </p>
+      ) : null}
+
+      {requiresSnapshot && !snapshot ? (
+        <p className="muted">Medium/high-risk proposals require a snapshot before real apply.</p>
+      ) : null}
 
       <label>
         Type APPLY to enable real apply
@@ -96,10 +116,6 @@ export function PatchApplyPanel({
           {loading ? 'Applying...' : 'Apply Controlled Patch'}
         </button>
       </div>
-
-      {requiresSnapshot && !snapshot ? (
-        <p className="muted">Medium/high-risk proposals require a snapshot before real apply.</p>
-      ) : null}
 
       {applyResult ? (
         <article className="plan-step-card">
@@ -154,6 +170,24 @@ export function PatchApplyPanel({
       ) : null}
     </article>
   );
+}
+
+function sandboxTone(
+  sandbox: RuntimePatchSandboxResult | null,
+): 'blue' | 'green' | 'yellow' | 'red' | 'slate' {
+  if (!sandbox) {
+    return 'slate';
+  }
+
+  if (sandbox.status === 'passed') {
+    return 'green';
+  }
+
+  if (sandbox.status === 'blocked') {
+    return 'yellow';
+  }
+
+  return 'red';
 }
 
 function toneForStatus(status: RuntimePatchApplyResult['status']) {

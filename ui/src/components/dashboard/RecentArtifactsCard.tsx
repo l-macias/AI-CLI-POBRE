@@ -8,22 +8,28 @@ interface RecentArtifactsCardProps {
 }
 
 export function RecentArtifactsCard({ index, onOpenSession }: RecentArtifactsCardProps) {
-  const artifacts = index?.artifacts.slice(0, 8) ?? [];
+  const activeArtifacts =
+    index?.artifacts.filter((artifact) => !artifact.path.startsWith('archive/')) ?? [];
+
+  const artifacts = activeArtifacts.slice(0, 8);
 
   return (
     <article className="dashboard-card">
       <div className="dashboard-card-header">
         <div className="dashboard-title-row">
           <Archive size={18} />
-          <strong>Recent artifacts</strong>
+          <strong>Recent active artifacts</strong>
         </div>
 
-        <Badge tone={index ? 'green' : 'slate'}>{index?.artifacts.length ?? 0} indexed</Badge>
+        <Badge tone={index ? 'green' : 'slate'}>{activeArtifacts.length} active</Badge>
       </div>
 
       <div className="dashboard-list">
         {artifacts.length === 0 ? (
-          <p className="muted">No artifacts indexed.</p>
+          <p className="muted">
+            No active artifacts indexed. Archived evidence is preserved under Settings &gt; Runtime
+            data.
+          </p>
         ) : (
           artifacts.map((artifact) => (
             <button key={artifact.id} className="dashboard-list-row" onClick={onOpenSession}>

@@ -18,15 +18,17 @@ export function RecentSessionsCard({
       <div className="dashboard-card-header">
         <div className="dashboard-title-row">
           <TerminalSquare size={18} />
-          <strong>Recent sessions</strong>
+          <strong>Recent active sessions</strong>
         </div>
 
-        <Badge tone={sessions.length > 0 ? 'green' : 'slate'}>{sessions.length} saved</Badge>
+        <Badge tone={sessions.length > 0 ? 'green' : 'slate'}>{sessions.length} active</Badge>
       </div>
 
       <div className="dashboard-list">
         {sessions.length === 0 ? (
-          <p className="muted">No saved sessions.</p>
+          <p className="muted">
+            No active sessions. Start a new session or restore one from Settings &gt; Runtime data.
+          </p>
         ) : (
           sessions.slice(0, 5).map((session) => (
             <button

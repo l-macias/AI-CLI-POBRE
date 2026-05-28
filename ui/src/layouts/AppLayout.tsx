@@ -11,59 +11,51 @@ interface AppLayoutProps {
   onNavigate: (page: AppPage) => void;
 }
 
+const navigationItems: {
+  page: AppPage;
+  label: string;
+  icon: React.ReactNode;
+}[] = [
+  { page: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={17} /> },
+  { page: 'projects', label: 'Projects', icon: <FolderKanban size={17} /> },
+  { page: 'session', label: 'Session', icon: <TerminalSquare size={17} /> },
+  { page: 'settings', label: 'Settings', icon: <Settings size={17} /> },
+];
+
 export function AppLayout({ page, health, children, onNavigate }: AppLayoutProps) {
   return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">
-            <Code2 size={24} />
-          </div>
-          <div>
+    <main className="app-shell app-shell-topbar">
+      <header className="topbar">
+        <button className="topbar-brand" onClick={() => onNavigate('dashboard')}>
+          <span className="brand-mark compact">
+            <Code2 size={21} />
+          </span>
+
+          <span>
             <strong>Zero Runtime</strong>
-            <span>Local cockpit</span>
-          </div>
-        </div>
+            <small>Local cockpit</small>
+          </span>
+        </button>
 
-        <nav>
-          <button
-            className={page === 'dashboard' ? 'active' : ''}
-            onClick={() => onNavigate('dashboard')}
-          >
-            <LayoutDashboard size={18} />
-            Dashboard
-          </button>
-
-          <button
-            className={page === 'projects' ? 'active' : ''}
-            onClick={() => onNavigate('projects')}
-          >
-            <FolderKanban size={18} />
-            Projects
-          </button>
-
-          <button
-            className={page === 'session' ? 'active' : ''}
-            onClick={() => onNavigate('session')}
-          >
-            <TerminalSquare size={18} />
-            Session
-          </button>
-
-          <button
-            className={page === 'settings' ? 'active' : ''}
-            onClick={() => onNavigate('settings')}
-          >
-            <Settings size={18} />
-            Settings
-          </button>
+        <nav className="topbar-nav" aria-label="Main navigation">
+          {navigationItems.map((item) => (
+            <button
+              key={item.page}
+              className={page === item.page ? 'active' : ''}
+              onClick={() => onNavigate(item.page)}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
         </nav>
-      </aside>
 
-      <section className="content">
-        <RuntimeStatus health={health} />
-        {children}
-      </section>
+        <div className="topbar-status">
+          <RuntimeStatus health={health} compact />
+        </div>
+      </header>
+
+      <section className="content content-wide">{children}</section>
     </main>
   );
 }

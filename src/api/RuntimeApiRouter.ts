@@ -214,7 +214,15 @@ export class RuntimeApiRouter {
       if (request.method === 'POST' && this.isPath(request.path, '/patches/rollback')) {
         return this.controller.rollbackRuntimePatch(request.body);
       }
-
+      if (request.method === 'GET' && this.isPath(request.path, '/maintenance/inventory')) {
+        return this.controller.getRuntimeDataInventory();
+      }
+      if (request.method === 'POST' && this.isPath(request.path, '/maintenance/archive')) {
+        return this.controller.archiveRuntimeSessions(request.body);
+      }
+      if (request.method === 'POST' && this.isPath(request.path, '/maintenance/restore')) {
+        return this.controller.restoreRuntimeSessions(request.body);
+      }
       if (request.method === 'GET' && this.isPath(request.path, '/providers/status')) {
         return this.controller.getProviderStatus();
       }

@@ -4,6 +4,8 @@ import type { SessionTaskQueueState } from '../tasks/SessionTask.js';
 import type { TaskProgressReport } from '../tasks/TaskProgressReporter.js';
 import type { VerifyRunResult } from '../verify/VerifyRunner.js';
 import type { QuestionAnswerState } from '../interactive/QuestionAnswerStore.js';
+import type { PatchSandboxResult } from '../sandbox/SandboxResult.js';
+import type { PatchRecoveryLoopResult } from '../patches/PatchRecoveryLoop.js';
 
 export interface SessionReportInput {
   session: InteractiveSessionState;
@@ -12,6 +14,8 @@ export interface SessionReportInput {
   tasks?: SessionTaskQueueState | undefined;
   taskProgress?: TaskProgressReport | undefined;
   verifyRuns?: VerifyRunResult[] | undefined;
+  sandboxResults?: PatchSandboxResult[] | undefined;
+  patchRecoveries?: PatchRecoveryLoopResult[] | undefined;
 }
 
 export interface SessionReport {
@@ -31,6 +35,10 @@ export interface SessionReport {
     completedTasks: number;
     verifyRuns: number;
     failedVerifyRuns: number;
+    sandboxResults: number;
+    failedSandboxResults: number;
+    patchRecoveries: number;
+    recoveryAttempts: number;
   };
   messages: {
     role: string;
@@ -72,12 +80,16 @@ export interface SessionReport {
   }[];
   taskProgress?: TaskProgressReport | undefined;
   verifyRuns: VerifyRunResult[];
+  sandboxResults: PatchSandboxResult[];
+  patchRecoveries: PatchRecoveryLoopResult[];
   generatedAt: string;
 }
 
 export class SessionReportBuilder {
   public build(input: SessionReportInput): SessionReport {
     const verifyRuns = input.verifyRuns ?? [];
+    const sandboxResults = input.sandboxResults ?? [];
+    const patchRecoveries = input.patchRecoveries ?? [];
     const tasks = input.tasks?.tasks ?? [];
     const decisions = input.decisions?.decisions ?? [];
     const questionAnswers = input.questionAnswers?.answers ?? [];
@@ -101,6 +113,13 @@ export class SessionReportBuilder {
         failedVerifyRuns: verifyRuns.filter(
           (run) => run.status !== 'executed' || run.exitCode !== 0,
         ).length,
+        sandboxResults: sandboxResults.length,
+        failedSandboxResults: sandboxResults.filter((result) => result.status !== 'passed').length,
+        patchRecoveries: patchRecoveries.length,
+        recoveryAttempts: patchRecoveries.reduce(
+          (total, recovery) => total + recovery.attempts.length,
+          0,
+        ),
       },
       messages: input.session.messages.map((message) => ({
         role: message.role,
@@ -142,6 +161,8 @@ export class SessionReportBuilder {
       })),
       ...(input.taskProgress ? { taskProgress: input.taskProgress } : {}),
       verifyRuns,
+      sandboxResults,
+      patchRecoveries,
       generatedAt: new Date().toISOString(),
     };
   }

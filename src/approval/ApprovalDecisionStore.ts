@@ -21,6 +21,7 @@ export interface ApprovalDecisionStoreSaveInput {
 
 export interface ApprovalDecisionStoreFindInput {
   sessionId: string;
+  projectRoot?: string | undefined;
   proposalId: string;
   diffId: string;
 }
@@ -51,6 +52,7 @@ export class ApprovalDecisionStore {
         ...document.decisions.filter(
           (item) =>
             !(
+              item.projectRoot === input.projectRoot &&
               item.proposalId === input.proposalId &&
               item.diffId === input.diffId &&
               item.decision.requestId === input.decision.requestId
@@ -71,12 +73,21 @@ export class ApprovalDecisionStore {
   ): Promise<StoredApprovalDecision | null> {
     const document = await this.load(input.sessionId);
 
-    const matches = document.decisions.filter(
-      (item) =>
-        item.proposalId === input.proposalId &&
-        item.diffId === input.diffId &&
-        item.decision.accepted,
-    );
+    const matches = document.decisions.filter((item) => {
+      if (item.proposalId !== input.proposalId) {
+        return false;
+      }
+
+      if (item.diffId !== input.diffId) {
+        return false;
+      }
+
+      if (input.projectRoot && item.projectRoot !== input.projectRoot) {
+        return false;
+      }
+
+      return item.decision.accepted;
+    });
 
     return matches.at(-1) ?? null;
   }

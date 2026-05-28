@@ -183,6 +183,56 @@ assert(
   'Expected DIFF_FILES_NOT_APPROVED issue.',
 );
 
+const wrongDiffProposalIdResult = authorization.authorize({
+  proposal,
+  diff: {
+    ...fullDiff,
+    proposalId: 'wrong-proposal-id',
+  },
+  decision: approveAllDecision,
+});
+
+assert(
+  !wrongDiffProposalIdResult.authorized,
+  'Expected diff with wrong proposalId to block apply.',
+);
+assert(
+  wrongDiffProposalIdResult.issues.some((issue) => issue.code === 'DIFF_PROPOSAL_ID_MISMATCH'),
+  'Expected DIFF_PROPOSAL_ID_MISMATCH issue.',
+);
+
+const wrongDiffSessionIdResult = authorization.authorize({
+  proposal,
+  diff: {
+    ...fullDiff,
+    sessionId: 'wrong-session-id',
+  },
+  decision: approveAllDecision,
+});
+
+assert(!wrongDiffSessionIdResult.authorized, 'Expected diff with wrong sessionId to block apply.');
+assert(
+  wrongDiffSessionIdResult.issues.some((issue) => issue.code === 'DIFF_SESSION_ID_MISMATCH'),
+  'Expected DIFF_SESSION_ID_MISMATCH issue.',
+);
+
+const wrongDiffProjectRootResult = authorization.authorize({
+  proposal,
+  diff: {
+    ...fullDiff,
+    projectRoot: '/wrong/project/root',
+  },
+  decision: approveAllDecision,
+});
+
+assert(
+  !wrongDiffProjectRootResult.authorized,
+  'Expected diff with wrong projectRoot to block apply.',
+);
+assert(
+  wrongDiffProjectRootResult.issues.some((issue) => issue.code === 'DIFF_PROJECT_ROOT_MISMATCH'),
+  'Expected DIFF_PROJECT_ROOT_MISMATCH issue.',
+);
 console.log(
   JSON.stringify(
     {
@@ -194,6 +244,9 @@ console.log(
       askRevisionIssues: askRevisionResult.issues,
       unfilteredSelectedIssues: unfilteredSelectedResult.issues,
       diffNotApprovedIssues: diffNotApprovedResult.issues,
+      wrongDiffProposalIdIssues: wrongDiffProposalIdResult.issues,
+      wrongDiffSessionIdIssues: wrongDiffSessionIdResult.issues,
+      wrongDiffProjectRootIssues: wrongDiffProjectRootResult.issues,
     },
     null,
     2,

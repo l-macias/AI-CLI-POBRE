@@ -3151,3 +3151,611 @@ Debe iniciar:
 - runtime API server
 - UI local
 - abrir navegador opcional
+  SESIÓN 96.E — File-Level Patch Review + Selective Approval
+  Objetivo
+
+Convertir los patches en unidades revisables por archivo.
+
+Hoy el patch puede tocar varios archivos, pero el usuario no tiene una revisión suficientemente clara por cada uno. Esta sesión debe hacer que cada archivo del patch tenga su propio resumen, riesgo y estado de aprobación.
+
+Implementar
+src/patches/
+├── PatchFileReview.ts
+├── PatchFileReviewBuilder.ts
+├── PatchSelectionPolicy.ts
+
+Modificar:
+
+src/patches/PatchProposal.ts
+src/patches/RuntimePatchProviderSchema.ts
+src/patches/RuntimePatchProviderBridge.ts
+src/approval/ApprovalCenter.ts
+src/approval/ApprovalRequest.ts
+ui/src/components/patch/
+ui/src/components/approval/
+Modelo esperado
+
+Cada archivo del patch debe tener metadata clara:
+
+interface PatchFileChange {
+path: string;
+operation: 'modify' | 'create' | 'delete';
+beforeHash: string | null;
+content: string | null;
+reason: string;
+changesSummary: string[];
+riskLevel: 'low' | 'medium' | 'high';
+userSelectable: true;
+}
+
+Ejemplo visible para el usuario:
+
+src/components/sections/Hero.tsx
+
+Summary:
+
+- Improves mobile spacing.
+- Fixes CTA overlap.
+- Adjusts headline hierarchy.
+
+Risk:
+medium
+
+Reason:
+This component controls the landing hero section and is directly related to the requested UI improvement.
+UI esperada
+
+En la pestaña Patch:
+
+Patch Review
+├─ Summary general
+├─ File cards
+│ ├─ checkbox aprobar archivo
+│ ├─ resumen
+│ ├─ riesgo
+│ ├─ diff
+│ └─ reason
+├─ Approve selected
+├─ Approve all
+├─ Reject selected
+└─ Ask revision
+Reglas
+
+- No aplicar archivos no aprobados.
+- No confiar en summaries de la LLM sin validación runtime.
+- Si un archivo toca path sensible, marcar high risk o bloquear.
+- Si hay muchos archivos, exigir aprobación selectiva.
+- Mantener compatibilidad con approve_all.
+  Resultado esperado
+
+El usuario puede aprobar solo algunos archivos del patch.
+
+SESIÓN 96.F — Selective Patch Apply
+Objetivo
+
+Permitir que el runtime aplique únicamente los archivos aprobados.
+
+No sirve aprobar archivos individualmente si después el apply aplica todo el patch original. Esta sesión conecta la aprobación selectiva con el apply real.
+
+Implementar
+src/patches/
+├── PatchProposalFilter.ts
+├── ApprovedPatchBuilder.ts
+
+Modificar:
+
+src/patches/RuntimePatchApplyBridge.ts
+src/api/RuntimeApiController.ts
+src/approval/ApprovalCenter.ts
+ui/src/pages/SessionPage.tsx
+Flujo esperado
+Original proposal:
+
+- Hero.tsx
+- Navbar.tsx
+- globals.css
+
+Usuario aprueba:
+
+- Hero.tsx
+- globals.css
+
+Runtime crea proposal filtrado:
+
+- Hero.tsx
+- globals.css
+
+Runtime valida de nuevo
+Runtime genera diff filtrado
+Runtime aplica solo eso
+Reglas
+
+- Nunca aplicar todo y luego revertir partes.
+- Filtrar antes de diff/apply.
+- Revalidar proposal filtrado.
+- Recalcular risk level del proposal filtrado.
+- Mantener trazabilidad del proposal original.
+  Resultado esperado
+
+El usuario puede aprobar y aplicar solo archivos seleccionados.
+
+SESIÓN 96.G — Patch Risk Policy por cantidad y tipo de cambio
+Objetivo
+
+Crear una política profesional para decidir cuándo un patch es simple, medio o riesgoso.
+
+No conviene limitar arbitrariamente a 2 archivos. Conviene clasificar.
+
+Implementar
+src/patches/
+├── PatchRiskPolicy.ts
+├── PatchSizeClassifier.ts
+├── PatchImpactAnalyzer.ts
+Política recomendada
+1 archivo:
+
+- low o medium según path
+- puede avanzar con approval normal
+
+2 a 5 archivos:
+
+- medium por defecto
+- requiere aprobación por archivo
+- requiere snapshot
+- requiere verify
+
+6+ archivos:
+
+- high o staged patch
+- requiere dividir en batches
+- no aplicar todo junto salvo aprobación avanzada
+  Más reglas
+- package.json, tsconfig, providers, security, apply, runtime core => high risk
+- frontend UI aislado => low/medium
+- database, migrations, prisma, .env => blocked o high approval
+- delete operations => bloqueadas por defecto
+  Resultado esperado
+
+El runtime no bloquea cambios grandes sin criterio, pero tampoco deja pasar patches peligrosos.
+
+SESIÓN 96.H — Patch Verification Sandbox
+Objetivo
+
+Probar patches antes del apply real.
+
+El usuario no debería recibir un patch y descubrir que rompe el proyecto después de aplicarlo. El runtime debe poder hacer una verificación segura.
+
+Implementar
+src/sandbox/
+├── PatchSandbox.ts
+├── SandboxWorkspaceManager.ts
+├── SandboxPatchApplier.ts
+├── SandboxVerifyRunner.ts
+├── SandboxResult.ts
+Flujo MVP recomendado
+
+Primero puede ser con snapshot local, no Docker:
+
+1. Crear snapshot
+2. Aplicar patch temporalmente
+3. Ejecutar verify commands aprobados
+4. Si falla:
+   - guardar errores
+   - rollback automático
+   - bloquear apply real
+5. Si pasa:
+   - marcar patch como verified
+   - permitir apply real
+     Verificaciones iniciales
+     npm run typecheck
+     npm run build
+     npm run lint
+     tsc --noEmit
+
+Solo comandos permitidos y con aprobación runtime.
+
+Resultado esperado
+
+Antes de aplicar real, Zero puede decir:
+
+Sandbox verification passed:
+
+- npm run typecheck: ok
+- npm run build: ok
+
+Patch is safe to apply.
+
+O:
+
+Sandbox verification failed:
+
+- npm run build failed
+- Error in Hero.tsx line 42
+- Runtime rolled back sandbox changes
+- Apply real is blocked
+  SESIÓN 96.I — Failed Patch Recovery Loop
+  Objetivo
+
+Si un patch falla verificación, Zero debe poder pedir una corrección al provider sin dejar al usuario tirado.
+
+No queremos:
+
+“Dio error, perdón.”
+
+Queremos:
+
+“El patch falló verificación. Runtime lo bloqueó, hizo rollback, y puede pedir una propuesta corregida con estos errores.”
+Implementar
+src/patches/
+├── PatchFailureReport.ts
+├── PatchRepairPromptBuilder.ts
+├── PatchRecoveryLoop.ts
+Flujo
+Patch proposal
+-> sandbox apply
+-> verify fails
+-> collect errors
+-> provider receives:
+
+- original objective
+- failed diff
+- failed files
+- verify output
+- constraints
+  -> provider proposes corrected patch
+  -> runtime validates again
+  -> sandbox verifies again
+  Reglas
+- Limitar intentos: máximo 2 o 3.
+- Cada intento debe quedar auditado.
+- No aplicar nada real si verify falla.
+- Mostrar historial de intentos.
+  Resultado esperado
+
+Zero puede auto-corregir patches fallidos sin perder control runtime.
+
+SESIÓN 96.J — Patch Diff Viewer Layout Fix
+Objetivo
+
+Hacer que la pestaña Patch sea cómoda, profesional y usable.
+
+Ahora la UI se ve comprimida y el diff no tiene foco suficiente.
+
+Nueva estructura visual
+Patch tab
+├─ Header compacto
+│ ├─ proposal status
+│ ├─ risk
+│ ├─ files count
+│ ├─ additions/deletions
+│ └─ actions
+├─ File review sidebar
+│ ├─ lista de archivos
+│ ├─ checkbox approval
+│ └─ risk badges
+└─ Main diff viewer
+├─ file summary
+├─ reason
+├─ changes summary
+└─ line diff
+Reglas UI
+
+- Diff a ancho completo.
+- Nada de columnas angostas.
+- Controlled apply colapsado hasta que haga falta.
+- Approval visible pero no invasivo.
+- Sin scroll horizontal global.
+- File list sticky o lateral.
+  Resultado esperado
+
+El usuario entiende el patch sin tener que scrollear eternamente ni ver cards superpuestas.
+
+SESIÓN 96.K — Runtime Patch Report
+Objetivo
+
+Cada patch debe generar un reporte claro.
+
+Implementar
+src/reports/
+├── PatchReviewReportBuilder.ts
+├── PatchVerificationReportBuilder.ts
+El reporte debe incluir
+
+- objetivo original
+- provider usado
+- modelo usado
+- archivos propuestos
+- archivos aprobados
+- archivos rechazados
+- riesgos
+- diff summary
+- sandbox result
+- verify result
+- apply result
+- rollback info
+  Resultado esperado
+
+Al final de cada flujo, el usuario tiene trazabilidad completa.
+
+SESIÓN 96.L — Visual Preview Foundation
+Objetivo
+
+Preparar la base para previsualizar cambios visuales.
+
+Esto no tiene que ser perfecto al inicio. Pero sí debe abrir el camino.
+
+MVP
+
+- detectar dev script
+- permitir ejecutar dev server con aprobación
+- guardar URL local
+- mostrar instrucciones de preview
+- permitir marcar visual review como aprobado manualmente
+  Más adelante
+- screenshot before
+- screenshot after
+- comparación automática
+- detectar overflow/layout roto
+- Playwright visual check
+  Resultado esperado
+
+Para cambios UI, Zero puede decir:
+
+Build passed.
+Preview server available at http://localhost:3000.
+Please review visual changes before real apply.
+
+Más adelante debería poder mostrar screenshots.
+
+SESIÓN 96.M — Visual Regression / Screenshot Preview
+Objetivo
+
+Agregar comparación visual real.
+
+Implementar más adelante
+src/visual/
+├── VisualPreviewRunner.ts
+├── ScreenshotCapture.ts
+├── VisualDiffAnalyzer.ts
+├── VisualRegressionReport.ts
+Flujo ideal
+
+1. Capturar screenshot before
+2. Aplicar patch en sandbox
+3. Levantar app
+4. Capturar screenshot after
+5. Mostrar before/after
+6. Usuario aprueba visualmente
+   Resultado esperado
+
+Esto sería una feature diferencial fuerte frente a agentes comunes.
+SESIÓN 96.N — Runtime Workflow State Integration
+Objetivo
+
+Que el workflow oficial del runtime entienda el flujo nuevo, no solo la UI local.
+
+Hoy la UI puede mostrar sandbox/recovery, pero el RuntimeWorkflowStateMachine debe entender formalmente:
+
+diff ready
+sandbox pending
+sandbox passed
+sandbox failed
+recovery available
+recovery prepared
+repaired proposal generated
+max attempts reached
+apply allowed only after sandbox passed
+Implementar
+src/workflow/RuntimeWorkflowState.ts
+src/workflow/RuntimeWorkflowStateMachine.ts
+src/workflow/RuntimeActionAvailability.ts
+ui/src/components/workflow/\*
+
+Agregar estado al artifact state:
+
+sandboxPassed
+sandboxFailed
+sandboxBlocked
+recoveryAvailable
+recoveryPrepared
+recoveryMaxAttemptsReached
+repairedProposalGenerated
+Resultado esperado
+
+El workflow oficial debe guiar así:
+
+Generate Diff
+→ Verify in Sandbox
+→ if failed: Prepare Recovery
+→ Generate Repaired Patch
+→ Generate Diff again
+→ Verify Sandbox again
+→ Apply
+→ Report
+Tests
+workflow-sandbox-recovery-state-test
+workflow-recovery-action-availability-test
+SESIÓN 96.O — Apply Gate + Workflow Hardening Final
+Objetivo
+
+Cerrar cualquier bypass antes del apply real.
+
+Ya tenemos:
+
+apply real exige sandboxResult.status === passed
+apply real exige approvalDecision
+dry-run sigue permitido
+
+Pero ahora hay que endurecerlo contra casos reales.
+
+Reglas finales
+
+El apply real debe bloquear si:
+
+- sandboxResult falta
+- sandboxResult.status !== passed
+- sandboxResult.proposalId no coincide
+- sandboxResult.sessionId no coincide
+- sandboxResult.projectRoot no coincide
+- diff.proposalId no coincide
+- approvalDecision falta
+- approvalDecision no corresponde al diff/proposal
+- selectedFilePaths no coincide con proposal filtrado
+- sandbox pertenece a proposal viejo luego de repaired patch
+  Implementar
+
+Probablemente tocar:
+
+src/api/RuntimeApiController.ts
+src/approval/PatchApplyAuthorization.ts
+src/approval/ApprovalDecisionStore.ts
+src/sandbox/SandboxResultStorage.ts
+Resultado esperado
+
+El runtime debe ser autoridad absoluta:
+
+No sandbox passed + no approval = no apply.
+Tests
+patch-apply-rejects-old-sandbox-test
+patch-apply-rejects-wrong-proposal-sandbox-test
+patch-apply-rejects-recovery-stale-approval-test
+patch-apply-allows-repaired-proposal-after-new-sandbox-test
+SESIÓN 96.P — End-to-End UI Flow Test / Real Project Simulation
+Objetivo
+
+Simular el flujo MVP completo como usuario real.
+
+No alcanza con tests unitarios. Hay que validar el camino completo:
+
+start session
+prepare workflow
+generate plan
+generate patch
+generate diff
+approve
+sandbox fails
+prepare recovery
+generate repaired patch
+generate new diff
+approve again
+sandbox passes
+apply real
+export report
+Implementar
+
+Crear un proyecto fake realista:
+
+.runtime/e2e-zero-mvp-test/project
+├── package.json
+├── tsconfig.json
+└── src/value.ts
+
+Simular:
+
+- patch roto
+- sandbox fallido
+- recovery generado
+- repaired patch válido
+- sandbox passed
+- apply real
+- report export
+  Tests
+  src/examples/zero-runtime-mvp-e2e-flow-test.ts
+  Resultado esperado
+
+El test debe demostrar:
+
+- El proyecto original no cambia cuando sandbox falla
+- El provider repair produce nueva propuesta
+- El apply real solo ocurre después de nuevo sandbox passed
+- El reporte contiene sandbox + recovery + apply final
+  SESIÓN 96.Q — Cleanup + Roadmap Checkpoint
+  Objetivo
+
+Cerrar la sesión 96 limpiamente.
+
+Tareas
+
+- Revisar nombres de scripts package.json
+- Revisar tests duplicados o demasiado largos
+- Asegurar que todos los nuevos artifacts están indexados
+- Validar que UI build pasa
+- Validar typecheck root + UI
+- Dejar resumen técnico
+- Preparar prompt para nueva conversación
+  Checklist final
+  npm run typecheck
+  npm run test:patch-sandbox-verification
+  npm run test:patch-sandbox-failure
+  npm run test:patch-recovery-loop
+  npm run test:patch-recovery-storage
+  npm run test:patch-recovery-auto-attempt
+  npm run test:session-report-export-sandbox-recovery
+  npm run test:artifact-store-sandbox-recovery
+  cd ui
+  npm run typecheck
+  npm run build
+
+Resultado esperado:
+
+Sesión 96 cerrada.
+Patch lifecycle profesional completo.
+Después de la sesión 96: Roadmap MVP final
+SESIÓN 97 — Runtime UX Polish + Guided Flow Final
+Objetivo
+
+Hacer que la plataforma se sienta usable, clara y moderna.
+
+Implementar
+
+- Mejorar GuidedWorkflowPanel
+- Mejorar PatchPanel
+- Mostrar estados claros:
+  - Waiting
+  - Ready
+  - Blocked
+  - Failed
+  - Passed
+  - Needs approval
+- Mejorar mensajes de error
+- Mejorar botones según estado real
+- Evitar botones activos cuando no corresponde
+  Resultado esperado
+
+El usuario debe entender siempre:
+
+qué pasó
+por qué pasó
+qué falta
+qué puede hacer ahora
+qué está bloqueado
+SESIÓN 98 — Project Onboarding Flow
+Objetivo
+
+Hacer que cargar un proyecto sea simple.
+
+Flujo ideal
+
+1. Elegir carpeta
+2. Detectar stack
+3. Crear sesión
+4. Preparar workflow automáticamente
+5. Mostrar resumen:
+   - stack
+   - scripts seguros
+   - rutas detectadas
+   - frontend/backend links
+   - riesgos
+     Implementar
+
+- Mejorar project picker
+- Mejorar prepare workflow
+- Autoload de project intelligence
+- Mejorar pantalla inicial
+  Resultado esperado
+
+Un usuario nuevo debe poder entrar y decir:
+
+“quiero mejorar este proyecto”
+
+y Zero debe preparar contexto útil.

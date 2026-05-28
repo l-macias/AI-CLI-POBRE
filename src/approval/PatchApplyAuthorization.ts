@@ -23,10 +23,13 @@ export class PatchApplyAuthorization {
   public authorize(input: PatchApplyAuthorizationInput): PatchApplyAuthorizationResult {
     const issues: PatchApplyAuthorizationIssue[] = [];
 
+    this.validateProposalDiffLink(input, issues);
+
     if (!input.decision) {
       return {
         authorized: false,
         issues: [
+          ...issues,
           {
             code: 'APPROVAL_DECISION_REQUIRED',
             message: 'Patch apply requires an accepted approval decision.',
@@ -107,6 +110,15 @@ export class PatchApplyAuthorization {
       });
     }
 
+    const proposalNotInDiff = proposalFilePaths.filter((filePath) => !diffSet.has(filePath));
+
+    if (proposalNotInDiff.length > 0) {
+      issues.push({
+        code: 'PROPOSAL_FILES_MISSING_FROM_DIFF',
+        message: `Proposal contains files missing from diff: ${proposalNotInDiff.join(', ')}.`,
+      });
+    }
+
     if (input.decision.action === 'approve') {
       const missingApprovedFiles = proposalFilePaths.filter(
         (filePath) => !decisionSet.has(filePath),
@@ -139,6 +151,39 @@ export class PatchApplyAuthorization {
       issues,
       selectedFilePaths: input.decision.selectedFilePaths,
     };
+  }
+
+  private validateProposalDiffLink(
+    input: PatchApplyAuthorizationInput,
+    issues: PatchApplyAuthorizationIssue[],
+  ): void {
+    if (input.diff.proposalId !== input.proposal.id) {
+      issues.push({
+        code: 'DIFF_PROPOSAL_ID_MISMATCH',
+        message: 'Patch diff proposalId must match proposal id.',
+      });
+    }
+
+    if (input.diff.planId !== input.proposal.planId) {
+      issues.push({
+        code: 'DIFF_PLAN_ID_MISMATCH',
+        message: 'Patch diff planId must match proposal planId.',
+      });
+    }
+
+    if (input.diff.sessionId !== input.proposal.sessionId) {
+      issues.push({
+        code: 'DIFF_SESSION_ID_MISMATCH',
+        message: 'Patch diff sessionId must match proposal sessionId.',
+      });
+    }
+
+    if (input.diff.projectRoot !== input.proposal.projectRoot) {
+      issues.push({
+        code: 'DIFF_PROJECT_ROOT_MISMATCH',
+        message: 'Patch diff projectRoot must match proposal projectRoot.',
+      });
+    }
   }
 
   private normalizePath(filePath: string): string {

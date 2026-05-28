@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { PatchSandboxResult } from './SandboxResult.js';
 
@@ -43,6 +43,29 @@ export class SandboxResultStorage {
     return parsed;
   }
 
+  public async listBySession(sessionId: string): Promise<PatchSandboxResult[]> {
+    const directory = path.resolve('.runtime', 'sandbox-results', this.safeSegment(sessionId));
+
+    let entries: string[];
+
+    try {
+      entries = await readdir(directory);
+    } catch {
+      return [];
+    }
+
+    const results: PatchSandboxResult[] = [];
+
+    for (const entry of entries) {
+      if (!entry.endsWith('.json')) {
+        continue;
+      }
+
+      results.push(await this.read(path.join(directory, entry)));
+    }
+
+    return results.sort((first, second) => first.startedAt.localeCompare(second.startedAt));
+  }
   private isPatchSandboxResult(value: unknown): value is PatchSandboxResult {
     if (!this.isRecord(value)) {
       return false;

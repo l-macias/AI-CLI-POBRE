@@ -70,6 +70,16 @@ try {
         patchProposalRejected: false,
         diffReady: true,
         diffBlocked: false,
+
+        sandboxPassed: false,
+        sandboxFailed: false,
+        sandboxBlocked: false,
+
+        recoveryAvailable: false,
+        recoveryPrepared: false,
+        recoveryMaxAttemptsReached: false,
+        repairedProposalGenerated: false,
+
         snapshotAvailable: false,
         dryRunCompleted: false,
         applyApplied: false,
@@ -110,6 +120,16 @@ try {
         patchProposalRejected: false,
         diffReady: true,
         diffBlocked: false,
+
+        sandboxPassed: false,
+        sandboxFailed: false,
+        sandboxBlocked: false,
+
+        recoveryAvailable: false,
+        recoveryPrepared: false,
+        recoveryMaxAttemptsReached: false,
+        repairedProposalGenerated: false,
+
         snapshotAvailable: false,
         dryRunCompleted: false,
         applyApplied: false,

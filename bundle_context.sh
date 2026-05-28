@@ -2,12 +2,18 @@
 
 # Lista de archivos a incluir
 files=(
-  "src/patches/RuntimePatchProviderBridge.ts"
-  "src/providers/ProviderRouter.ts"
-  "src/providers/ProviderTypes.ts"
-  "src/patches/RuntimePatchProposalStorage.ts"
-  "src/patches/PatchProposalValidator.ts"
+  "ui/src/pages/SettingsPage.tsx"
+  "ui/src/components/settings/ProviderSettingsPanel.tsx"
+  "ui/src/components/settings/ModelSettingsPanel.tsx"
+  "ui/src/components/settings/SettingsTypes.ts"
+  "ui/src/api/runtimeApi.ts"
+  "ui/src/types/runtime.ts"
   "src/api/RuntimeApiController.ts"
+  "src/api/RuntimeApiRouter.ts"
+  "src/settings/RuntimeSettingsStore.ts"
+  "src/providers/ProviderStatusService.ts"
+  "src/examples/provider-settings-ui-test.ts"
+  "src/examples/runtime-settings-smoke-test.ts"
 )
 echo "A continuación te presento el código fuente de los archivos solicitados para contexto:"
 echo "================================================================================"

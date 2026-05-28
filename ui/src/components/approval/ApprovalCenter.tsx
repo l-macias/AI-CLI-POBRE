@@ -45,14 +45,28 @@ export function ApprovalCenter({ center, loading = false, onDecision }: Approval
         <div className="panel-header">
           <div>
             <h2>Approval Center</h2>
-            <p className="muted">Start a session to collect pending runtime approvals.</p>
+            <p className="muted">
+              Runtime approvals appear here after a plan, patch, verify command or risk gate is
+              ready.
+            </p>
           </div>
 
-          <Badge tone="slate">idle</Badge>
+          <Badge tone={loading ? 'yellow' : 'slate'}>{loading ? 'loading' : 'idle'}</Badge>
         </div>
+
+        <article className="approval-blocker-note">
+          <strong>No approval center loaded.</strong>
+          <p>Prepare workflow, generate a patch, or refresh approvals after creating a diff.</p>
+        </article>
       </section>
     );
   }
+
+  const patchRequests = center.requests.filter((request) => request.kind === 'patch').length;
+  const verifyRequests = center.requests.filter((request) => request.kind === 'verify').length;
+  const riskRequests = center.requests.filter(
+    (request) => request.kind === 'risk' || request.kind === 'dirty_working_tree',
+  ).length;
 
   return (
     <section className="approval-viewer">
@@ -60,7 +74,7 @@ export function ApprovalCenter({ center, loading = false, onDecision }: Approval
         <div>
           <h2>Approval Center</h2>
           <p className="muted">
-            Centralized runtime approval queue. LLM proposes, runtime validates, user approves.
+            Central runtime approval queue. LLM proposes, runtime validates, user approves.
           </p>
         </div>
 
@@ -69,13 +83,19 @@ export function ApprovalCenter({ center, loading = false, onDecision }: Approval
             {loading ? 'refreshing' : `${center.pendingCount} pending`}
           </Badge>
           <Badge tone={toneForRisk(center.highestRisk)}>{center.highestRisk} max risk</Badge>
+          <Badge tone={patchRequests > 0 ? 'blue' : 'slate'}>{patchRequests} patch</Badge>
+          <Badge tone={verifyRequests > 0 ? 'blue' : 'slate'}>{verifyRequests} verify</Badge>
+          <Badge tone={riskRequests > 0 ? 'yellow' : 'slate'}>{riskRequests} risk</Badge>
         </div>
       </div>
 
       {center.requests.length === 0 ? (
         <article className="approval-blocker-note">
           <strong>No pending approvals.</strong>
-          <p>Runtime has no approval gate waiting for user decision.</p>
+          <p>
+            Runtime has no approval gate waiting for user decision. Generate a diff or run a gated
+            action to create a new request.
+          </p>
         </article>
       ) : (
         <div className="approval-request-list">

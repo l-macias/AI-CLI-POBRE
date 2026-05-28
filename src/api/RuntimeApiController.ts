@@ -63,6 +63,8 @@ import { SandboxResultStorage } from '../sandbox/SandboxResultStorage.js';
 import type { PatchSandboxResult } from '../sandbox/SandboxResult.js';
 import { PatchRecoveryLoop } from '../patches/PatchRecoveryLoop.js';
 import { PatchRecoveryStorage } from '../patches/PatchRecoveryStorage.js';
+import { RuntimeDataInventory } from '../maintenance/RuntimeDataInventory.js';
+import { RuntimeArchiveManager } from '../maintenance/RuntimeArchiveManager.js';
 import type { PatchRecoveryLoopResult } from '../patches/PatchRecoveryLoop.js';
 
 import type {
@@ -131,6 +133,8 @@ export interface RuntimeApiControllerOptions {
   sandboxResultStorage?: SandboxResultStorage | undefined;
   patchRecoveryLoop?: PatchRecoveryLoop | undefined;
   patchRecoveryStorage?: PatchRecoveryStorage | undefined;
+  runtimeDataInventory?: RuntimeDataInventory | undefined;
+  runtimeArchiveManager?: RuntimeArchiveManager | undefined;
 }
 
 export class RuntimeApiController {
@@ -186,6 +190,8 @@ export class RuntimeApiController {
   private readonly approvalDecisionStore: ApprovalDecisionStore;
   private readonly patchRecoveryLoop: PatchRecoveryLoop;
   private readonly patchRecoveryStorage: PatchRecoveryStorage;
+  private readonly runtimeDataInventory: RuntimeDataInventory;
+  private readonly runtimeArchiveManager: RuntimeArchiveManager;
 
   public constructor(options: RuntimeApiControllerOptions) {
     this.session = options.session;
@@ -243,6 +249,8 @@ export class RuntimeApiController {
     this.approvalDecisionStore = options.approvalDecisionStore ?? new ApprovalDecisionStore();
     this.patchRecoveryLoop = options.patchRecoveryLoop ?? new PatchRecoveryLoop();
     this.patchRecoveryStorage = options.patchRecoveryStorage ?? new PatchRecoveryStorage();
+    this.runtimeDataInventory = options.runtimeDataInventory ?? new RuntimeDataInventory();
+    this.runtimeArchiveManager = options.runtimeArchiveManager ?? new RuntimeArchiveManager();
   }
 
   public health(): RuntimeApiRouteResult {
@@ -497,6 +505,48 @@ export class RuntimeApiController {
     return this.response.ok({
       settings: settings as unknown as JsonObject,
       settingsPath: this.runtimeSettingsStore.resolvePath(),
+    });
+  }
+
+  public async getRuntimeDataInventory(): Promise<RuntimeApiRouteResult> {
+    const inventory = await this.runtimeDataInventory.inspect();
+
+    return this.response.ok({
+      inventory: inventory as unknown as JsonObject,
+    });
+  }
+  public async archiveRuntimeSessions(body: JsonValue | null): Promise<RuntimeApiRouteResult> {
+    const input = this.asObject(body);
+    const sessionIds = this.requiredStringArray(input, 'sessionIds');
+    const dryRun = this.optionalBoolean(input, 'dryRun') ?? false;
+
+    const archive = await this.runtimeArchiveManager.archiveSessions({
+      sessionIds,
+      dryRun,
+    });
+
+    const inventory = await this.runtimeDataInventory.inspect();
+
+    return this.response.ok({
+      archive: archive as unknown as JsonObject,
+      inventory: inventory as unknown as JsonObject,
+    });
+  }
+  public async restoreRuntimeSessions(body: JsonValue | null): Promise<RuntimeApiRouteResult> {
+    const input = this.asObject(body);
+    const sessionIds = this.requiredStringArray(input, 'sessionIds');
+    const dryRun = this.optionalBoolean(input, 'dryRun') ?? false;
+
+    const restore = await this.runtimeArchiveManager.restoreSessions({
+      sessionIds,
+      dryRun,
+    });
+
+    const inventory = await this.runtimeDataInventory.inspect();
+
+    return this.response.ok({
+      restore: restore as unknown as JsonObject,
+      inventory: inventory as unknown as JsonObject,
     });
   }
   public async listRuntimeArtifacts(): Promise<RuntimeApiRouteResult> {
@@ -1042,8 +1092,14 @@ export class RuntimeApiController {
     const originalObjective = this.requiredString(input, 'originalObjective');
     const proposal = this.requiredRuntimePatchProposal(input, 'proposal');
     const sandboxResult = this.requiredPatchSandboxResult(input, 'sandboxResult');
-    const currentAttempt = this.optionalNumber(input, 'currentAttempt') ?? 1;
     const maxAttempts = this.optionalNumber(input, 'maxAttempts') ?? 2;
+    const storedAttemptCount = await this.patchRecoveryStorage.countAttempts({
+      sessionId: proposal.sessionId,
+      proposalId: proposal.id,
+    });
+
+    const requestedAttempt = this.optionalNumber(input, 'currentAttempt');
+    const currentAttempt = requestedAttempt ?? storedAttemptCount + 1;
 
     const recovery = this.patchRecoveryLoop.prepareRepair({
       originalObjective,
@@ -1195,18 +1251,21 @@ export class RuntimeApiController {
     const applyConfirmed = this.optionalBoolean(input, 'applyConfirmed') === true;
     const dryRun = this.optionalBoolean(input, 'dryRun') === true;
     const snapshotId = this.optionalString(input, 'snapshotId');
+
     const approvalDecision = this.optionalApprovalDecisionResult(input, 'approvalDecision');
     const sandboxResult = this.optionalPatchSandboxResult(input, 'sandboxResult');
     const storedApprovalDecision =
-      approvalDecision ??
       (
         await this.approvalDecisionStore.findLatest({
           sessionId: proposalToApply.sessionId,
+          projectRoot: proposalToApply.projectRoot,
           proposalId: proposalToApply.id,
           diffId: diff.id,
         })
-      )?.decision ??
-      null;
+      )?.decision ?? null;
+
+    const effectiveApprovalDecision = storedApprovalDecision ?? approvalDecision ?? null;
+
     if (!dryRun) {
       this.assertSandboxPassedForApply({
         proposal: proposalToApply,
@@ -1218,7 +1277,7 @@ export class RuntimeApiController {
       const authorization = this.patchApplyAuthorization.authorize({
         proposal: proposalToApply,
         diff,
-        decision: storedApprovalDecision,
+        decision: effectiveApprovalDecision,
       });
 
       if (!authorization.authorized) {
@@ -1263,8 +1322,8 @@ export class RuntimeApiController {
             }
           : {}),
         diffId: diff.id,
-        approvalDecision: storedApprovalDecision
-          ? (storedApprovalDecision as unknown as JsonObject)
+        approvalDecision: effectiveApprovalDecision
+          ? (effectiveApprovalDecision as unknown as JsonObject)
           : null,
         sandboxResult: sandboxResult ? (sandboxResult as unknown as JsonObject) : null,
         status: result.status,
@@ -1527,6 +1586,30 @@ export class RuntimeApiController {
 
     if (input.diff.proposalId !== input.proposal.id) {
       throw new Error('Patch diff proposalId does not match proposal being applied.');
+    }
+
+    if (input.diff.planId !== input.proposal.planId) {
+      throw new Error('Patch diff planId does not match proposal planId.');
+    }
+
+    if (input.diff.sessionId !== input.proposal.sessionId) {
+      throw new Error('Patch diff sessionId does not match proposal sessionId.');
+    }
+
+    if (input.diff.projectRoot !== input.proposal.projectRoot) {
+      throw new Error('Patch diff projectRoot does not match proposal projectRoot.');
+    }
+
+    if (input.sandboxResult.proposalId !== input.diff.proposalId) {
+      throw new Error('Sandbox result proposalId does not match patch diff proposalId.');
+    }
+
+    if (input.sandboxResult.sessionId !== input.diff.sessionId) {
+      throw new Error('Sandbox result sessionId does not match patch diff sessionId.');
+    }
+
+    if (input.sandboxResult.projectRoot !== input.diff.projectRoot) {
+      throw new Error('Sandbox result projectRoot does not match patch diff projectRoot.');
     }
   }
   private optionalApprovalDecisionResult(
@@ -2446,6 +2529,24 @@ export class RuntimeApiController {
       patchProposalRejected: this.requiredRecordBoolean(record, 'patchProposalRejected', key),
       diffReady: this.requiredRecordBoolean(record, 'diffReady', key),
       diffBlocked: this.requiredRecordBoolean(record, 'diffBlocked', key),
+
+      sandboxPassed: this.requiredRecordBoolean(record, 'sandboxPassed', key),
+      sandboxFailed: this.requiredRecordBoolean(record, 'sandboxFailed', key),
+      sandboxBlocked: this.requiredRecordBoolean(record, 'sandboxBlocked', key),
+
+      recoveryAvailable: this.requiredRecordBoolean(record, 'recoveryAvailable', key),
+      recoveryPrepared: this.requiredRecordBoolean(record, 'recoveryPrepared', key),
+      recoveryMaxAttemptsReached: this.requiredRecordBoolean(
+        record,
+        'recoveryMaxAttemptsReached',
+        key,
+      ),
+      repairedProposalGenerated: this.requiredRecordBoolean(
+        record,
+        'repairedProposalGenerated',
+        key,
+      ),
+
       snapshotAvailable: this.requiredRecordBoolean(record, 'snapshotAvailable', key),
       dryRunCompleted: this.requiredRecordBoolean(record, 'dryRunCompleted', key),
       applyApplied: this.requiredRecordBoolean(record, 'applyApplied', key),
@@ -2745,6 +2846,8 @@ export class RuntimeApiController {
     const verifyRuns = await this.verifyRunStore.loadOrCreate(sessionId);
     const decisions = await this.sessionDecisionStore.loadOrCreate(sessionId);
     const questionAnswers = await this.questionAnswerStore.load(sessionId);
+    const sandboxResults = await this.sandboxResultStorage.listBySession(sessionId);
+    const patchRecoveries = await this.patchRecoveryStorage.listBySession(sessionId);
 
     const report = this.sessionReportBuilder.build({
       session: state,
@@ -2753,6 +2856,8 @@ export class RuntimeApiController {
       tasks,
       taskProgress,
       verifyRuns: verifyRuns.runs,
+      sandboxResults,
+      patchRecoveries,
     });
 
     const saved = await this.reportStorage.save(report);

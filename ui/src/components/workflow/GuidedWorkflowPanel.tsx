@@ -8,6 +8,7 @@ import type {
   RuntimePatchRollbackResult,
   RuntimePatchSandboxResult,
   RuntimePlanGenerateResult,
+  RuntimePatchRecoveryResult,
   RuntimeWorkflowStateResponse,
 } from '../../types/runtime';
 import { NextBestActionPanel } from './NextBestActionPanel';
@@ -27,6 +28,7 @@ interface GuidedWorkflowPanelProps {
   patchProposal: RuntimePatchProposalGenerateResult | null;
   patchDiff: RuntimePatchDiffGenerateResult | null;
   patchSandboxResult: RuntimePatchSandboxResult | null;
+  patchRecoveryResult: RuntimePatchRecoveryResult | null;
   snapshot: CreateSnapshotResult | null;
   applyResult: RuntimePatchApplyResult | null;
   rollbackResult: RuntimePatchRollbackResult | null;
@@ -39,6 +41,8 @@ interface GuidedWorkflowPanelProps {
   onGeneratePatchProposal: () => void;
   onGeneratePatchDiff: () => void;
   onVerifySandbox: () => void;
+  onPrepareRecovery: () => void;
+  onGenerateRecoveryProposal: () => void;
   onDryRunApply: () => void;
   onCreateSnapshot: () => void;
   onExportReport: () => void;
@@ -62,24 +66,35 @@ export function GuidedWorkflowPanel(props: GuidedWorkflowPanelProps) {
   return (
     <section className="panel guided-workflow-panel">
       <WorkflowProgressHeader workflow={workflow} />
-      <WorkflowHealthBadges
-        runtimePlan={props.runtimePlan}
-        patchProposal={props.patchProposal}
-        patchDiff={props.patchDiff}
-        applyResult={props.applyResult}
-        rollbackResult={props.rollbackResult}
-      />
-      <div className="workflow-runtime-source">
-        <span>
-          Source:{' '}
-          <strong>{usingRuntimeWorkflow ? 'runtime state machine' : 'local fallback'}</strong>
-        </span>
-
-        {props.runtimeWorkflowLoading ? <span>Refreshing...</span> : null}
-      </div>
 
       <NextBestActionPanel action={action} />
-      <WorkflowStepper workflow={workflow} />
+
+      <details className="workflow-technical-details workflow-advanced-details">
+        <summary>Show advanced workflow details</summary>
+
+        <div className="workflow-advanced-content">
+          <WorkflowHealthBadges
+            runtimePlan={props.runtimePlan}
+            patchProposal={props.patchProposal}
+            patchDiff={props.patchDiff}
+            patchSandboxResult={props.patchSandboxResult}
+            patchRecoveryResult={props.patchRecoveryResult}
+            applyResult={props.applyResult}
+            rollbackResult={props.rollbackResult}
+          />
+
+          <div className="workflow-runtime-source">
+            <span>
+              Runtime source:{' '}
+              <strong>{usingRuntimeWorkflow ? 'state machine' : 'local fallback'}</strong>
+            </span>
+
+            {props.runtimeWorkflowLoading ? <span>Refreshing workflow state...</span> : null}
+          </div>
+
+          <WorkflowStepper workflow={workflow} />
+        </div>
+      </details>
     </section>
   );
 }
@@ -289,9 +304,10 @@ function buildNextAction(input: GuidedWorkflowPanelProps): NextWorkflowAction {
 
   if (!hasRuntimeAction(input.session, 'workflow prepared')) {
     return {
-      title: 'Prepare project workflow',
-      description: 'Analyze stack, routes, frontend/backend links, questions and verify scripts.',
-      buttonLabel: 'Prepare Workflow',
+      title: 'Prepare the project',
+      description:
+        'Zero will inspect the stack, routes, frontend/backend links, questions and safe verify scripts.',
+      buttonLabel: 'Prepare Project',
       disabled: false,
       onRun: input.onPrepareWorkflow,
     };
@@ -299,9 +315,10 @@ function buildNextAction(input: GuidedWorkflowPanelProps): NextWorkflowAction {
 
   if (!input.runtimePlan) {
     return {
-      title: 'Generate runtime plan',
-      description: 'Create a deterministic plan or ask the configured provider to propose one.',
-      buttonLabel: 'Generate Runtime Plan',
+      title: 'Create the implementation plan',
+      description:
+        'Generate a controlled plan before any patch exists. This keeps the runtime in charge.',
+      buttonLabel: 'Create Plan',
       secondaryButtonLabel: 'Generate with Provider',
       disabled: false,
       onRun: input.onGeneratePlan,
@@ -315,9 +332,10 @@ function buildNextAction(input: GuidedWorkflowPanelProps): NextWorkflowAction {
 
   if (!input.patchProposal) {
     return {
-      title: 'Generate patch proposal',
-      description: 'Create a patch proposal from the validated runtime plan.',
-      buttonLabel: 'Generate Patch Proposal',
+      title: 'Create the patch proposal',
+      description:
+        'Turn the approved plan into a reviewable patch proposal. No files will be written yet.',
+      buttonLabel: 'Create Patch',
       disabled: false,
       onRun: input.onGeneratePatchProposal,
     };
@@ -329,9 +347,9 @@ function buildNextAction(input: GuidedWorkflowPanelProps): NextWorkflowAction {
 
   if (!input.patchDiff) {
     return {
-      title: 'Generate diff preview',
-      description: 'Preview changes before dry-run or apply.',
-      buttonLabel: 'Generate Diff Preview',
+      title: 'Preview the changes',
+      description: 'Generate the diff so you can inspect exactly what would change.',
+      buttonLabel: 'Preview Diff',
       disabled: false,
       onRun: input.onGeneratePatchDiff,
     };
@@ -353,26 +371,55 @@ function buildNextAction(input: GuidedWorkflowPanelProps): NextWorkflowAction {
 
   if (!input.patchSandboxResult) {
     return {
-      title: 'Run sandbox verification',
-      description: 'Apply the patch in a sandbox and run approved verification commands.',
-      buttonLabel: 'Verify in Sandbox',
+      title: 'Test safely in sandbox',
+      description: 'Zero will apply the patch in an isolated workspace and run verification there.',
+      buttonLabel: 'Run Sandbox Test',
       disabled: false,
       onRun: input.onVerifySandbox,
     };
   }
 
   if (sandboxBlocked) {
+    if (!input.patchRecoveryResult) {
+      return {
+        title: 'Prepare recovery',
+        description:
+          'Sandbox verification failed or was blocked. Prepare a recovery report before generating a repaired patch.',
+        buttonLabel: 'Prepare Recovery',
+        disabled: false,
+        onRun: input.onPrepareRecovery,
+      };
+    }
+
+    if (input.patchRecoveryResult.status === 'repair_prompt_ready') {
+      return {
+        title: 'Generate repaired patch',
+        description:
+          'Recovery context is ready. Generate a repaired proposal, then review a new diff and run sandbox again.',
+        buttonLabel: 'Generate Repaired Patch',
+        disabled: false,
+        onRun: input.onGenerateRecoveryProposal,
+      };
+    }
+
+    if (input.patchRecoveryResult.status === 'max_attempts_reached') {
+      return blockedAction(
+        'Recovery attempts exhausted',
+        'Maximum recovery attempts were reached. Manual review is required.',
+      );
+    }
+
     return blockedAction(
-      'Sandbox verification failed',
-      'Review sandbox issues before dry-run or real apply.',
+      'Patch is not recoverable',
+      'Runtime marked this failed sandbox result as not recoverable.',
     );
   }
 
   if (!input.applyResult) {
     return {
-      title: 'Run apply dry-run',
-      description: 'Validate controlled apply without writing files.',
-      buttonLabel: 'Dry Run Apply',
+      title: 'Run a final dry-run',
+      description: 'Check the apply path one more time without writing files.',
+      buttonLabel: 'Run Dry-Run',
       disabled: false,
       onRun: input.onDryRunApply,
     };
@@ -428,8 +475,8 @@ function buildNextAction(input: GuidedWorkflowPanelProps): NextWorkflowAction {
 
   if (!input.reportExport && (input.applyResult || input.rollbackResult)) {
     return {
-      title: 'Export final report',
-      description: 'Export Markdown and JSON report for the session.',
+      title: 'Export the session report',
+      description: 'Save Markdown and JSON evidence for what Zero proposed, blocked and applied.',
       buttonLabel: 'Export Report',
       disabled: false,
       onRun: input.onExportReport,
@@ -629,6 +676,12 @@ function buttonLabelForRuntimeAction(
       return 'Generate Diff Preview';
     case 'create_snapshot':
       return 'Create Snapshot';
+    case 'verify_sandbox':
+      return 'Verify in Sandbox';
+    case 'prepare_recovery':
+      return 'Prepare Recovery';
+    case 'generate_repaired_patch':
+      return 'Generate Repaired Patch';
     case 'dry_run_apply':
       return 'Dry Run Apply';
     case 'run_verify':
@@ -661,6 +714,12 @@ function handlerForRuntimeAction(input: {
       return input.input.onGeneratePatchDiff;
     case 'create_snapshot':
       return input.input.onCreateSnapshot;
+    case 'verify_sandbox':
+      return input.input.onVerifySandbox;
+    case 'prepare_recovery':
+      return input.input.onPrepareRecovery;
+    case 'generate_repaired_patch':
+      return input.input.onGenerateRecoveryProposal;
     case 'dry_run_apply':
       return input.input.onDryRunApply;
     case 'export_report':
@@ -682,6 +741,9 @@ function targetPanelIdForStep(
       return 'runtime-plan-panel';
     case 'patch_proposal':
     case 'diff_preview':
+    case 'sandbox':
+    case 'recovery_prepare':
+    case 'repaired_patch':
     case 'dry_run':
     case 'apply':
     case 'rollback':

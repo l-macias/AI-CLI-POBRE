@@ -45,6 +45,11 @@ import type {
   RuntimePatchSandboxResponse,
   RuntimePatchSandboxResult,
   RuntimePatchRecoveryResponse,
+  RuntimePatchRecoveryResult,
+  RuntimePatchRecoveryProposalResponse,
+  RuntimeDataInventoryResponse,
+  RuntimeArchiveSessionsResponse,
+  RuntimeRestoreSessionsResponse,
 } from '../types/runtime';
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -586,6 +591,25 @@ export async function preparePatchRecovery(input: {
 
   return readJson<RuntimePatchRecoveryResponse>(response);
 }
+export async function generatePatchRecoveryProposal(input: {
+  originalProposal: RuntimePatchProposalGenerateResult['proposal'];
+  recovery: RuntimePatchRecoveryResult;
+  model?: string;
+}): Promise<RuntimePatchRecoveryProposalResponse> {
+  const response = await fetch('/api/patches/recovery/generate', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      originalProposal: input.originalProposal,
+      recovery: input.recovery,
+      ...(input.model ? { model: input.model } : {}),
+    }),
+  });
+
+  return readJson<RuntimePatchRecoveryProposalResponse>(response);
+}
 export async function applyRuntimePatch(input: {
   proposal: RuntimePatchProposalGenerateResult['proposal'];
   diff: RuntimePatchDiffGenerateResult['diff'];
@@ -769,4 +793,43 @@ export async function readRuntimeArtifact(path: string): Promise<RuntimeArtifact
   const response = await fetch(`/api/artifacts/read?path=${encodeURIComponent(path)}`);
 
   return readJson<RuntimeArtifactReadResponse>(response);
+}
+export async function getRuntimeDataInventory(): Promise<RuntimeDataInventoryResponse> {
+  const response = await fetch('/api/maintenance/inventory');
+
+  return readJson<RuntimeDataInventoryResponse>(response);
+}
+export async function archiveRuntimeSessions(input: {
+  sessionIds: string[];
+  dryRun?: boolean;
+}): Promise<RuntimeArchiveSessionsResponse> {
+  const response = await fetch('/api/maintenance/archive', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      sessionIds: input.sessionIds,
+      ...(input.dryRun !== undefined ? { dryRun: input.dryRun } : {}),
+    }),
+  });
+
+  return readJson<RuntimeArchiveSessionsResponse>(response);
+}
+export async function restoreRuntimeSessions(input: {
+  sessionIds: string[];
+  dryRun?: boolean;
+}): Promise<RuntimeRestoreSessionsResponse> {
+  const response = await fetch('/api/maintenance/restore', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      sessionIds: input.sessionIds,
+      ...(input.dryRun !== undefined ? { dryRun: input.dryRun } : {}),
+    }),
+  });
+
+  return readJson<RuntimeRestoreSessionsResponse>(response);
 }

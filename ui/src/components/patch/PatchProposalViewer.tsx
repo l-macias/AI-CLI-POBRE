@@ -33,6 +33,8 @@ interface PatchProposalViewerProps {
   recoveryLoading: boolean;
   applyLoading: boolean;
   rollbackLoading: boolean;
+  recoveryProposalLoading: boolean;
+  onGenerateRecoveryProposal: () => void;
   onGeneratePatchProposal: () => void;
   onGeneratePatchDiff: () => void;
   onVerifySandbox: () => void;
@@ -60,6 +62,8 @@ export function PatchProposalViewer({
   rollbackLoading,
   recoveryResult,
   recoveryLoading,
+  recoveryProposalLoading,
+  onGenerateRecoveryProposal,
   onPrepareRecovery,
   onGeneratePatchProposal,
   onGeneratePatchDiff,
@@ -115,6 +119,7 @@ export function PatchProposalViewer({
           <PatchApplyPanel
             patchProposal={patchProposal}
             patchDiff={patchDiff}
+            sandboxResult={sandboxResult}
             snapshot={snapshot}
             applyResult={applyResult}
             loading={applyLoading}
@@ -155,11 +160,34 @@ export function PatchProposalViewer({
           {sandboxLoading ? 'Verifying sandbox...' : 'Verify in Sandbox'}
         </button>
         <button
-          disabled={!sandboxResult || sandboxResult.status === 'passed' || recoveryLoading}
+          disabled={
+            !sandboxResult ||
+            sandboxResult.status === 'passed' ||
+            recoveryLoading ||
+            recoveryResult?.status === 'max_attempts_reached' ||
+            recoveryResult?.status === 'not_recoverable'
+          }
           className="secondary-button"
           onClick={onPrepareRecovery}
         >
-          {recoveryLoading ? 'Preparing recovery...' : 'Prepare Recovery'}
+          {recoveryLoading
+            ? 'Preparing recovery...'
+            : recoveryResult?.status === 'max_attempts_reached'
+              ? 'Max Attempts Reached'
+              : recoveryResult?.status === 'not_recoverable'
+                ? 'Not Recoverable'
+                : 'Prepare Recovery'}
+        </button>
+        <button
+          disabled={
+            !recoveryResult ||
+            recoveryResult.status !== 'repair_prompt_ready' ||
+            recoveryProposalLoading
+          }
+          className="secondary-button"
+          onClick={onGenerateRecoveryProposal}
+        >
+          {recoveryProposalLoading ? 'Generating repaired patch...' : 'Generate Repaired Patch'}
         </button>
         <button
           disabled={!session}
@@ -405,9 +433,22 @@ function PatchRecoveryResultCard({ result }: { result: RuntimePatchRecoveryResul
       </div>
 
       <p className="muted">
-        Attempt {result.currentAttempt}/{result.maxAttempts}
+        Attempt {Math.min(result.currentAttempt, result.maxAttempts)}/{result.maxAttempts}
+        {result.currentAttempt > result.maxAttempts ? ' · limit reached' : ''}
       </p>
+      {result.status === 'max_attempts_reached' ? (
+        <p className="muted">
+          Recovery stopped because the maximum number of repair attempts was reached. Review the
+          failure report manually before continuing.
+        </p>
+      ) : null}
 
+      {result.status === 'not_recoverable' ? (
+        <p className="muted">
+          Runtime marked this patch failure as not recoverable. Review the issues before requesting
+          another patch.
+        </p>
+      ) : null}
       {result.issues.length > 0 ? (
         <div className="plan-step-list">
           {result.issues.map((issue) => (

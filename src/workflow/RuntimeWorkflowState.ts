@@ -5,6 +5,9 @@ export type RuntimeWorkflowStepId =
   | 'patch_proposal'
   | 'diff_preview'
   | 'snapshot'
+  | 'sandbox'
+  | 'recovery_prepare'
+  | 'repaired_patch'
   | 'dry_run'
   | 'apply'
   | 'rollback'
@@ -22,6 +25,16 @@ export interface RuntimeWorkflowArtifactState {
   patchProposalRejected: boolean;
   diffReady: boolean;
   diffBlocked: boolean;
+
+  sandboxPassed: boolean;
+  sandboxFailed: boolean;
+  sandboxBlocked: boolean;
+
+  recoveryAvailable: boolean;
+  recoveryPrepared: boolean;
+  recoveryMaxAttemptsReached: boolean;
+  repairedProposalGenerated: boolean;
+
   snapshotAvailable: boolean;
   dryRunCompleted: boolean;
   applyApplied: boolean;

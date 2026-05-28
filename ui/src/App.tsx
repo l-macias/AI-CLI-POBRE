@@ -31,6 +31,7 @@ export function App() {
     void listSessions().then((result) => {
       setActiveSession(result.sessions[0] ?? null);
     });
+
     const source = subscribeRuntimeEvents({
       onEvent: (event) => {
         setEvents((current) => [event, ...current].slice(0, 40));
@@ -41,6 +42,12 @@ export function App() {
       source.close();
     };
   }, []);
+
+  function openGuidedSession(project: ProjectProfile): void {
+    setSelectedProject(project);
+    setActiveSession(null);
+    setPage('session');
+  }
 
   return (
     <AppLayout page={page} health={health} onNavigate={setPage}>
@@ -53,8 +60,13 @@ export function App() {
           onSessionLoaded={setActiveSession}
         />
       ) : null}
+
       {page === 'projects' ? (
-        <ProjectsPage selectedProject={selectedProject} onProjectSelected={setSelectedProject} />
+        <ProjectsPage
+          selectedProject={selectedProject}
+          onProjectSelected={setSelectedProject}
+          onStartSession={openGuidedSession}
+        />
       ) : null}
 
       {page === 'session' ? (

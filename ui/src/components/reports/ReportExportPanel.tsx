@@ -1,4 +1,4 @@
-import { FileDown } from 'lucide-react';
+import { CheckCircle2, FileDown } from 'lucide-react';
 import type { ReportExportResult } from '../../types/runtime';
 import { Badge } from '../Badge';
 
@@ -16,31 +16,61 @@ export function ReportExportPanel({ result, loading, disabled, onExport }: Repor
         <div className="panel-title-row">
           <FileDown size={18} />
           <div>
-            <h2>Session Report</h2>
-            <p className="muted">Export final report as Markdown and JSON.</p>
+            <h2>Session report</h2>
+            <p className="muted">
+              Export the final audit trail for the session: workflow, approvals, sandbox, recovery,
+              apply result and runtime decisions.
+            </p>
           </div>
         </div>
 
-        <button disabled={disabled} onClick={onExport}>
-          {loading ? 'Exporting...' : 'Export report'}
-        </button>
+        <div className="artifact-toolbar-actions">
+          <Badge tone={result ? 'green' : 'slate'}>{result ? 'exported' : 'not exported'}</Badge>
+
+          <button disabled={disabled || loading} onClick={onExport}>
+            {loading ? 'Exporting...' : result ? 'Export again' : 'Export report'}
+          </button>
+        </div>
       </div>
 
-      {result ? (
-        <article className="integration-card">
-          <div className="integration-card-header">
-            <strong>Report exported</strong>
-            <Badge tone="green">saved</Badge>
+      {disabled ? (
+        <article className="report-empty-state warning">
+          <strong>No active session.</strong>
+          <p>Start or resume a session before exporting a report.</p>
+        </article>
+      ) : result ? (
+        <article className="report-success-card">
+          <div className="panel-title-row">
+            <CheckCircle2 size={20} />
+            <div>
+              <strong>Demo evidence exported</strong>
+              <p>
+                The MVP flow now has persistent Markdown and JSON evidence. Keep these files with
+                the runtime artifacts for review, debugging or handoff.
+              </p>
+            </div>
           </div>
 
-          <p>Markdown:</p>
-          <code>{result.files.markdownPath}</code>
+          <div className="report-path-grid">
+            <div>
+              <span>Markdown report</span>
+              <code>{result.files.markdownPath}</code>
+            </div>
 
-          <p>JSON:</p>
-          <code>{result.files.jsonPath}</code>
+            <div>
+              <span>JSON report</span>
+              <code>{result.files.jsonPath}</code>
+            </div>
+          </div>
         </article>
       ) : (
-        <p className="muted">No report exported yet.</p>
+        <article className="report-empty-state">
+          <strong>No report exported yet.</strong>
+          <p>
+            Export after you have useful evidence. Recommended MVP order: prepare project → create
+            plan → create patch → preview diff → run sandbox → dry-run/apply → export report.
+          </p>
+        </article>
       )}
     </section>
   );
