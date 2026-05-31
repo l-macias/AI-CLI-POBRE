@@ -1,6 +1,10 @@
+import type { AppliedDecisionContext } from '../interactive/SessionDecision.js';
+
 export type RuntimePlanRiskLevel = 'low' | 'medium' | 'high';
 
 export type RuntimePlanStatus = 'generated' | 'validated' | 'rejected';
+
+export type RuntimePlanMode = 'read_only' | 'patch';
 
 export type RuntimePlanStepKind =
   | 'inspect'
@@ -54,6 +58,7 @@ export interface RuntimePlan {
   projectRoot: string;
   projectName: string;
   objective: string;
+  mode?: RuntimePlanMode | undefined;
   scope: RuntimePlanScope;
   steps: RuntimePlanStep[];
   risks: RuntimePlanRisk[];
@@ -73,6 +78,7 @@ export interface RuntimePlanGenerationInput {
   workspaceMode: string;
   stack?: string[] | undefined;
   knownFiles?: string[] | undefined;
+  appliedDecisionContext?: AppliedDecisionContext | undefined;
 }
 
 export interface RuntimePlanValidationIssue {
@@ -91,6 +97,7 @@ export interface RuntimePlanGenerationResult {
   plan: RuntimePlan;
   validation: RuntimePlanValidationResult;
 }
+
 export type RuntimePlanSource = 'runtime' | 'provider' | 'fallback';
 
 export interface RuntimePlanGenerationEnvelope {

@@ -92,6 +92,10 @@ export class ApprovalCenter {
     input: ApprovalCenterArtifactState,
     createdAt: string,
   ): ApprovalRequest[] {
+    if (this.isReadOnly(input)) {
+      return [];
+    }
+
     if (!input.plan || !input.plan.requiresApproval || input.plan.status !== 'validated') {
       return [];
     }
@@ -145,6 +149,10 @@ export class ApprovalCenter {
     input: ApprovalCenterArtifactState,
     createdAt: string,
   ): ApprovalRequest[] {
+    if (this.isReadOnly(input)) {
+      return [];
+    }
+
     if (!input.proposal || input.proposal.status !== 'validated') {
       return [];
     }
@@ -258,6 +266,10 @@ export class ApprovalCenter {
     input: ApprovalCenterArtifactState,
     createdAt: string,
   ): ApprovalRequest[] {
+    if (this.isReadOnly(input)) {
+      return [];
+    }
+
     const commands = input.proposal?.verifyCommands ?? input.plan?.verifyCommands ?? [];
 
     if (commands.length === 0 || input.lastVerifyRun?.status === 'executed') {
@@ -305,7 +317,7 @@ export class ApprovalCenter {
     input: ApprovalCenterArtifactState,
     createdAt: string,
   ): ApprovalRequest[] {
-    if (!input.dirtyWorkingTree) {
+    if (this.isReadOnly(input) || !input.dirtyWorkingTree) {
       return [];
     }
 
@@ -386,6 +398,11 @@ export class ApprovalCenter {
       },
     ];
   }
+
+  private isReadOnly(input: ApprovalCenterArtifactState): boolean {
+    return input.planMode === 'read_only' || input.plan?.mode === 'read_only';
+  }
+
   private isDiffReadyForProposal(input: {
     proposalId: string;
     diffProposalId?: string | undefined;
@@ -399,6 +416,7 @@ export class ApprovalCenter {
       input.diffProposalId.startsWith(`${input.proposalId}-selected-`)
     );
   }
+
   private defaultActions(input: {
     allowSelectedFiles: boolean;
     allowApprove: boolean;
@@ -440,6 +458,10 @@ export class ApprovalCenter {
     availableFilePaths: string[];
     selectedFilePaths?: string[] | undefined;
   }): string[] {
+    if (input.action === 'reject' || input.action === 'ask_revision') {
+      return [];
+    }
+
     if (input.action !== 'approve_selected_files') {
       return input.availableFilePaths;
     }

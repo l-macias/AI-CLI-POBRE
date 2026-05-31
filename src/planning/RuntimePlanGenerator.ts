@@ -1,8 +1,11 @@
+import { GeneratedPathPolicy } from '../projects/GeneratedPathPolicy.js';
+import type { AppliedDecisionContext } from '../interactive/SessionDecision.js';
 import type {
   RuntimePlan,
   RuntimePlanCandidateFile,
   RuntimePlanGenerationInput,
   RuntimePlanGenerationResult,
+  RuntimePlanMode,
   RuntimePlanScope,
   RuntimePlanStep,
   RuntimePlanVerifyCommand,
@@ -18,6 +21,7 @@ export interface RuntimePlanGeneratorOptions {
 export class RuntimePlanGenerator {
   private readonly riskAnalyzer: PlanRiskAnalyzer;
   private readonly validator: PlanPolicyValidator;
+  private readonly generatedPathPolicy = new GeneratedPathPolicy();
 
   public constructor(options: RuntimePlanGeneratorOptions = {}) {
     this.riskAnalyzer = options.riskAnalyzer ?? new PlanRiskAnalyzer();
@@ -26,28 +30,35 @@ export class RuntimePlanGenerator {
 
   public generate(input: RuntimePlanGenerationInput): RuntimePlanGenerationResult {
     const stack = input.stack ?? [];
+    const mode = this.resolveMode(input);
     const candidateFiles = this.buildCandidateFiles(input);
     const scope = this.buildScope({
       instruction: input.instruction,
       stack,
       candidateFiles,
+      appliedDecisionContext: input.appliedDecisionContext,
+      mode,
     });
 
     const risks = this.riskAnalyzer.analyze({
       instruction: input.instruction,
       scope,
       stack,
+      readOnly: mode === 'read_only',
     });
 
     const riskLevel = this.riskAnalyzer.highestRisk(risks);
-    const needsSnapshot = riskLevel === 'medium' || riskLevel === 'high';
-    const requiresApproval = needsSnapshot || risks.length > 0;
-    const verifyCommands = this.buildVerifyCommands(stack);
-    const steps = this.buildSteps({
-      needsSnapshot,
-      requiresApproval,
-      verifyCommands,
-    });
+    const needsSnapshot = mode === 'patch' && (riskLevel === 'medium' || riskLevel === 'high');
+    const requiresApproval = mode === 'patch' && (needsSnapshot || risks.length > 0);
+    const verifyCommands = mode === 'read_only' ? [] : this.buildVerifyCommands(stack);
+    const steps =
+      mode === 'read_only'
+        ? this.buildReadOnlySteps()
+        : this.buildPatchSteps({
+            needsSnapshot,
+            requiresApproval,
+            verifyCommands,
+          });
 
     const plan: RuntimePlan = {
       id: this.createPlanId(),
@@ -55,6 +66,7 @@ export class RuntimePlanGenerator {
       projectRoot: input.projectRoot,
       projectName: input.projectName,
       objective: input.instruction.trim(),
+      mode,
       scope,
       steps,
       risks,
@@ -77,10 +89,51 @@ export class RuntimePlanGenerator {
     };
   }
 
+  private resolveMode(input: RuntimePlanGenerationInput): RuntimePlanMode {
+    const instruction = input.instruction.toLowerCase();
+    const workspaceMode = input.workspaceMode.toLowerCase();
+
+    if (workspaceMode === 'local_patchless') {
+      return 'read_only';
+    }
+
+    if (
+      this.containsAny(instruction, [
+        'read-only',
+        'readonly',
+        'read only',
+        'analysis only',
+        'recommendations only',
+        'recommendation only',
+        'solo lectura',
+        'solo analizar',
+        'solo recomendaciones',
+        'do not generate patches',
+        'do not generate patch',
+        'do not apply files',
+        'do not apply',
+        'do not create snapshots',
+        'do not create snapshot',
+        'without modifying',
+        'without changes',
+        'no file changes',
+        'no patches',
+        'no patch',
+        'audit only',
+      ])
+    ) {
+      return 'read_only';
+    }
+
+    return 'patch';
+  }
+
   private buildScope(input: {
     instruction: string;
     stack: string[];
     candidateFiles: RuntimePlanCandidateFile[];
+    appliedDecisionContext?: AppliedDecisionContext | undefined;
+    mode: RuntimePlanMode;
   }): RuntimePlanScope {
     const includedAreas = this.inferIncludedAreas(input.instruction, input.stack);
     const excludedAreas = [
@@ -88,20 +141,42 @@ export class RuntimePlanGenerator {
       'node_modules',
       '.git internals',
       'build outputs',
+      'generated output folders',
+      'dependency folders',
+      'cache folders',
       'direct database migrations without explicit approval',
+      ...(input.mode === 'read_only'
+        ? [
+            'patch proposal generation',
+            'file apply operations',
+            'snapshot creation for write flow',
+            'patch verification commands',
+          ]
+        : []),
+      ...this.renderAppliedBlockedAreas(input.appliedDecisionContext),
     ];
 
     return {
-      summary: `Plan generated from user instruction with ${input.candidateFiles.length} candidate file(s).`,
+      summary:
+        input.mode === 'read_only'
+          ? `Read-only plan generated from user instruction with ${input.candidateFiles.length} context file(s).`
+          : `Patch-oriented plan generated from user instruction with ${input.candidateFiles.length} candidate file(s).`,
       includedAreas,
-      excludedAreas,
+      excludedAreas: [...new Set(excludedAreas)],
       candidateFiles: input.candidateFiles,
     };
   }
 
   private buildCandidateFiles(input: RuntimePlanGenerationInput): RuntimePlanCandidateFile[] {
     const knownFiles = input.knownFiles ?? [];
-    const uniqueFiles = [...new Set(knownFiles.map((file) => file.trim()).filter(Boolean))];
+    const uniqueFiles = [
+      ...new Set(
+        knownFiles
+          .map((file) => file.trim().replaceAll('\\', '/'))
+          .filter((file) => file.length > 0)
+          .filter((file) => this.isAllowedCandidatePath(file, input.appliedDecisionContext)),
+      ),
+    ];
 
     if (uniqueFiles.length > 0) {
       return uniqueFiles.map((file) => ({
@@ -111,11 +186,63 @@ export class RuntimePlanGenerator {
       }));
     }
 
-    return this.inferCandidateFiles(input.instruction).map((file) => ({
-      path: file,
-      reason: 'Inferred from the user instruction.',
-      existsKnown: false,
-    }));
+    return this.inferCandidateFiles(input.instruction)
+      .filter((file) => this.isAllowedCandidatePath(file, input.appliedDecisionContext))
+      .map((file) => ({
+        path: file,
+        reason: 'Inferred from the user instruction.',
+        existsKnown: false,
+      }));
+  }
+
+  private isAllowedCandidatePath(
+    filePath: string,
+    appliedDecisionContext: AppliedDecisionContext | undefined,
+  ): boolean {
+    if (this.generatedPathPolicy.isGeneratedPath(filePath)) {
+      return false;
+    }
+
+    return !this.isBlockedByDecisionContext(filePath, appliedDecisionContext);
+  }
+
+  private isBlockedByDecisionContext(
+    filePath: string,
+    appliedDecisionContext: AppliedDecisionContext | undefined,
+  ): boolean {
+    const blockedPatterns = appliedDecisionContext?.blockedPathPatterns ?? [];
+
+    if (blockedPatterns.length === 0) {
+      return false;
+    }
+
+    const normalized = filePath.toLowerCase().replaceAll('\\', '/');
+
+    return blockedPatterns.some((pattern) => {
+      const normalizedPattern = pattern.toLowerCase().replaceAll('\\', '/').replace(/^\/+/, '');
+
+      return (
+        normalized === normalizedPattern ||
+        normalized.startsWith(`${normalizedPattern}/`) ||
+        normalized.includes(`/${normalizedPattern}/`) ||
+        normalized.includes(`/${normalizedPattern}`)
+      );
+    });
+  }
+
+  private renderAppliedBlockedAreas(
+    appliedDecisionContext: AppliedDecisionContext | undefined,
+  ): string[] {
+    if (!appliedDecisionContext) {
+      return [];
+    }
+
+    return [
+      ...appliedDecisionContext.blockedScopes.map((scope) => `blocked scope from memory: ${scope}`),
+      ...appliedDecisionContext.blockedPathPatterns.map(
+        (pattern) => `blocked path from memory: ${pattern}`,
+      ),
+    ];
   }
 
   private inferCandidateFiles(instruction: string): string[] {
@@ -201,16 +328,24 @@ export class RuntimePlanGenerator {
       },
     ];
 
+    if (normalizedStack.includes('typescript')) {
+      commands.push({
+        command: 'tsc',
+        args: ['--noEmit'],
+        reason: 'Run TypeScript compiler without emitting files.',
+        requiresApproval: true,
+      });
+    }
+
     if (
       normalizedStack.includes('react') ||
       normalizedStack.includes('vite') ||
-      normalizedStack.includes('next') ||
-      normalizedStack.includes('typescript')
+      normalizedStack.includes('nextjs')
     ) {
       commands.push({
         command: 'npm',
         args: ['run', 'build'],
-        reason: 'Validate project build after generated changes are reviewed.',
+        reason: 'Validate frontend build after approved changes.',
         requiresApproval: true,
       });
     }
@@ -218,7 +353,43 @@ export class RuntimePlanGenerator {
     return commands;
   }
 
-  private buildSteps(input: {
+  private buildReadOnlySteps(): RuntimePlanStep[] {
+    return [
+      {
+        id: 'step-001',
+        kind: 'inspect',
+        title: 'Inspect source structure',
+        description:
+          'Inspect source files, project configuration and relevant context without generating patches.',
+        requiresApproval: false,
+      },
+      {
+        id: 'step-002',
+        kind: 'context',
+        title: 'Analyze project boundaries',
+        description:
+          'Review frontend, backend, API routes, config files and package scripts in read-only mode.',
+        requiresApproval: false,
+      },
+      {
+        id: 'step-003',
+        kind: 'plan',
+        title: 'Produce recommendations',
+        description:
+          'Produce findings, risks and recommendations only. Do not create patch proposals or apply files.',
+        requiresApproval: false,
+      },
+      {
+        id: 'step-004',
+        kind: 'report',
+        title: 'Export analysis report',
+        description: 'Persist an auditable report with read-only findings and recommendations.',
+        requiresApproval: false,
+      },
+    ];
+  }
+
+  private buildPatchSteps(input: {
     needsSnapshot: boolean;
     requiresApproval: boolean;
     verifyCommands: RuntimePlanVerifyCommand[];
@@ -289,6 +460,10 @@ export class RuntimePlanGenerator {
     });
 
     return steps;
+  }
+
+  private containsAny(value: string, terms: string[]): boolean {
+    return terms.some((term) => value.includes(term));
   }
 
   private createPlanId(): string {

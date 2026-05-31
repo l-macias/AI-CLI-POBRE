@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { GeneratedPathPolicy } from '../../projects/GeneratedPathPolicy.js';
 
 export interface ApiClientFunction {
   name: string;
@@ -25,6 +26,7 @@ export interface ApiClientScannerOptions {
 export class ApiClientScanner {
   private readonly maxFiles: number;
   private readonly maxDepth: number;
+  private readonly generatedPathPolicy = new GeneratedPathPolicy();
 
   public constructor(options: ApiClientScannerOptions = {}) {
     this.maxFiles = options.maxFiles ?? 800;
@@ -203,6 +205,10 @@ export class ApiClientScanner {
       const absolutePath = path.join(input.current, entry.name);
       const relativePath = path.relative(input.root, absolutePath).replaceAll('\\', '/');
 
+      if (this.generatedPathPolicy.isGeneratedPath(relativePath)) {
+        continue;
+      }
+
       if (entry.isDirectory()) {
         await this.walkDirectory({
           root: input.root,
@@ -227,16 +233,7 @@ export class ApiClientScanner {
   }
 
   private shouldSkip(name: string): boolean {
-    return (
-      name === 'node_modules' ||
-      name === '.git' ||
-      name === 'dist' ||
-      name === 'build' ||
-      name === '.next' ||
-      name === '.turbo' ||
-      name === 'coverage' ||
-      name === '.runtime'
-    );
+    return this.generatedPathPolicy.isGeneratedPathSegmentName(name);
   }
 
   private async readText(filePath: string): Promise<string | null> {

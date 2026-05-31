@@ -30,7 +30,7 @@ export function WorkflowProgressHeader({ workflow }: WorkflowProgressHeaderProps
       </div>
 
       <div className="flex items-center gap-4 bg-zinc-950/50 p-4 rounded-lg border border-zinc-800/60">
-        <div className="flex flex-col items-center justify-center min-w-[60px]">
+        <div className="flex flex-col items-center justify-center min-w-15">
           <strong className="text-xl font-bold text-zinc-100">{workflow.percentage}%</strong>
           <span className="text-[10px] uppercase text-zinc-500 tracking-wider font-semibold">
             complete

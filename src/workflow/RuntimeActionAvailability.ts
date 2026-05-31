@@ -3,6 +3,7 @@ import type { RuntimeWorkflowState, RuntimeWorkflowStepId } from './RuntimeWorkf
 export type RuntimeWorkflowActionId =
   | 'start_session'
   | 'prepare_workflow'
+  | 'answer_runtime_questions'
   | 'generate_runtime_plan'
   | 'generate_patch_proposal'
   | 'generate_diff_preview'
@@ -75,6 +76,16 @@ export class RuntimeActionAvailabilityResolver {
           actionId: 'prepare_workflow',
           title: 'Prepare workflow',
           description: 'Analyze project context and prepare safe workflow data.',
+          enabled: true,
+          relatedStepId: stepId,
+        };
+
+      case 'runtime_questions':
+        return {
+          actionId: 'answer_runtime_questions',
+          title: 'Review runtime questions',
+          description:
+            'Answer high-priority questions before generating a plan so the runtime has the right constraints.',
           enabled: true,
           relatedStepId: stepId,
         };

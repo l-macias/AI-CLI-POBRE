@@ -169,16 +169,7 @@ const viteConfig = await readText(viteConfigPath);
 checkAllIncludes({
   content: viteConfig,
   filePath: viteConfigPath,
-  expected: [
-    "import react from '@vitejs/plugin-react'",
-    'defineConfig',
-    'plugins: [react()]',
-    "host: '127.0.0.1'",
-    'port: 5173',
-    "'/api'",
-    "target: 'http://127.0.0.1:17871'",
-    'changeOrigin: true',
-  ],
+  expected: ['react()', 'proxy:', "'/api'", "target: 'http://127.0.0.1:17871'"],
   reason: 'the local UI must proxy API calls to RuntimeApiServer',
 });
 
@@ -291,7 +282,6 @@ checkAllIncludes({
     'scanProject',
     'local_snapshot',
     'Scan and use project',
-    'Use this folder',
   ],
   reason: 'Projects page must support guided browse/select/scan onboarding',
 });

@@ -35,6 +35,9 @@ interface GuidedWorkflowPanelProps {
   reportExport: ReportExportResult | null;
   runtimeWorkflow: RuntimeWorkflowStateResponse | null;
   runtimeWorkflowLoading: boolean;
+  pendingQuestionCount: number;
+  pendingHighPriorityQuestionCount: number;
+  onReviewQuestions: () => void;
   onPrepareWorkflow: () => void;
   onGeneratePlan: () => void;
   onGenerateProviderPlan: () => void;
@@ -69,12 +72,12 @@ export function GuidedWorkflowPanel(props: GuidedWorkflowPanelProps) {
 
       <NextBestActionPanel action={action} />
 
-      <details className="group border border-zinc-800/60 rounded-xl bg-zinc-950/30">
+      <details className="group border border-zinc-800/60 rounded-xl bg-zinc-950/30 [&_summary::-webkit-details-marker]:hidden">
         <summary className="cursor-pointer p-4 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors select-none">
           Show advanced workflow details
         </summary>
 
-        <div className="flex flex-col gap-6 p-4 pt-0">
+        <div className="flex flex-col gap-6 p-4 pt-0 mt-2">
           <WorkflowHealthBadges
             runtimePlan={props.runtimePlan}
             patchProposal={props.patchProposal}
@@ -133,6 +136,20 @@ function buildWorkflowProgress(input: GuidedWorkflowPanelProps): WorkflowProgres
       ),
       reason: !input.session ? 'Start a session first.' : undefined,
       targetPanelId: 'project-intelligence-panel',
+    },
+    {
+      id: 'questions',
+      title: 'Runtime questions',
+      description: 'Answer important questions before generating a runtime plan.',
+      status:
+        input.pendingHighPriorityQuestionCount > 0 && input.runtimePlan === null
+          ? 'available'
+          : 'completed',
+      reason:
+        input.pendingHighPriorityQuestionCount > 0 && input.runtimePlan === null
+          ? `${input.pendingHighPriorityQuestionCount} high/medium priority question(s) pending.`
+          : undefined,
+      targetPanelId: 'runtime-questions-panel',
     },
     {
       id: 'plan',
@@ -317,7 +334,16 @@ function buildNextAction(input: GuidedWorkflowPanelProps): NextWorkflowAction {
       onRun: input.onPrepareWorkflow,
     };
   }
-
+  if (input.pendingHighPriorityQuestionCount > 0 && !input.runtimePlan) {
+    return {
+      title: 'Answer runtime questions first',
+      description:
+        'There are high/medium priority questions that can change scope, permissions or workspace behavior.',
+      buttonLabel: 'Review Questions',
+      disabled: false,
+      onRun: input.onReviewQuestions,
+    };
+  }
   if (!input.runtimePlan) {
     return {
       title: 'Create the implementation plan',
@@ -675,6 +701,8 @@ function buttonLabelForRuntimeAction(
       return 'Prepare Workflow';
     case 'generate_runtime_plan':
       return 'Generate Runtime Plan';
+    case 'answer_runtime_questions':
+      return 'Review Questions';
     case 'generate_patch_proposal':
       return 'Generate Patch Proposal';
     case 'generate_diff_preview':
@@ -713,6 +741,8 @@ function handlerForRuntimeAction(input: {
       return input.input.onPrepareWorkflow;
     case 'generate_runtime_plan':
       return input.input.onGeneratePlan;
+    case 'answer_runtime_questions':
+      return input.input.onReviewQuestions;
     case 'generate_patch_proposal':
       return input.input.onGeneratePatchProposal;
     case 'generate_diff_preview':
@@ -742,6 +772,8 @@ function targetPanelIdForStep(
       return 'session-start-panel';
     case 'prepare_workflow':
       return 'project-intelligence-panel';
+    case 'runtime_questions':
+      return 'runtime-questions-panel';
     case 'runtime_plan':
       return 'runtime-plan-panel';
     case 'patch_proposal':

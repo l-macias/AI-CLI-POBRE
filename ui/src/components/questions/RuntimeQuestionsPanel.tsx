@@ -16,7 +16,10 @@ export function RuntimeQuestionsPanel({
   onAnswer,
 }: RuntimeQuestionsPanelProps) {
   return (
-    <section className="flex flex-col rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
+    <section
+      id="runtime-questions-panel"
+      className="flex flex-col rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm"
+    >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-800/60 pb-5 mb-5">
         <div className="flex items-start gap-3">
           <HelpCircle size={20} className="text-indigo-400 mt-0.5 shrink-0" />

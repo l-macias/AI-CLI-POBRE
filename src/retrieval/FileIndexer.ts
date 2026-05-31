@@ -1,19 +1,9 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { GeneratedPathPolicy } from '../projects/GeneratedPathPolicy.js';
 import type { IndexedProjectFile } from '../types/RetrievalTypes.js';
 
 const defaultAllowedExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.json', '.md']);
-
-const ignoredSegments = new Set([
-  'node_modules',
-  '.git',
-  'dist',
-  'build',
-  '.next',
-  '.open-next',
-  '.wrangler',
-  'coverage',
-]);
 
 export interface FileIndexerOptions {
   rootDir?: string | undefined;
@@ -23,6 +13,7 @@ export interface FileIndexerOptions {
 export class FileIndexer {
   private readonly rootDir: string;
   private readonly maxFileBytes: number;
+  private readonly generatedPathPolicy = new GeneratedPathPolicy();
 
   public constructor(options: FileIndexerOptions = {}) {
     this.rootDir = options.rootDir ?? process.cwd();
@@ -41,6 +32,11 @@ export class FileIndexer {
       }
 
       const relativePath = this.toRelativePath(filePath);
+
+      if (this.generatedPathPolicy.isGeneratedPath(relativePath)) {
+        continue;
+      }
+
       const content = await readFile(filePath, 'utf8');
 
       indexed.push({
@@ -62,11 +58,16 @@ export class FileIndexer {
     const files: string[] = [];
 
     for (const entry of entries) {
-      if (ignoredSegments.has(entry.name)) {
+      if (this.generatedPathPolicy.isGeneratedPathSegmentName(entry.name)) {
         continue;
       }
 
       const absolutePath = path.join(directory, entry.name);
+      const relativePath = this.toRelativePath(absolutePath);
+
+      if (this.generatedPathPolicy.isGeneratedPath(relativePath)) {
+        continue;
+      }
 
       if (entry.isDirectory()) {
         files.push(...(await this.walk(absolutePath)));
@@ -90,6 +91,10 @@ export class FileIndexer {
   private isAllowedFile(filePath: string): boolean {
     const relativePath = this.toRelativePath(filePath);
     const extension = path.extname(filePath);
+
+    if (this.generatedPathPolicy.isGeneratedPath(relativePath)) {
+      return false;
+    }
 
     if (!defaultAllowedExtensions.has(extension)) {
       return false;

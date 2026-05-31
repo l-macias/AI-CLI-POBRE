@@ -4,12 +4,17 @@ export interface PlanRiskAnalyzerInput {
   instruction: string;
   scope: RuntimePlanScope;
   stack: string[];
+  readOnly?: boolean | undefined;
 }
 
 export class PlanRiskAnalyzer {
   public analyze(input: PlanRiskAnalyzerInput): RuntimePlanRisk[] {
     const normalizedInstruction = input.instruction.toLowerCase();
     const risks: RuntimePlanRisk[] = [];
+
+    if (input.readOnly === true) {
+      return this.analyzeReadOnly(input);
+    }
 
     if (this.containsAny(normalizedInstruction, ['delete', 'remove', 'borrar', 'eliminar'])) {
       risks.push({
@@ -80,6 +85,54 @@ export class PlanRiskAnalyzer {
     }
 
     return 'low';
+  }
+
+  private analyzeReadOnly(input: PlanRiskAnalyzerInput): RuntimePlanRisk[] {
+    const normalizedInstruction = input.instruction.toLowerCase();
+    const risks: RuntimePlanRisk[] = [
+      {
+        code: 'READ_ONLY_ANALYSIS',
+        level: 'low',
+        message: 'The objective explicitly requests read-only analysis or recommendations only.',
+        mitigation:
+          'Do not generate patches, snapshots, apply steps or patch verification commands.',
+      },
+    ];
+
+    if (
+      this.containsAny(normalizedInstruction, [
+        'database',
+        'db',
+        'prisma',
+        'migration',
+        'schema',
+        'auth',
+        'login',
+        'token',
+        'jwt',
+        'session',
+      ])
+    ) {
+      risks.push({
+        code: 'READ_ONLY_SENSITIVE_AREA_REVIEW',
+        level: 'low',
+        message:
+          'The read-only objective mentions sensitive areas that should be reviewed without writes.',
+        mitigation:
+          'Keep analysis informational and require a new explicit patch objective for modifications.',
+      });
+    }
+
+    if (input.scope.candidateFiles.some((file) => this.isSensitivePath(file.path))) {
+      risks.push({
+        code: 'READ_ONLY_SENSITIVE_FILE_CONTEXT',
+        level: 'low',
+        message: 'The read-only context may include sensitive file areas for inspection.',
+        mitigation: 'Use only read-only inspection and avoid patch proposal or apply flow.',
+      });
+    }
+
+    return risks;
   }
 
   private containsAny(value: string, terms: string[]): boolean {

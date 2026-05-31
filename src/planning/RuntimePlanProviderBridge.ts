@@ -1,26 +1,19 @@
 import { z } from 'zod';
-import type { ProviderManager } from '../providers/ProviderManager.js';
+import { GeneratedPathPolicy } from '../projects/GeneratedPathPolicy.js';
+import type { AppliedDecisionContext } from '../interactive/SessionDecision.js';
 import type { ProviderName, ProviderUsage } from '../types/ProviderTypes.js';
+import type { ProviderManager } from '../providers/ProviderManager.js';
 import type {
   RuntimePlan,
   RuntimePlanGenerationInput,
   RuntimePlanGenerationResult,
+  RuntimePlanMode,
   RuntimePlanStatus,
+  RuntimePlanStep,
 } from './RuntimePlan.js';
 import { PlanPolicyValidator } from './PlanPolicyValidator.js';
 
 const riskLevelSchema = z.enum(['low', 'medium', 'high']);
-
-type ProviderStepKind =
-  | 'inspect'
-  | 'context'
-  | 'question'
-  | 'snapshot'
-  | 'plan'
-  | 'patch'
-  | 'approval'
-  | 'verify'
-  | 'report';
 
 const providerStepKindValues = [
   'inspect',
@@ -33,6 +26,8 @@ const providerStepKindValues = [
   'verify',
   'report',
 ] as const;
+
+type ProviderStepKind = RuntimePlanStep['kind'];
 
 const providerStepKindAliasValues = [
   'analyze',
@@ -152,6 +147,7 @@ export class RuntimePlanProviderBridge {
   private readonly providerName: ProviderName;
   private readonly model: string;
   private readonly validator: PlanPolicyValidator;
+  private readonly generatedPathPolicy = new GeneratedPathPolicy();
 
   public constructor(options: RuntimePlanProviderBridgeOptions) {
     this.providerManager = options.providerManager;
@@ -173,7 +169,7 @@ export class RuntimePlanProviderBridge {
         messages: [
           {
             role: 'system',
-            content: this.buildSystemPrompt(),
+            content: this.buildSystemPrompt(input),
           },
           {
             role: 'user',
@@ -213,25 +209,129 @@ export class RuntimePlanProviderBridge {
     input: RuntimePlanProviderBridgeInput;
     output: ProviderRuntimePlanOutput;
   }): RuntimePlan {
+    const mode = this.resolveMode(input.input);
+    const normalizedOutput =
+      mode === 'read_only' ? this.normalizeReadOnlyOutput(input.output) : input.output;
+
     return {
       id: this.createPlanId(),
       sessionId: input.input.sessionId,
       projectRoot: input.input.projectRoot,
       projectName: input.input.projectName,
-      objective: input.output.objective.trim(),
-      scope: this.normalizeProviderScope(input),
-      steps: input.output.steps.map((step) => ({
+      objective: normalizedOutput.objective.trim(),
+      mode,
+      scope: this.normalizeProviderScope({
+        input: input.input,
+        output: normalizedOutput,
+        mode,
+      }),
+      steps: normalizedOutput.steps.map((step) => ({
         ...step,
         kind: this.normalizeProviderStepKind(step.kind),
       })),
-      risks: input.output.risks,
-      verifyCommands: input.output.verifyCommands,
-      needsSnapshot: input.output.needsSnapshot,
-      requiresApproval: input.output.requiresApproval,
-      riskLevel: input.output.riskLevel,
+      risks: normalizedOutput.risks,
+      verifyCommands: mode === 'read_only' ? [] : normalizedOutput.verifyCommands,
+      needsSnapshot: mode === 'read_only' ? false : normalizedOutput.needsSnapshot,
+      requiresApproval: mode === 'read_only' ? false : normalizedOutput.requiresApproval,
+      riskLevel: mode === 'read_only' ? 'low' : normalizedOutput.riskLevel,
       status: 'generated',
       createdAt: new Date().toISOString(),
     };
+  }
+
+  private normalizeReadOnlyOutput(output: ProviderRuntimePlanOutput): ProviderRuntimePlanOutput {
+    const safeSteps = output.steps.filter((step) => {
+      const kind = this.normalizeProviderStepKind(step.kind);
+
+      return kind !== 'patch' && kind !== 'approval' && kind !== 'snapshot' && kind !== 'verify';
+    });
+
+    const fallbackSteps: ProviderRuntimePlanOutput['steps'] = [
+      {
+        id: 'step-001',
+        kind: 'inspect',
+        title: 'Inspect source structure',
+        description: 'Inspect source files and project configuration without writes.',
+        requiresApproval: false,
+      },
+      {
+        id: 'step-002',
+        kind: 'context',
+        title: 'Analyze project boundaries',
+        description: 'Analyze relevant project boundaries in read-only mode.',
+        requiresApproval: false,
+      },
+      {
+        id: 'step-003',
+        kind: 'plan',
+        title: 'Produce recommendations',
+        description: 'Produce findings and recommendations only.',
+        requiresApproval: false,
+      },
+      {
+        id: 'step-004',
+        kind: 'report',
+        title: 'Export analysis report',
+        description: 'Export read-only analysis report.',
+        requiresApproval: false,
+      },
+    ];
+
+    return {
+      ...output,
+      steps: safeSteps.length > 0 ? safeSteps : fallbackSteps,
+      verifyCommands: [],
+      needsSnapshot: false,
+      requiresApproval: false,
+      riskLevel: 'low',
+      risks: output.risks.map((risk) => ({
+        ...risk,
+        level: 'low',
+        mitigation:
+          risk.mitigation.trim().length > 0
+            ? risk.mitigation
+            : 'Keep the result informational and require a new explicit patch objective for changes.',
+      })),
+    };
+  }
+
+  private resolveMode(input: RuntimePlanProviderBridgeInput): RuntimePlanMode {
+    const instruction = input.instruction.toLowerCase();
+    const workspaceMode = input.workspaceMode.toLowerCase();
+
+    if (workspaceMode === 'local_patchless') {
+      return 'read_only';
+    }
+
+    if (
+      this.containsAny(instruction, [
+        'read-only',
+        'readonly',
+        'read only',
+        'analysis only',
+        'recommendations only',
+        'recommendation only',
+        'solo lectura',
+        'solo analizar',
+        'solo recomendaciones',
+        'do not generate patches',
+        'do not generate patch',
+        'do not apply files',
+        'do not apply',
+        'do not create snapshots',
+        'do not create snapshot',
+        'without modifying',
+        'without changes',
+        'no file changes',
+        'no patches',
+        'no patch',
+        'audit only',
+      ])
+    ) {
+      return 'read_only';
+    }
+
+    return 'patch';
   }
 
   private normalizeProviderStepKind(kind: ProviderStepKindInput): ProviderStepKind {
@@ -247,207 +347,250 @@ export class RuntimePlanProviderBridge {
 
     throw new Error(`Unsupported provider step kind: ${kind}`);
   }
+
   private normalizeProviderScope(input: {
     input: RuntimePlanProviderBridgeInput;
     output: ProviderRuntimePlanOutput;
+    mode: RuntimePlanMode;
   }): RuntimePlan['scope'] {
     return {
       ...input.output.scope,
-      candidateFiles:
-        input.output.scope.candidateFiles.length > 0
-          ? input.output.scope.candidateFiles
-          : this.buildFallbackCandidateFiles(input.input),
+      summary:
+        input.mode === 'read_only'
+          ? `Read-only provider plan generated with ${input.output.scope.candidateFiles.length} context file(s).`
+          : input.output.scope.summary,
+      excludedAreas: [
+        ...input.output.scope.excludedAreas,
+        ...(input.mode === 'read_only'
+          ? [
+              'patch proposal generation',
+              'file apply operations',
+              'snapshot creation for write flow',
+              'patch verification commands',
+            ]
+          : []),
+        ...this.renderAppliedBlockedAreas(input.input.appliedDecisionContext),
+      ],
+      candidateFiles: this.normalizeCandidateFiles(input),
     };
+  }
+
+  private normalizeCandidateFiles(input: {
+    input: RuntimePlanProviderBridgeInput;
+    output: ProviderRuntimePlanOutput;
+  }): RuntimePlan['scope']['candidateFiles'] {
+    const providerFiles = input.output.scope.candidateFiles.filter((candidate) => {
+      return this.isAllowedCandidatePath(candidate.path, input.input.appliedDecisionContext);
+    });
+
+    if (providerFiles.length > 0) {
+      return providerFiles;
+    }
+
+    return this.buildFallbackCandidateFiles(input.input);
+  }
+
+  private isAllowedCandidatePath(
+    filePath: string,
+    appliedDecisionContext: AppliedDecisionContext | undefined,
+  ): boolean {
+    if (this.generatedPathPolicy.isGeneratedPath(filePath)) {
+      return false;
+    }
+
+    return !this.isBlockedByDecisionContext(filePath, appliedDecisionContext);
+  }
+
+  private isBlockedByDecisionContext(
+    filePath: string,
+    appliedDecisionContext: AppliedDecisionContext | undefined,
+  ): boolean {
+    const blockedPatterns = appliedDecisionContext?.blockedPathPatterns ?? [];
+
+    if (blockedPatterns.length === 0) {
+      return false;
+    }
+
+    const normalized = filePath.toLowerCase().replaceAll('\\', '/');
+
+    return blockedPatterns.some((pattern) => {
+      const normalizedPattern = pattern.toLowerCase().replaceAll('\\', '/').replace(/^\/+/, '');
+
+      return (
+        normalized === normalizedPattern ||
+        normalized.startsWith(`${normalizedPattern}/`) ||
+        normalized.includes(`/${normalizedPattern}/`) ||
+        normalized.includes(`/${normalizedPattern}`)
+      );
+    });
+  }
+
+  private renderAppliedBlockedAreas(
+    appliedDecisionContext: AppliedDecisionContext | undefined,
+  ): string[] {
+    if (!appliedDecisionContext) {
+      return [];
+    }
+
+    return [
+      ...appliedDecisionContext.blockedScopes.map((scope) => `blocked scope from memory: ${scope}`),
+      ...appliedDecisionContext.blockedPathPatterns.map(
+        (pattern) => `blocked path from memory: ${pattern}`,
+      ),
+    ];
+  }
+
+  private resolveProviderStepKindAlias(kind: ProviderStepKindInput): ProviderStepKind | null {
+    if (this.isProviderStepKindAlias(kind)) {
+      return stepKindAliases[kind];
+    }
+
+    return null;
+  }
+
+  private isProviderStepKind(kind: string): kind is ProviderStepKind {
+    return providerStepKindValues.some((value) => value === kind);
+  }
+
+  private isProviderStepKindAlias(kind: string): kind is ProviderStepKindAlias {
+    return providerStepKindAliasValues.some((value) => value === kind);
   }
 
   private buildFallbackCandidateFiles(
     input: RuntimePlanProviderBridgeInput,
   ): RuntimePlan['scope']['candidateFiles'] {
-    const knownFiles = (input.knownFiles ?? [])
+    const knownFiles = input.knownFiles ?? [];
+    const safeKnownFiles = knownFiles
       .map((file) => file.trim().replaceAll('\\', '/'))
       .filter((file) => file.length > 0)
       .filter((file) => !this.isProtectedPath(file))
-      .slice(0, 12);
+      .filter((file) => this.isAllowedCandidatePath(file, input.appliedDecisionContext));
 
-    if (knownFiles.length > 0) {
-      return knownFiles.map((file) => ({
+    if (safeKnownFiles.length > 0) {
+      return [...new Set(safeKnownFiles)].slice(0, 12).map((file) => ({
         path: file,
-        reason:
-          'Provider returned no candidate files. Runtime selected this known file from validated context.',
+        reason: 'Provided by runtime context as a known relevant file.',
         existsKnown: true,
       }));
     }
 
-    const normalizedInstruction = input.instruction.toLowerCase();
-    const fallbackFiles: string[] = [];
-
-    if (
-      normalizedInstruction.includes('ui') ||
-      normalizedInstruction.includes('frontend') ||
-      normalizedInstruction.includes('react') ||
-      normalizedInstruction.includes('next') ||
-      normalizedInstruction.includes('component')
-    ) {
-      fallbackFiles.push('src/components');
-      fallbackFiles.push('src/app');
-      fallbackFiles.push('src/pages');
-      fallbackFiles.push('src/styles');
-    }
-
-    if (
-      normalizedInstruction.includes('api') ||
-      normalizedInstruction.includes('backend') ||
-      normalizedInstruction.includes('route')
-    ) {
-      fallbackFiles.push('src/routes');
-      fallbackFiles.push('src/controllers');
-    }
-
-    if (fallbackFiles.length === 0) {
-      fallbackFiles.push('src');
-    }
-
-    return [...new Set(fallbackFiles)].map((file) => ({
-      path: file,
-      reason:
-        'Provider returned no candidate files. Runtime selected a conservative inferred fallback path.',
-      existsKnown: false,
-    }));
-  }
-  private resolveProviderStepKindAlias(kind: ProviderStepKindInput): ProviderStepKind | undefined {
-    for (const [alias, normalized] of Object.entries(stepKindAliases)) {
-      if (alias === kind) {
-        return normalized;
-      }
-    }
-
-    return undefined;
-  }
-
-  private isProviderStepKind(kind: ProviderStepKindInput): kind is ProviderStepKind {
-    return providerStepKindValues.some((value) => value === kind);
-  }
-
-  private buildSystemPrompt(): string {
     return [
-      'You propose structured runtime plans for Zero Runtime.',
-      'Return exactly one valid JSON object.',
-      'No markdown. No prose. No comments. No extra keys.',
-      'The LLM proposes only; the runtime validates, approves, blocks, persists and decides.',
-      'Never include file contents.',
-      'Never include secrets.',
-      'Never propose touching .env, .git, node_modules, dist, build or .next.',
-      'Never propose applying patches directly.',
-      'Never propose shell execution beyond safe verify command suggestions.',
-      'candidateFiles must contain at least one safe frontend/project file or directory.',
-      'If exact files are unknown, use conservative paths like src/components, src/app, src/pages, or src/styles.',
-      'Never return an empty candidateFiles array.',
-      'Allowed step.kind values are only: inspect, context, question, snapshot, plan, patch, approval, verify, report.',
-      'Do not use analyze, propose, validate, test, summarize, or approve as step.kind.',
-      'Use inspect for analysis steps.',
-      'Use patch for proposal/change generation steps.',
-      'Verify commands must require approval.',
-      'Patch, approval and snapshot steps must require approval.',
+      {
+        path: 'src',
+        reason:
+          'Fallback safe source directory selected because no safe known files were provided.',
+        existsKnown: false,
+      },
+    ];
+  }
+
+  private buildSystemPrompt(input: RuntimePlanProviderBridgeInput): string {
+    const mode = this.resolveMode(input);
+
+    return [
+      'You are Zero Runtime plan generator.',
+      'Return only valid JSON matching the provided schema.',
+      'The runtime is the authority: you propose, the runtime validates and decides.',
+      'Prefer source files, app/pages/components/api routes/config files and package scripts.',
+      'Never propose touching .env, .git, node_modules, dist, build, out, .next, .open-next, .cache, .turbo, .vercel, coverage or generated output folders.',
+      'Never propose unsafe commands.',
+      'Every verification command requires approval.',
+      'Use allowed step kinds only: inspect, context, question, snapshot, plan, patch, approval, verify, report.',
+      'Session memory hard rules are executable runtime policy. Treat blocked paths and scopes as forbidden.',
+      ...(mode === 'read_only'
+        ? [
+            'This is a read-only objective.',
+            'Do not generate patch, approval, snapshot, apply, sandbox, recovery or patch verification steps.',
+            'Produce analysis and recommendations only.',
+          ]
+        : []),
     ].join('\n');
   }
 
   private buildUserPrompt(input: RuntimePlanProviderBridgeInput): string {
+    const mode = this.resolveMode(input);
+
     return [
-      `Session ID: ${input.sessionId}`,
-      `Project name: ${input.projectName}`,
-      `Instruction: ${input.instruction}`,
+      `Project: ${input.projectName}`,
+      `Project root: ${input.projectRoot}`,
       `Workspace mode: ${input.workspaceMode}`,
+      `Plan mode: ${mode}`,
+      `Objective: ${input.instruction}`,
       `Stack: ${(input.stack ?? []).join(', ') || 'unknown'}`,
-      `Known files: ${this.formatKnownFiles(input.knownFiles ?? [])}`,
-      `Runtime context: ${this.safeRuntimeContext(input.runtimeContext ?? '')}`,
       '',
-      'Return JSON with this exact shape:',
-      JSON.stringify(
-        {
-          objective: 'string',
-          scope: {
-            summary: 'string',
-            includedAreas: ['string'],
-            excludedAreas: ['string'],
-            candidateFiles: [
-              {
-                path: 'src/example.ts',
-                reason: 'why this file is relevant',
-                existsKnown: true,
-              },
-            ],
-          },
-          steps: [
-            {
-              id: 'step-001',
-              kind: 'inspect',
-              title: 'Inspect relevant context',
-              description: 'Read relevant files before generating a patch proposal.',
-              requiresApproval: false,
-            },
-          ],
-          risks: [
-            {
-              code: 'LOW_RISK_PLANNING_ONLY',
-              level: 'low',
-              message: 'Planning only.',
-              mitigation: 'Runtime validates before any change.',
-            },
-          ],
-          verifyCommands: [
-            {
-              command: 'npm',
-              args: ['run', 'typecheck'],
-              reason: 'Validate TypeScript correctness.',
-              requiresApproval: true,
-            },
-          ],
-          needsSnapshot: true,
-          requiresApproval: true,
-          riskLevel: 'medium',
-        },
-        null,
-        2,
-      ),
+      'Known files:',
+      this.formatKnownFiles(input.knownFiles ?? [], input.appliedDecisionContext),
+      '',
+      'Applied session memory policy:',
+      this.renderAppliedDecisionContext(input.appliedDecisionContext),
+      '',
+      'Runtime context:',
+      input.runtimeContext?.trim() || 'No runtime context provided.',
+      '',
+      mode === 'read_only'
+        ? 'Generate a read-only analysis plan. Do not include patch/snapshot/approval/verify-for-patch steps.'
+        : 'Generate a safe runtime plan. Do not include generated output folders or memory-blocked paths as candidate files.',
     ].join('\n');
   }
 
-  private formatKnownFiles(files: string[]): string {
+  private formatKnownFiles(
+    files: string[],
+    appliedDecisionContext: AppliedDecisionContext | undefined,
+  ): string {
     const safeFiles = files
       .map((file) => file.trim().replaceAll('\\', '/'))
       .filter((file) => file.length > 0)
       .filter((file) => !this.isProtectedPath(file))
-      .slice(0, 40);
+      .filter((file) => this.isAllowedCandidatePath(file, appliedDecisionContext));
 
-    return safeFiles.length > 0 ? safeFiles.join(', ') : 'none';
+    if (safeFiles.length === 0) {
+      return '- none';
+    }
+
+    return [...new Set(safeFiles)]
+      .slice(0, 40)
+      .map((file) => `- ${file}`)
+      .join('\n');
   }
 
-  private safeRuntimeContext(context: string): string {
-    return context
-      .replace(/sk-or-v1-[A-Za-z0-9._~:/+=-]+/g, 'sk-or-v1-[redacted]')
-      .replace(/Bearer\s+[A-Za-z0-9._~:/+=-]+/gi, 'Bearer [redacted]')
-      .replace(/OPENROUTER_API_KEY\s*=\s*[^\s]+/gi, 'OPENROUTER_API_KEY=[redacted]')
-      .slice(0, 2500);
+  private renderAppliedDecisionContext(
+    appliedDecisionContext: AppliedDecisionContext | undefined,
+  ): string {
+    if (!appliedDecisionContext) {
+      return '- none';
+    }
+
+    return [
+      `- requiresApproval: ${String(appliedDecisionContext.requiresApproval)}`,
+      `- securityStrict: ${String(appliedDecisionContext.securityStrict)}`,
+      `- blockedScopes: ${appliedDecisionContext.blockedScopes.join(', ') || 'none'}`,
+      `- blockedPathPatterns: ${appliedDecisionContext.blockedPathPatterns.join(', ') || 'none'}`,
+      `- codingRules: ${appliedDecisionContext.codingRules.join(' | ') || 'none'}`,
+      `- notes: ${appliedDecisionContext.notes.join(' | ') || 'none'}`,
+    ].join('\n');
   }
 
   private isProtectedPath(filePath: string): boolean {
     const normalized = filePath.toLowerCase().replaceAll('\\', '/');
     const segments = normalized.split('/');
 
-    return (
-      segments.includes('.env') ||
-      segments.includes('.git') ||
-      segments.includes('node_modules') ||
-      segments.includes('dist') ||
-      segments.includes('build') ||
-      segments.includes('.next') ||
-      normalized.endsWith('.env') ||
-      normalized.includes('.env.')
-    );
+    if (this.generatedPathPolicy.isGeneratedPath(filePath)) {
+      return true;
+    }
+
+    if (normalized.startsWith('.env') || normalized.includes('/.env')) {
+      return true;
+    }
+
+    return segments.includes('.git') || segments.includes('node_modules');
+  }
+
+  private containsAny(value: string, terms: string[]): boolean {
+    return terms.some((term) => value.includes(term));
   }
 
   private createPlanId(): string {
-    return `provider-runtime-plan-${new Date()
+    return `runtime-plan-provider-${new Date()
       .toISOString()
       .replaceAll('-', '')
       .replaceAll(':', '')

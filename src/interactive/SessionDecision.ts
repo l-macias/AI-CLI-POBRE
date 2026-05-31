@@ -43,6 +43,8 @@ export interface AppliedDecisionContext {
   sessionId: string;
   blockedScopes: string[];
   allowedScopes: string[];
+  blockedPathPatterns: string[];
+  allowedPathPatterns: string[];
   codingRules: string[];
   workspaceMode?: string | undefined;
   requiresApproval: boolean;

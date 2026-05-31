@@ -11,3 +11,5 @@ dist/
 done.md
 sessions.chat.md
 bundle_context.sh
+.runtime_backup_old
+*.md

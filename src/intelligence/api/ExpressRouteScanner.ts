@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { GeneratedPathPolicy } from '../../projects/GeneratedPathPolicy.js';
 import type { ApiHttpMethod, ApiRouteDefinition, ApiRouteMap } from './ApiRouteMap.js';
 import { ControllerResolver } from './ControllerResolver.js';
 import { MiddlewareResolver } from './MiddlewareResolver.js';
@@ -14,6 +15,7 @@ export interface ExpressRouteScannerOptions {
 export class ExpressRouteScanner {
   private readonly maxFiles: number;
   private readonly maxDepth: number;
+  private readonly generatedPathPolicy = new GeneratedPathPolicy();
   private readonly controllerResolver: ControllerResolver;
   private readonly middlewareResolver: MiddlewareResolver;
 
@@ -217,6 +219,10 @@ export class ExpressRouteScanner {
       const absolutePath = path.join(input.current, entry.name);
       const relativePath = path.relative(input.root, absolutePath).replaceAll('\\', '/');
 
+      if (this.generatedPathPolicy.isGeneratedPath(relativePath)) {
+        continue;
+      }
+
       if (entry.isDirectory()) {
         await this.walkDirectory({
           root: input.root,
@@ -241,16 +247,7 @@ export class ExpressRouteScanner {
   }
 
   private shouldSkip(name: string): boolean {
-    return (
-      name === 'node_modules' ||
-      name === '.git' ||
-      name === 'dist' ||
-      name === 'build' ||
-      name === '.next' ||
-      name === '.turbo' ||
-      name === 'coverage' ||
-      name === '.runtime'
-    );
+    return this.generatedPathPolicy.isGeneratedPathSegmentName(name);
   }
 
   private async readText(filePath: string): Promise<string | null> {

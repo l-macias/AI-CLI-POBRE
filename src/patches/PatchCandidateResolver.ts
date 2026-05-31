@@ -1,67 +1,53 @@
 import type { Dirent } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { GeneratedPathPolicy } from '../projects/GeneratedPathPolicy.js';
+import type { RuntimePlanCandidateFile } from '../planning/RuntimePlan.js';
 
-export interface PatchCandidateInput {
-  path: string;
-  existsKnown: boolean;
-  reason: string;
+const defaultExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.css', '.scss', '.json', '.md']);
+
+export interface PatchCandidateInput extends RuntimePlanCandidateFile {
+  content?: string | undefined;
 }
 
 export interface ResolvedPatchCandidate {
   path: string;
   content: string;
-  existsKnown: true;
+  existsKnown: boolean;
   reason: string;
 }
 
 export interface PatchCandidateResolverInput {
   projectRoot: string;
   candidates: PatchCandidateInput[];
-  maxFiles?: number;
-  maxFileBytes?: number;
+  maxFiles?: number | undefined;
+  maxFileBytes?: number | undefined;
 }
 
-const defaultExtensions = new Set([
-  '.tsx',
-  '.ts',
-  '.jsx',
-  '.js',
-  '.css',
-  '.scss',
-  '.sass',
-  '.module.css',
-  '.module.scss',
-]);
-
 export class PatchCandidateResolver {
+  private readonly generatedPathPolicy = new GeneratedPathPolicy();
+
   public async resolve(input: PatchCandidateResolverInput): Promise<ResolvedPatchCandidate[]> {
-    const maxFiles = input.maxFiles ?? 8;
-    const maxFileBytes = input.maxFileBytes ?? 32_000;
-    const resolved = new Map<string, ResolvedPatchCandidate>();
+    const maxFiles = input.maxFiles ?? 12;
+    const maxFileBytes = input.maxFileBytes ?? 80_000;
+    const resolved: ResolvedPatchCandidate[] = [];
 
     for (const candidate of input.candidates) {
+      if (resolved.length >= maxFiles) {
+        break;
+      }
+
       const discovered = await this.discoverCandidate({
         projectRoot: input.projectRoot,
         candidate,
-        maxFiles,
+        maxFiles: maxFiles - resolved.length,
         maxFileBytes,
       });
 
-      for (const file of discovered) {
-        if (resolved.size >= maxFiles) {
-          break;
-        }
-
-        resolved.set(file.path, file);
-      }
-
-      if (resolved.size >= maxFiles) {
-        break;
-      }
+      resolved.push(...discovered);
     }
 
-    return [...resolved.values()];
+    return this.dedupe(resolved).slice(0, maxFiles);
   }
 
   private async discoverCandidate(input: {
@@ -72,14 +58,32 @@ export class PatchCandidateResolver {
   }): Promise<ResolvedPatchCandidate[]> {
     const normalizedPath = this.normalizeCandidatePath(input.candidate.path);
 
-    if (!normalizedPath || this.isProtectedPath(normalizedPath)) {
+    if (
+      !normalizedPath ||
+      this.generatedPathPolicy.isGeneratedPath(normalizedPath) ||
+      this.isProtectedPath(normalizedPath)
+    ) {
       return [];
+    }
+
+    if (input.candidate.content !== undefined && this.isPatchableFile(normalizedPath)) {
+      return [
+        {
+          path: normalizedPath,
+          content: input.candidate.content,
+          existsKnown: input.candidate.existsKnown,
+          reason: input.candidate.reason,
+        },
+      ];
     }
 
     if (this.looksLikeGlob(normalizedPath)) {
       return this.discoverGlobLikeCandidate({
-        ...input,
+        projectRoot: input.projectRoot,
+        candidate: input.candidate,
         normalizedPath,
+        maxFiles: input.maxFiles,
+        maxFileBytes: input.maxFileBytes,
       });
     }
 
@@ -92,6 +96,16 @@ export class PatchCandidateResolver {
     try {
       const stats = await stat(absolutePath);
 
+      if (stats.isDirectory()) {
+        return this.discoverDirectory({
+          projectRoot: input.projectRoot,
+          relativePath: normalizedPath,
+          reason: input.candidate.reason,
+          maxFiles: input.maxFiles,
+          maxFileBytes: input.maxFileBytes,
+        });
+      }
+
       if (stats.isFile()) {
         const file = await this.readSafeFile({
           projectRoot: input.projectRoot,
@@ -101,16 +115,6 @@ export class PatchCandidateResolver {
         });
 
         return file ? [file] : [];
-      }
-
-      if (stats.isDirectory()) {
-        return this.discoverDirectory({
-          projectRoot: input.projectRoot,
-          relativePath: normalizedPath,
-          reason: input.candidate.reason,
-          maxFiles: input.maxFiles,
-          maxFileBytes: input.maxFileBytes,
-        });
       }
 
       return [];
@@ -128,7 +132,11 @@ export class PatchCandidateResolver {
   }): Promise<ResolvedPatchCandidate[]> {
     const baseDirectory = this.extractGlobBaseDirectory(input.normalizedPath);
 
-    if (!baseDirectory || this.isProtectedPath(baseDirectory)) {
+    if (
+      !baseDirectory ||
+      this.generatedPathPolicy.isGeneratedPath(baseDirectory) ||
+      this.isProtectedPath(baseDirectory)
+    ) {
       return [];
     }
 
@@ -194,7 +202,11 @@ export class PatchCandidateResolver {
     while (pending.length > 0 && files.length < input.maxFilesToScan) {
       const current = pending.shift();
 
-      if (!current || this.isProtectedPath(current)) {
+      if (
+        !current ||
+        this.generatedPathPolicy.isGeneratedPath(current) ||
+        this.isProtectedPath(current)
+      ) {
         continue;
       }
 
@@ -214,7 +226,10 @@ export class PatchCandidateResolver {
       for (const entry of entries) {
         const relativeEntryPath = path.posix.join(current.replaceAll('\\', '/'), entry.name);
 
-        if (this.isProtectedPath(relativeEntryPath)) {
+        if (
+          this.generatedPathPolicy.isGeneratedPath(relativeEntryPath) ||
+          this.isProtectedPath(relativeEntryPath)
+        ) {
           continue;
         }
 
@@ -242,6 +257,10 @@ export class PatchCandidateResolver {
     reason: string;
     maxFileBytes: number;
   }): Promise<ResolvedPatchCandidate | null> {
+    if (this.generatedPathPolicy.isGeneratedPath(input.relativePath)) {
+      return null;
+    }
+
     if (!this.isPatchableFile(input.relativePath)) {
       return null;
     }
@@ -301,6 +320,10 @@ export class PatchCandidateResolver {
   private isPatchableFile(relativePath: string): boolean {
     const normalized = relativePath.replaceAll('\\', '/');
 
+    if (this.generatedPathPolicy.isGeneratedPath(normalized)) {
+      return false;
+    }
+
     if (this.isProtectedPath(normalized)) {
       return false;
     }
@@ -326,15 +349,26 @@ export class PatchCandidateResolver {
     const normalized = relativePath.toLowerCase().replaceAll('\\', '/');
     const segments = normalized.split('/');
 
+    if (this.generatedPathPolicy.isGeneratedPath(relativePath)) {
+      return true;
+    }
+
+    if (normalized.startsWith('.env') || normalized.includes('/.env')) {
+      return true;
+    }
+
     return (
-      segments.includes('.env') ||
       segments.includes('.git') ||
       segments.includes('node_modules') ||
       segments.includes('dist') ||
       segments.includes('build') ||
+      segments.includes('out') ||
       segments.includes('.next') ||
-      normalized.endsWith('.env') ||
-      normalized.includes('.env.')
+      segments.includes('.open-next') ||
+      segments.includes('.cache') ||
+      segments.includes('.turbo') ||
+      segments.includes('.vercel') ||
+      segments.includes('coverage')
     );
   }
 
@@ -375,6 +409,27 @@ export class PatchCandidateResolver {
     if (normalized.includes('types')) score -= 10;
 
     return score;
+  }
+
+  private dedupe(candidates: ResolvedPatchCandidate[]): ResolvedPatchCandidate[] {
+    const seen = new Set<string>();
+    const result: ResolvedPatchCandidate[] = [];
+
+    for (const candidate of candidates) {
+      const normalized = candidate.path.replaceAll('\\', '/');
+
+      if (seen.has(normalized)) {
+        continue;
+      }
+
+      seen.add(normalized);
+      result.push({
+        ...candidate,
+        path: normalized,
+      });
+    }
+
+    return result;
   }
 
   private isInsideProject(projectRoot: string, absolutePath: string): boolean {

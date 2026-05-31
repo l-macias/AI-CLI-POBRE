@@ -796,14 +796,20 @@ export class RuntimeApiController {
       this.optionalString(input, 'model') ??
       (await this.runtimeSettingsStore.load()).model.defaultModel;
 
+    const appliedDecisionContext = await this.sessionDecisionStore.appliedContext(sessionId);
+
     const baseInput = {
       sessionId,
       projectRoot: this.optionalString(input, 'projectRoot') ?? state.projectRoot,
       projectName: this.optionalString(input, 'projectName') ?? state.projectName,
       instruction,
-      workspaceMode: this.optionalString(input, 'workspaceMode') ?? 'local_snapshot',
+      workspaceMode:
+        appliedDecisionContext.workspaceMode ??
+        this.optionalString(input, 'workspaceMode') ??
+        'local_snapshot',
       stack: this.optionalStringArray(input, 'stack'),
       knownFiles: this.optionalStringArray(input, 'knownFiles'),
+      appliedDecisionContext,
     };
 
     const envelope = await this.generateRuntimePlanEnvelope({
@@ -824,6 +830,7 @@ export class RuntimeApiController {
         riskLevel: envelope.result.plan.riskLevel,
         needsSnapshot: envelope.result.plan.needsSnapshot,
         requiresApproval: envelope.result.plan.requiresApproval,
+        appliedDecisionContext: appliedDecisionContext as unknown as JsonObject,
         validation: envelope.result.validation as unknown as JsonObject,
         files: files as unknown as JsonObject,
         ...(envelope.providerAudit
@@ -842,6 +849,7 @@ export class RuntimeApiController {
       payload: {
         source: envelope.source,
         plan: envelope.result.plan as unknown as JsonObject,
+        appliedDecisionContext: appliedDecisionContext as unknown as JsonObject,
         validation: envelope.result.validation as unknown as JsonObject,
         files: files as unknown as JsonObject,
         ...(envelope.providerAudit
@@ -855,6 +863,7 @@ export class RuntimeApiController {
     return this.response.created({
       source: envelope.source,
       plan: envelope.result.plan as unknown as JsonObject,
+      appliedDecisionContext: appliedDecisionContext as unknown as JsonObject,
       validation: envelope.result.validation as unknown as JsonObject,
       files: files as unknown as JsonObject,
       ...(envelope.providerAudit
@@ -2441,15 +2450,7 @@ export class RuntimeApiController {
   private async generateRuntimePlanEnvelope(input: {
     useProvider: boolean;
     model: string;
-    baseInput: {
-      sessionId: string;
-      projectRoot: string;
-      projectName: string;
-      instruction: string;
-      workspaceMode: string;
-      stack?: string[] | undefined;
-      knownFiles?: string[] | undefined;
-    };
+    baseInput: Parameters<RuntimePlanGenerator['generate']>[0];
   }): Promise<{
     source: 'runtime' | 'provider' | 'fallback';
     result: ReturnType<RuntimePlanGenerator['generate']>;
@@ -2523,8 +2524,14 @@ export class RuntimeApiController {
     return {
       sessionStarted: this.requiredRecordBoolean(record, 'sessionStarted', key),
       workflowPrepared: this.requiredRecordBoolean(record, 'workflowPrepared', key),
+      pendingQuestionCount: this.optionalNumber(record, 'pendingQuestionCount'),
+      pendingHighPriorityQuestionCount: this.optionalNumber(
+        record,
+        'pendingHighPriorityQuestionCount',
+      ),
       planValid: this.requiredRecordBoolean(record, 'planValid', key),
       planRejected: this.requiredRecordBoolean(record, 'planRejected', key),
+      planMode: this.optionalRuntimeWorkflowPlanMode(record, 'planMode'),
       patchProposalValid: this.requiredRecordBoolean(record, 'patchProposalValid', key),
       patchProposalRejected: this.requiredRecordBoolean(record, 'patchProposalRejected', key),
       diffReady: this.requiredRecordBoolean(record, 'diffReady', key),
@@ -2597,6 +2604,19 @@ export class RuntimeApiController {
 
     return manager;
   }
+  private optionalRuntimeWorkflowPlanMode(
+    record: Record<string, unknown>,
+    key: string,
+  ): 'read_only' | 'patch' | null {
+    const value = record[key];
+
+    if (value === 'read_only' || value === 'patch') {
+      return value;
+    }
+
+    return null;
+  }
+
   private asObject(value: JsonValue | null): JsonObject {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       throw new Error('Request body must be a JSON object.');
@@ -3002,18 +3022,14 @@ export class RuntimeApiController {
 
     return items.length > 0 ? items : undefined;
   }
-  private optionalNumber(input: JsonObject, key: string): number | undefined {
-    const value = input[key];
+  private optionalNumber(record: Record<string, unknown>, key: string): number {
+    const value = record[key];
 
-    if (value === undefined || value === null) {
-      return undefined;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
     }
 
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      throw new Error(`"${key}" must be a finite number.`);
-    }
-
-    return value;
+    return 0;
   }
   private optionalPositiveNumber(input: JsonObject, key: string): number | undefined {
     const value = input[key];

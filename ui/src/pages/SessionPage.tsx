@@ -229,7 +229,14 @@ export function SessionPage({
     }),
     [goal, projectName, projectRoot, selectedProject],
   );
+  const pendingQuestionCount = questions.length;
 
+  const pendingHighPriorityQuestionCount = questions.filter((question) => {
+    return question.priority === 'high' || question.priority === 'medium';
+  }).length;
+
+  const hasBlockingQuestionsBeforePlan =
+    runtimePlan === null && pendingHighPriorityQuestionCount > 0;
   const workflowPrepared = Boolean(
     stackIntelligence ||
     apiRoutes ||
@@ -276,6 +283,16 @@ export function SessionPage({
 
     window.setTimeout(() => {
       document.querySelector('.session-workspace-tabs')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 80);
+  }
+  function moveToQuestions(): void {
+    setActiveWorkspaceTab('overview');
+
+    window.setTimeout(() => {
+      document.querySelector('#runtime-questions-panel')?.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
       });
@@ -798,16 +815,6 @@ export function SessionPage({
   }
 
   function buildWorkflowArtifactState(): RuntimeWorkflowArtifactState {
-    const workflowPrepared = Boolean(
-      stackIntelligence ||
-      apiRoutes ||
-      frontendBackendLinks ||
-      tasks.length > 0 ||
-      packageScripts ||
-      questions.length > 0 ||
-      suggestions.length > 0,
-    );
-
     const sandboxPassed = patchSandboxResult?.status === 'passed';
     const sandboxFailed = patchSandboxResult?.status === 'failed';
     const sandboxBlocked = patchSandboxResult?.status === 'blocked';
@@ -821,40 +828,50 @@ export function SessionPage({
       patchProposal !== null &&
       patchProposal.proposal.id !== patchRecoveryResult.proposalId;
 
+    const planMode = runtimePlan?.plan.mode ?? null;
+    const readOnly = planMode === 'read_only';
+
     return {
       sessionStarted: session !== null,
       workflowPrepared,
+      pendingQuestionCount,
+      pendingHighPriorityQuestionCount,
       planValid: runtimePlan?.validation.valid === true,
       planRejected: runtimePlan?.validation.valid === false,
-      patchProposalValid: patchProposal?.validation.valid === true,
-      patchProposalRejected: patchProposal?.validation.valid === false,
-      diffReady: patchDiff?.diff.safeToPreview === true,
-      diffBlocked: patchDiff ? !patchDiff.diff.safeToPreview : false,
+      planMode,
+      patchProposalValid: readOnly ? false : patchProposal?.validation.valid === true,
+      patchProposalRejected: readOnly ? false : patchProposal?.validation.valid === false,
+      diffReady: readOnly ? false : patchDiff?.diff.safeToPreview === true,
+      diffBlocked: readOnly ? false : patchDiff ? !patchDiff.diff.safeToPreview : false,
 
-      sandboxPassed,
-      sandboxFailed,
-      sandboxBlocked,
+      sandboxPassed: readOnly ? false : sandboxPassed,
+      sandboxFailed: readOnly ? false : sandboxFailed,
+      sandboxBlocked: readOnly ? false : sandboxBlocked,
 
-      recoveryAvailable,
-      recoveryPrepared,
-      recoveryMaxAttemptsReached,
-      repairedProposalGenerated,
+      recoveryAvailable: readOnly ? false : recoveryAvailable,
+      recoveryPrepared: readOnly ? false : recoveryPrepared,
+      recoveryMaxAttemptsReached: readOnly ? false : recoveryMaxAttemptsReached,
+      repairedProposalGenerated: readOnly ? false : repairedProposalGenerated,
 
-      snapshotAvailable: snapshot !== null,
-      dryRunCompleted:
-        patchApplyResult?.status === 'dry_run' || patchApplyResult?.status === 'applied',
-      applyApplied: patchApplyResult?.status === 'applied',
-      applyBlocked: patchApplyResult?.status === 'blocked',
-      applyFailed: patchApplyResult?.status === 'failed',
-      rollbackDryRunCompleted:
-        patchRollbackResult?.status === 'dry_run' || patchRollbackResult?.status === 'rolled_back',
-      rollbackCompleted: patchRollbackResult?.status === 'rolled_back',
-      rollbackBlocked: patchRollbackResult?.status === 'blocked',
-      rollbackFailed: patchRollbackResult?.status === 'failed',
-      verifyCompleted:
-        (lastVerifyRun?.status === 'executed' && lastVerifyRun.exitCode === 0) || sandboxPassed,
+      snapshotAvailable: readOnly ? false : snapshot !== null,
+      dryRunCompleted: readOnly
+        ? false
+        : patchApplyResult?.status === 'dry_run' || patchApplyResult?.status === 'applied',
+      applyApplied: readOnly ? false : patchApplyResult?.status === 'applied',
+      applyBlocked: readOnly ? false : patchApplyResult?.status === 'blocked',
+      applyFailed: readOnly ? false : patchApplyResult?.status === 'failed',
+      rollbackDryRunCompleted: readOnly
+        ? false
+        : patchRollbackResult?.status === 'dry_run' ||
+          patchRollbackResult?.status === 'rolled_back',
+      rollbackCompleted: readOnly ? false : patchRollbackResult?.status === 'rolled_back',
+      rollbackBlocked: readOnly ? false : patchRollbackResult?.status === 'blocked',
+      rollbackFailed: readOnly ? false : patchRollbackResult?.status === 'failed',
+      verifyCompleted: readOnly
+        ? false
+        : (lastVerifyRun?.status === 'executed' && lastVerifyRun.exitCode === 0) || sandboxPassed,
       reportExported: reportExport !== null,
-      riskLevel: patchProposal?.proposal.riskLevel ?? runtimePlan?.plan.riskLevel ?? null,
+      riskLevel: runtimePlan?.plan.riskLevel ?? patchProposal?.proposal.riskLevel ?? null,
     };
   }
 
@@ -863,15 +880,19 @@ export function SessionPage({
       return null;
     }
 
+    const planMode = runtimePlan?.plan.mode ?? null;
+    const readOnly = planMode === 'read_only';
+
     return {
       sessionId: session.id,
       projectRoot: session.projectRoot,
       plan: runtimePlan?.plan ?? null,
-      proposal: patchProposal?.proposal ?? null,
-      diff: patchDiff?.diff ?? null,
-      applyResult: patchApplyResult,
-      lastVerifyRun,
-      snapshotAvailable: snapshot !== null,
+      planMode,
+      proposal: readOnly ? null : (patchProposal?.proposal ?? null),
+      diff: readOnly ? null : (patchDiff?.diff ?? null),
+      applyResult: readOnly ? null : patchApplyResult,
+      lastVerifyRun: readOnly ? null : lastVerifyRun,
+      snapshotAvailable: readOnly ? false : snapshot !== null,
       dirtyWorkingTree: false,
     };
   }
@@ -919,11 +940,35 @@ export function SessionPage({
 
     if (input.action === 'reject') {
       await routeCommand(`/reject ${input.reason ?? 'Approval rejected by user.'}`);
+      clearPlanAndDownstreamArtifacts();
+      moveToWorkspaceTab('overview');
+      await refreshRuntimeWorkflowState();
       return;
     }
 
     if (input.action === 'ask_revision') {
       await routeCommand(`/revise ${input.reason ?? 'Approval requested revision.'}`);
+      clearPlanAndDownstreamArtifacts();
+      moveToWorkspaceTab('overview');
+      await refreshRuntimeWorkflowState();
+      return;
+    }
+
+    if (request?.kind === 'plan') {
+      setApprovedPatchDecision(result.decision);
+
+      if (runtimePlan?.plan.mode === 'read_only') {
+        moveToWorkspaceTab('overview');
+        await routeCommand('Read-only runtime plan approved. Patch flow remains disabled.');
+        await refreshApprovalCenter();
+        await refreshRuntimeWorkflowState();
+        return;
+      }
+
+      moveToWorkspaceTab('plan');
+      await routeCommand(`Runtime plan approved: ${request.title}`);
+      await refreshApprovalCenter();
+      await refreshRuntimeWorkflowState();
       return;
     }
 
@@ -941,6 +986,8 @@ export function SessionPage({
         });
       }
 
+      await refreshApprovalCenter();
+      await refreshRuntimeWorkflowState();
       return;
     }
 
@@ -948,10 +995,21 @@ export function SessionPage({
       await rollbackPatch({
         confirmedText: 'ROLLBACK',
       });
+
+      await refreshApprovalCenter();
+      await refreshRuntimeWorkflowState();
       return;
     }
 
     if (request?.kind === 'patch') {
+      if (runtimePlan?.plan.mode === 'read_only') {
+        await routeCommand('Patch approval ignored because current runtime plan is read-only.');
+        clearPlanAndDownstreamArtifacts();
+        moveToWorkspaceTab('overview');
+        await refreshRuntimeWorkflowState();
+        return;
+      }
+
       const nextSelectedFiles =
         input.action === 'approve_selected_files'
           ? result.decision.selectedFilePaths
@@ -962,12 +1020,148 @@ export function SessionPage({
       moveToWorkspaceTab('patch');
 
       await generateDiff(nextSelectedFiles);
+      await refreshApprovalCenter();
+      await refreshRuntimeWorkflowState();
       return;
     }
 
     await routeCommand(`Approval accepted: ${request?.title ?? input.requestId}`);
+    await refreshApprovalCenter();
+    await refreshRuntimeWorkflowState();
+  }
+  function findPlanApprovalRequestId(): string | null {
+    const request = approvalCenter?.requests.find(
+      (candidate) => candidate.kind === 'plan' && candidate.status === 'pending',
+    );
+
+    return request?.id ?? null;
   }
 
+  function clearPlanAndDownstreamArtifacts(): void {
+    setRuntimePlan(null);
+    setPatchProposal(null);
+    setPatchDiff(null);
+    setPatchSandboxResult(null);
+    setPatchRecoveryResult(null);
+    setPatchApplyResult(null);
+    setPatchRollbackResult(null);
+    setApprovedPatchFilePaths(null);
+    setApprovedPatchDecision(null);
+    setRuntimeWorkflow(null);
+    setApprovalCenter(null);
+    setSnapshot(null);
+    setLastVerifyRun(null);
+  }
+
+  async function approvePlanAction(): Promise<void> {
+    const requestId = findPlanApprovalRequestId();
+
+    if (requestId) {
+      await handleApprovalDecision({
+        requestId,
+        action: 'approve',
+      });
+    } else {
+      await routeCommand('Runtime plan approved by user.');
+    }
+
+    await refreshRuntimeWorkflowState();
+    await refreshApprovalCenter();
+    moveToWorkspaceTab('overview');
+  }
+
+  async function requestPlanChangesAction(): Promise<void> {
+    if (!session) {
+      clearPlanAndDownstreamArtifacts();
+      moveToWorkspaceTab('overview');
+      return;
+    }
+
+    const planApprovalRequestId = findPlanApprovalRequestId();
+
+    if (planApprovalRequestId) {
+      const artifactState = buildApprovalArtifactState();
+
+      if (artifactState) {
+        await resolveApproval({
+          artifactState,
+          decision: {
+            requestId: planApprovalRequestId,
+            action: 'ask_revision',
+            reason: 'User requested plan changes before continuing.',
+          },
+        });
+      }
+    }
+
+    await routeCommand('Plan revision requested. Current plan cleared; regenerate when ready.');
+    clearPlanAndDownstreamArtifacts();
+    moveToWorkspaceTab('overview');
+  }
+
+  async function addPlanRestrictionAction(): Promise<void> {
+    if (!session) {
+      return;
+    }
+
+    const statement =
+      'Do not use generated build output folders like .open-next, dist, build, node_modules or cache directories as candidate files. Prefer source files, app/pages/components/api routes/config files and package scripts.';
+
+    await addSessionMemoryDecision({
+      sessionId: session.id,
+      category: 'scope',
+      strength: 'hard_rule',
+      statement,
+    });
+
+    await routeCommand(`Restriction added: ${statement}`);
+    await refreshSessionMemory(session);
+
+    clearPlanAndDownstreamArtifacts();
+    moveToWorkspaceTab('memory');
+  }
+
+  function viewPlanContextAction(): void {
+    if (!session) {
+      return;
+    }
+
+    if (!workflowPrepared) {
+      void prepareWorkflow();
+      return;
+    }
+
+    moveToWorkspaceTab('context');
+  }
+
+  async function cancelPlanAction(): Promise<void> {
+    if (!session) {
+      clearPlanAndDownstreamArtifacts();
+      moveToWorkspaceTab('overview');
+      return;
+    }
+
+    const planApprovalRequestId = findPlanApprovalRequestId();
+
+    if (planApprovalRequestId) {
+      const artifactState = buildApprovalArtifactState();
+
+      if (artifactState) {
+        await resolveApproval({
+          artifactState,
+          decision: {
+            requestId: planApprovalRequestId,
+            action: 'reject',
+            reason: 'Plan cancelled by user. Evidence preserved.',
+          },
+        });
+      }
+    }
+
+    await routeCommand('Plan cancelled. Evidence preserved.');
+    clearPlanAndDownstreamArtifacts();
+    moveToWorkspaceTab('overview');
+  }
   async function refreshRuntimeWorkflowState() {
     if (!session) {
       setRuntimeWorkflow(null);
@@ -991,7 +1185,15 @@ export function SessionPage({
     if (!session) {
       return;
     }
+    if (hasBlockingQuestionsBeforePlan) {
+      await routeCommand(
+        `Runtime plan blocked: ${pendingHighPriorityQuestionCount} high/medium priority question(s) should be answered first.`,
+      );
 
+      moveToQuestions();
+      await refreshRuntimeWorkflowState();
+      return;
+    }
     setRuntimePlanLoading(true);
 
     try {
@@ -1032,6 +1234,17 @@ export function SessionPage({
       return;
     }
 
+    if (runtimePlan.plan.mode === 'read_only') {
+      await routeCommand('Patch proposal blocked: current runtime plan is read-only.');
+      setPatchProposal(null);
+      setPatchDiff(null);
+      setPatchSandboxResult(null);
+      setPatchApplyResult(null);
+      setApprovalCenter(null);
+      moveToWorkspaceTab('plan');
+      return;
+    }
+
     setPatchProposalLoading(true);
 
     try {
@@ -1061,9 +1274,9 @@ export function SessionPage({
       setPatchSandboxResult(null);
       setPatchRecoveryResult(null);
       setPatchApplyResult(null);
-
       setPatchRollbackResult(null);
       moveToWorkspaceTab('patch');
+
       const refreshed = await sendSessionCommand({
         sessionId: session.id,
         command: 'Patch proposal generado y registrado. No se aplicaron archivos.',
@@ -1474,7 +1687,7 @@ export function SessionPage({
   ]);
 
   return (
-    <section className="flex flex-col gap-6 w-full max-w-[1600px] mx-auto pb-12">
+    <section className="flex flex-col gap-6 w-full max-w-400 mx-auto pb-12">
       <RuntimeStatusBar session={session} />
 
       {/* Toolbar */}
@@ -1558,9 +1771,9 @@ export function SessionPage({
 
           <div className="flex flex-wrap items-center gap-4 py-4 border-y border-zinc-800/60">
             <SessionStartStep number="1" label="Project ready" done={startReadiness.hasProject} />
-            <div className="h-[1px] w-8 bg-zinc-800 hidden sm:block" />
+            <div className="h-px w-8 bg-zinc-800 hidden sm:block" />
             <SessionStartStep number="2" label="Goal selected" done={startReadiness.hasGoal} />
-            <div className="h-[1px] w-8 bg-zinc-800 hidden sm:block" />
+            <div className="h-px w-8 bg-zinc-800 hidden sm:block" />
             <SessionStartStep number="3" label="Start session" done={startReadiness.canStart} />
           </div>
 
@@ -1750,6 +1963,9 @@ export function SessionPage({
               patchSandboxResult={patchSandboxResult}
               patchRecoveryResult={patchRecoveryResult}
               onPrepareWorkflow={() => void prepareWorkflow()}
+              pendingQuestionCount={pendingQuestionCount}
+              pendingHighPriorityQuestionCount={pendingHighPriorityQuestionCount}
+              onReviewQuestions={() => moveToQuestions()}
               onGeneratePlan={() => void generatePlan(false)}
               onGenerateProviderPlan={() => void generatePlan(true)}
               onGeneratePatchProposal={() => void generatePatch()}
@@ -1811,6 +2027,11 @@ export function SessionPage({
               loading={runtimePlanLoading}
               onGeneratePlan={() => void generatePlan(false)}
               onGenerateProviderPlan={() => void generatePlan(true)}
+              onApprovePlan={() => void approvePlanAction()}
+              onRequestPlanChanges={() => void requestPlanChangesAction()}
+              onAddPlanRestriction={() => void addPlanRestrictionAction()}
+              onViewPlanContext={viewPlanContextAction}
+              onCancelPlan={() => void cancelPlanAction()}
               onCommand={(input) => void routeCommand(input)}
             />
             <ApprovalPanel

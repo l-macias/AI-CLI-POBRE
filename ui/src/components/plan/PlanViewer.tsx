@@ -12,7 +12,11 @@ interface PlanViewerProps {
   loading: boolean;
   onGeneratePlan: () => void;
   onGenerateProviderPlan: () => void;
-  onCommand: (command: string) => void;
+  onApprovePlan: () => void;
+  onRequestPlanChanges: () => void;
+  onAddPlanRestriction: () => void;
+  onViewPlanContext: () => void;
+  onCancelPlan: () => void;
 }
 
 export function PlanViewer({
@@ -21,7 +25,11 @@ export function PlanViewer({
   loading,
   onGeneratePlan,
   onGenerateProviderPlan,
-  onCommand,
+  onApprovePlan,
+  onRequestPlanChanges,
+  onAddPlanRestriction,
+  onViewPlanContext,
+  onCancelPlan,
 }: PlanViewerProps) {
   const plan = runtimePlan
     ? buildRuntimePlanViewModel(runtimePlan)
@@ -300,17 +308,15 @@ export function PlanViewer({
 
           <PlanActions
             disabled={!session || !runtimePlan || runtimePlan.plan.status !== 'validated'}
-            onApprovePlan={() => onCommand('Aprobar plan runtime')}
-            onRequestChanges={() => onCommand('/revise Ajustar el plan antes de generar cambios')}
-            onAddRestriction={() =>
-              onCommand('Agregar restricción: no aplicar cambios sin mostrar diff')
-            }
-            onViewContext={() => onCommand('/context')}
-            onCancel={() => onCommand('/reject')}
+            onApprovePlan={onApprovePlan}
+            onRequestChanges={onRequestPlanChanges}
+            onAddRestriction={onAddPlanRestriction}
+            onViewContext={onViewPlanContext}
+            onCancel={onCancelPlan}
           />
         </>
       ) : (
-        <div className="flex flex-col items-center justify-center gap-4 p-10 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50 mt-4 min-h-[300px]">
+        <div className="flex flex-col items-center justify-center gap-4 p-10 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50 mt-4 min-h-75">
           <strong className="block text-base font-medium text-zinc-300">
             No runtime plan generated yet.
           </strong>

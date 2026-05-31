@@ -1,12 +1,13 @@
+import { GeneratedPathPolicy } from '../projects/GeneratedPathPolicy.js';
 import type {
   RuntimePlan,
   RuntimePlanValidationIssue,
   RuntimePlanValidationResult,
 } from './RuntimePlan.js';
 
-const protectedSegments = ['.env', '.git', 'node_modules', 'dist', 'build', '.next'];
-
 export class PlanPolicyValidator {
+  private readonly generatedPathPolicy = new GeneratedPathPolicy();
+
   public validate(plan: RuntimePlan): RuntimePlanValidationResult {
     const issues: RuntimePlanValidationIssue[] = [];
 
@@ -14,6 +15,7 @@ export class PlanPolicyValidator {
     this.validateScope(plan, issues);
     this.validateSteps(plan, issues);
     this.validateVerifyCommands(plan, issues);
+    this.validateReadOnlyAuthority(plan, issues);
     this.validateRuntimeAuthority(plan, issues);
 
     return {
@@ -40,6 +42,15 @@ export class PlanPolicyValidator {
         issues.push({
           code: 'ABSOLUTE_PATH_NOT_ALLOWED',
           message: 'Runtime plans must use project-relative candidate file paths.',
+          path: candidate.path,
+          severity: 'error',
+        });
+      }
+
+      if (this.generatedPathPolicy.isGeneratedPath(normalizedPath)) {
+        issues.push({
+          code: 'GENERATED_PATH_NOT_ALLOWED',
+          message: 'Runtime plan candidate files cannot include generated/dependency/cache paths.',
           path: candidate.path,
           severity: 'error',
         });
@@ -113,7 +124,53 @@ export class PlanPolicyValidator {
     }
   }
 
+  private validateReadOnlyAuthority(plan: RuntimePlan, issues: RuntimePlanValidationIssue[]): void {
+    if (plan.mode !== 'read_only') {
+      return;
+    }
+
+    const forbiddenStepKinds = plan.steps.filter((step) => {
+      return step.kind === 'patch' || step.kind === 'approval' || step.kind === 'snapshot';
+    });
+
+    for (const step of forbiddenStepKinds) {
+      issues.push({
+        code: 'READ_ONLY_PLAN_HAS_WRITE_STEP',
+        message: `Read-only plans cannot include "${step.kind}" steps.`,
+        severity: 'error',
+      });
+    }
+
+    if (plan.needsSnapshot) {
+      issues.push({
+        code: 'READ_ONLY_PLAN_CANNOT_REQUIRE_SNAPSHOT',
+        message: 'Read-only plans cannot require snapshots.',
+        severity: 'error',
+      });
+    }
+
+    if (plan.requiresApproval) {
+      issues.push({
+        code: 'READ_ONLY_PLAN_CANNOT_REQUIRE_WRITE_APPROVAL',
+        message: 'Read-only plans cannot require patch approval.',
+        severity: 'error',
+      });
+    }
+
+    if (plan.verifyCommands.length > 0) {
+      issues.push({
+        code: 'READ_ONLY_PLAN_CANNOT_REQUIRE_VERIFY_COMMANDS',
+        message: 'Read-only plans cannot require verification commands for patch/apply flow.',
+        severity: 'error',
+      });
+    }
+  }
+
   private validateRuntimeAuthority(plan: RuntimePlan, issues: RuntimePlanValidationIssue[]): void {
+    if (plan.mode === 'read_only') {
+      return;
+    }
+
     if (plan.riskLevel === 'high' && !plan.needsSnapshot) {
       issues.push({
         code: 'HIGH_RISK_REQUIRES_SNAPSHOT',
@@ -131,22 +188,27 @@ export class PlanPolicyValidator {
     }
   }
 
-  private normalizePath(path: string): string {
-    return path
+  private normalizePath(pathValue: string): string {
+    return pathValue
       .trim()
       .replaceAll('\\', '/')
       .replace(/^\.\/+/, '');
   }
 
-  private isAbsolutePath(path: string): boolean {
-    return /^[a-z]:\//i.test(path) || path.startsWith('/');
+  private isAbsolutePath(pathValue: string): boolean {
+    return /^[a-z]:\//i.test(pathValue) || pathValue.startsWith('/');
   }
 
-  private hasProtectedSegment(path: string): boolean {
-    const loweredPath = path.toLowerCase();
+  private hasProtectedSegment(pathValue: string): boolean {
+    const loweredPath = pathValue.toLowerCase();
     const segments = loweredPath.split('/');
 
-    return protectedSegments.some((segment) => segments.includes(segment));
+    return (
+      loweredPath.startsWith('.env') ||
+      loweredPath.includes('/.env') ||
+      segments.includes('.git') ||
+      segments.includes('node_modules')
+    );
   }
 
   private isAllowedVerifyCommand(commandLine: string): boolean {

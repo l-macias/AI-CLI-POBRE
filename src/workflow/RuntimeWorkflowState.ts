@@ -1,6 +1,9 @@
+export type RuntimeWorkflowPlanMode = 'read_only' | 'patch';
+
 export type RuntimeWorkflowStepId =
   | 'session'
   | 'prepare_workflow'
+  | 'runtime_questions'
   | 'runtime_plan'
   | 'patch_proposal'
   | 'diff_preview'
@@ -19,8 +22,11 @@ export type RuntimeWorkflowStepStatus = 'locked' | 'available' | 'active' | 'com
 export interface RuntimeWorkflowArtifactState {
   sessionStarted: boolean;
   workflowPrepared: boolean;
+  pendingQuestionCount: number;
+  pendingHighPriorityQuestionCount: number;
   planValid: boolean;
   planRejected: boolean;
+  planMode: RuntimeWorkflowPlanMode | null;
   patchProposalValid: boolean;
   patchProposalRejected: boolean;
   diffReady: boolean;

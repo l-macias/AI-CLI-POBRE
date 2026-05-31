@@ -7,6 +7,69 @@ import type {
 
 export class RuntimeWorkflowStateMachine {
   public build(input: RuntimeWorkflowArtifactState): RuntimeWorkflowState {
+    if (input.planMode === 'read_only') {
+      return this.buildReadOnlyWorkflow(input);
+    }
+
+    return this.buildPatchWorkflow(input);
+  }
+
+  private buildReadOnlyWorkflow(input: RuntimeWorkflowArtifactState): RuntimeWorkflowState {
+    const steps: RuntimeWorkflowStep[] = [
+      {
+        id: 'session',
+        title: 'Session',
+        description: 'Start a runtime-controlled session.',
+        status: input.sessionStarted ? 'completed' : 'active',
+        required: true,
+      },
+      {
+        id: 'prepare_workflow',
+        title: 'Prepare workflow',
+        description: 'Analyze project context, routes, questions and verification commands.',
+        status: this.statusAfter(input.sessionStarted, input.workflowPrepared),
+        required: true,
+        blockedReason: input.sessionStarted ? undefined : 'Session is required first.',
+      },
+      {
+        id: 'runtime_questions',
+        title: 'Runtime questions',
+        description: 'Answer high-priority runtime questions before generating the analysis plan.',
+        status: this.questionsStatus(input),
+        required: input.pendingHighPriorityQuestionCount > 0,
+        blockedReason:
+          input.pendingHighPriorityQuestionCount > 0 && !input.planValid
+            ? `${input.pendingHighPriorityQuestionCount} high-priority question(s) should be answered before planning.`
+            : undefined,
+      },
+      {
+        id: 'runtime_plan',
+        title: 'Read-only plan',
+        description: 'Generate and validate a read-only analysis plan.',
+        status: this.validatedOrBlocked({
+          canStart: input.workflowPrepared && this.questionsResolved(input),
+          valid: input.planValid,
+          rejected: input.planRejected,
+        }),
+        required: true,
+        blockedReason: input.planRejected ? 'Runtime plan validation failed.' : undefined,
+      },
+      {
+        id: 'report',
+        title: 'Report',
+        description: 'Export Markdown and JSON read-only analysis report.',
+        status: this.statusAfter(input.planValid, input.reportExported),
+        required: true,
+      },
+    ];
+
+    return this.finalizeWorkflow({
+      steps,
+      snapshotRequired: false,
+    });
+  }
+
+  private buildPatchWorkflow(input: RuntimeWorkflowArtifactState): RuntimeWorkflowState {
     const snapshotRequired = input.riskLevel === 'medium' || input.riskLevel === 'high';
 
     const sandboxNeedsRecovery =
@@ -33,11 +96,23 @@ export class RuntimeWorkflowStateMachine {
         blockedReason: input.sessionStarted ? undefined : 'Session is required first.',
       },
       {
+        id: 'runtime_questions',
+        title: 'Runtime questions',
+        description:
+          'Answer high-priority runtime questions before generating the implementation plan.',
+        status: this.questionsStatus(input),
+        required: input.pendingHighPriorityQuestionCount > 0,
+        blockedReason:
+          input.pendingHighPriorityQuestionCount > 0 && !input.planValid
+            ? `${input.pendingHighPriorityQuestionCount} high-priority question(s) should be answered before planning.`
+            : undefined,
+      },
+      {
         id: 'runtime_plan',
         title: 'Runtime plan',
         description: 'Generate and validate a runtime plan.',
         status: this.validatedOrBlocked({
-          canStart: input.workflowPrepared,
+          canStart: input.workflowPrepared && this.questionsResolved(input),
           valid: input.planValid,
           rejected: input.planRejected,
         }),
@@ -181,27 +256,51 @@ export class RuntimeWorkflowStateMachine {
       },
     ];
 
-    const completed = steps.filter((step) => step.status === 'completed').length;
-    const current =
-      steps.find((step) => step.status === 'active' || step.status === 'available') ??
-      steps.find((step) => step.status === 'blocked');
+    return this.finalizeWorkflow({
+      steps,
+      snapshotRequired,
+    });
+  }
 
-    const blockedReasons = steps
+  private finalizeWorkflow(input: {
+    steps: RuntimeWorkflowStep[];
+    snapshotRequired: boolean;
+  }): RuntimeWorkflowState {
+    const completed = input.steps.filter((step) => step.status === 'completed').length;
+    const current =
+      input.steps.find((step) => step.status === 'active' || step.status === 'available') ??
+      input.steps.find((step) => step.status === 'blocked');
+
+    const blockedReasons = input.steps
       .map((step) => step.blockedReason)
       .filter((reason): reason is string => typeof reason === 'string' && reason.length > 0);
 
     return {
-      steps,
+      steps: input.steps,
       currentStepId: current?.id ?? 'report',
       completed,
-      total: steps.length,
-      percentage: Math.round((completed / steps.length) * 100),
-      snapshotRequired,
-      canContinue: !steps.some((step) => step.status === 'blocked' && step.required),
+      total: input.steps.length,
+      percentage: Math.round((completed / input.steps.length) * 100),
+      snapshotRequired: input.snapshotRequired,
+      canContinue: !input.steps.some((step) => step.status === 'blocked' && step.required),
       blockedReasons,
     };
   }
+  private questionsResolved(input: RuntimeWorkflowArtifactState): boolean {
+    return input.pendingHighPriorityQuestionCount === 0 || input.planValid;
+  }
 
+  private questionsStatus(input: RuntimeWorkflowArtifactState): RuntimeWorkflowStepStatus {
+    if (!input.workflowPrepared) {
+      return 'locked';
+    }
+
+    if (input.pendingHighPriorityQuestionCount === 0 || input.planValid) {
+      return 'completed';
+    }
+
+    return 'available';
+  }
   private statusAfter(canStart: boolean, completed: boolean): RuntimeWorkflowStepStatus {
     if (completed) {
       return 'completed';

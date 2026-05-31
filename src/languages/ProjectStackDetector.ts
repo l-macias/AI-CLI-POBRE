@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { GeneratedPathPolicy } from '../projects/GeneratedPathPolicy.js';
 import { ExpressProfile, type ExpressProfileResult } from './ExpressProfile.js';
 import { JavaScriptProfile, type JavaScriptProfileResult } from './JavaScriptProfile.js';
 import { MongoProfile, type MongoProfileResult } from './MongoProfile.js';
@@ -40,6 +41,7 @@ export interface ProjectStackDetectorOptions {
 export class ProjectStackDetector {
   private readonly maxFiles: number;
   private readonly maxDepth: number;
+  private readonly generatedPathPolicy = new GeneratedPathPolicy();
   private readonly javascriptProfile: JavaScriptProfile;
   private readonly typescriptProfile: TypeScriptProfile;
   private readonly reactProfile: ReactProfile;
@@ -231,6 +233,10 @@ export class ProjectStackDetector {
       const absolutePath = path.join(input.current, entry.name);
       const relativePath = path.relative(input.root, absolutePath).replaceAll('\\', '/');
 
+      if (this.generatedPathPolicy.isGeneratedPath(relativePath)) {
+        continue;
+      }
+
       if (entry.isDirectory()) {
         await this.walkDirectory({
           root: input.root,
@@ -293,16 +299,7 @@ export class ProjectStackDetector {
   }
 
   private shouldSkip(name: string): boolean {
-    return (
-      name === 'node_modules' ||
-      name === '.git' ||
-      name === 'dist' ||
-      name === 'build' ||
-      name === '.next' ||
-      name === '.turbo' ||
-      name === 'coverage' ||
-      name === '.runtime'
-    );
+    return this.generatedPathPolicy.isGeneratedPathSegmentName(name);
   }
 
   private async readPackageJson(filePath: string): Promise<PackageJsonShape> {

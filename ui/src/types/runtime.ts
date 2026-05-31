@@ -412,7 +412,7 @@ export interface ProviderStatusReport {
 export type RuntimePlanRiskLevel = 'low' | 'medium' | 'high';
 
 export type RuntimePlanStatus = 'generated' | 'validated' | 'rejected';
-
+export type RuntimePlanMode = 'read_only' | 'patch';
 export type RuntimePlanStepKind =
   | 'inspect'
   | 'context'
@@ -465,6 +465,7 @@ export interface RuntimePlan {
   projectRoot: string;
   projectName: string;
   objective: string;
+  mode?: RuntimePlanMode;
   scope: RuntimePlanScope;
   steps: RuntimePlanStep[];
   risks: RuntimePlanRisk[];
@@ -846,6 +847,7 @@ export interface RuntimePatchRollbackResponse {
 export type RuntimeWorkflowStepId =
   | 'session'
   | 'prepare_workflow'
+  | 'runtime_questions'
   | 'runtime_plan'
   | 'patch_proposal'
   | 'diff_preview'
@@ -864,8 +866,11 @@ export type RuntimeWorkflowStepStatus = 'locked' | 'available' | 'active' | 'com
 export interface RuntimeWorkflowArtifactState {
   sessionStarted: boolean;
   workflowPrepared: boolean;
+  pendingQuestionCount: number;
+  pendingHighPriorityQuestionCount: number;
   planValid: boolean;
   planRejected: boolean;
+  planMode: RuntimePlanMode | null;
   patchProposalValid: boolean;
   patchProposalRejected: boolean;
   diffReady: boolean;
@@ -917,6 +922,7 @@ export interface RuntimeWorkflowState {
 export type RuntimeWorkflowActionId =
   | 'start_session'
   | 'prepare_workflow'
+  | 'answer_runtime_questions'
   | 'generate_runtime_plan'
   | 'generate_patch_proposal'
   | 'generate_diff_preview'
@@ -1005,6 +1011,7 @@ export interface ApprovalCenterArtifactState {
   sessionId: string;
   projectRoot: string;
   plan?: RuntimePlan | null;
+  planMode?: RuntimePlanMode | null;
   proposal?: RuntimePatchProposal | null;
   diff?: RuntimePatchDiffPreview | null;
   applyResult?: RuntimePatchApplyResult | null;

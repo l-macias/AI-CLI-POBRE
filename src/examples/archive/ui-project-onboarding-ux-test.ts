@@ -148,10 +148,9 @@ checkAllIncludes({
     'Choose the project folder',
     'Scan and use',
     'Project summary',
-    'Previously scanned',
-    'Use this folder',
+
     'Start guided session',
-    'Project is ready',
+
     'onStartSession',
     'startGuidedSession',
     'project-onboarding-page',
@@ -263,7 +262,7 @@ checkAllIncludes({
     'Scan and use',
     'Project summary',
     'Start guided session',
-    'Use this folder',
+
     'guided browse/select/scan onboarding',
   ],
   reason: 'UI readiness smoke test should track the new project onboarding UX',

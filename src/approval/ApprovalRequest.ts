@@ -1,7 +1,7 @@
 import type { PatchDiffPreview } from '../diff/PatchDiffTypes.js';
 import type { PatchApplyResult } from '../patch-apply/PatchApplyTypes.js';
 import type { PatchProposalOperation, RuntimePatchProposal } from '../patches/PatchProposal.js';
-import type { RuntimePlan } from '../planning/RuntimePlan.js';
+import type { RuntimePlan, RuntimePlanMode } from '../planning/RuntimePlan.js';
 import type { VerifyRunResult } from '../verify/VerifyRunner.js';
 
 export type ApprovalRiskLevel = 'low' | 'medium' | 'high';
@@ -67,6 +67,7 @@ export interface ApprovalCenterArtifactState {
   sessionId: string;
   projectRoot: string;
   plan?: RuntimePlan | null | undefined;
+  planMode?: RuntimePlanMode | null | undefined;
   proposal?: RuntimePatchProposal | null | undefined;
   diff?: PatchDiffPreview | null | undefined;
   applyResult?: (PatchApplyResult & { sessionId?: string | undefined }) | null | undefined;

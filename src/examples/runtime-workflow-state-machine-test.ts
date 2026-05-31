@@ -14,8 +14,11 @@ function baseState(
   return {
     sessionStarted: false,
     workflowPrepared: false,
+    pendingQuestionCount: 0,
+    pendingHighPriorityQuestionCount: 0,
     planValid: false,
     planRejected: false,
+    planMode: 'patch',
     patchProposalValid: false,
     patchProposalRejected: false,
     diffReady: false,
