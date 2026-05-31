@@ -2,17 +2,13 @@
 
 # Lista de archivos a incluir
 files=(
-  "src/interactive/RuntimeQuestionEngine.ts"
-  "src/interactive/RuntimeQuestion.ts"
-  "src/interactive/QuestionAnswerStore.ts"
-  "src/interactive/RuntimeQuestionDecisionMapper.ts"
-  "src/workflow/RuntimeActionAvailability.ts"
-  "src/workflow/RuntimeWorkflowState.ts"
-  "src/workflow/RuntimeWorkflowStateMachine.ts"
-  "ui/src/components/questions/RuntimeQuestionsPanel.tsx"
-  "ui/src/components/workflow/NextBestActionPanel.tsx"
-  "ui/src/components/workflow/GuidedWorkflowPanel.tsx"
-  "ui/src/pages/SessionPage.ts"
+  "ui/src/pages/SessionPage.tsx"
+  "ui/src/components/sessions/SessionResumePanel.tsx"
+  "ui/src/components/artifacts/RuntimeArtifactStorePanel.tsx"
+  "ui/src/components/dashboard/RecentSessionsCard.tsx"
+  "ui/src/components/dashboard/RecentArtifactsCard.tsx"
+  "ui/src/api/runtimeApi.ts"
+  "ui/src/types/runtime.ts"
 )
 echo "A continuación te presento el código fuente de los archivos solicitados para contexto:"
 echo "================================================================================"

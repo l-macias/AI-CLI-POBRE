@@ -5,29 +5,49 @@ import { Badge } from '../Badge';
 interface IntelligentContextPanelProps {
   routes: ApiRouteMapResult | null;
   links: FrontendBackendLinkResult | null;
+  readOnly?: boolean;
 }
 
-export function IntelligentContextPanel({ routes, links }: IntelligentContextPanelProps) {
+interface IntelligentContextItem {
+  file: string;
+  kind: 'frontend' | 'route' | 'controller' | 'middleware';
+  reason: string;
+  endpoint?: string;
+}
+
+export function IntelligentContextPanel({
+  routes,
+  links,
+  readOnly = false,
+}: IntelligentContextPanelProps) {
   const contextItems = buildContextItems(routes, links);
 
   return (
-    <section className="flex flex-col rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
+    <section
+      id="context-intelligence-panel"
+      className="flex flex-col rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm scroll-mt-32"
+    >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-800/60 pb-5">
         <div className="flex items-start gap-3">
           <FileSearch size={20} className="text-indigo-400 mt-0.5 shrink-0" />
           <div>
             <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">
-              Intelligent Context
+              Project intelligence context
             </h2>
             <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
-              Files selected from frontend/backend links, routes, controllers and middlewares.
+              {readOnly
+                ? 'Files discovered from API routes and frontend calls for read-only analysis.'
+                : 'Files selected from frontend/backend links, routes, controllers and middlewares.'}
             </p>
           </div>
         </div>
 
-        <Badge tone={contextItems.length > 0 ? 'green' : 'slate'} className="shrink-0">
-          {contextItems.length} context files
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Badge tone={contextItems.length > 0 ? 'green' : 'slate'}>
+            {contextItems.length} context files
+          </Badge>
+          {readOnly ? <Badge tone="green">analysis only</Badge> : null}
+        </div>
       </div>
 
       <div className="flex flex-col gap-4 mt-6">
@@ -35,7 +55,7 @@ export function IntelligentContextPanel({ routes, links }: IntelligentContextPan
           contextItems.map((item) => (
             <article
               className="flex flex-col gap-3 p-4 rounded-lg border border-zinc-800/60 bg-zinc-950/50 hover:border-zinc-700 transition-colors"
-              key={`${item.file}-${item.reason}`}
+              key={`${item.file}-${item.reason}-${item.endpoint ?? 'no-endpoint'}`}
             >
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div className="min-w-0 flex-1">
@@ -70,33 +90,48 @@ export function IntelligentContextPanel({ routes, links }: IntelligentContextPan
   );
 }
 
-interface IntelligentContextItem {
-  file: string;
-  kind: 'frontend' | 'route' | 'controller' | 'middleware';
-  reason: string;
-  endpoint?: string | undefined;
-}
-
 function buildContextItems(
   routes: ApiRouteMapResult | null,
   links: FrontendBackendLinkResult | null,
 ): IntelligentContextItem[] {
   const items: IntelligentContextItem[] = [];
 
+  for (const usage of links?.usages ?? []) {
+    items.push({
+      file: usage.sourceFile,
+      kind: 'frontend',
+      reason: `Frontend ${usage.transport} usage calls ${usage.method} ${usage.endpoint}.`,
+      endpoint: `${usage.method} ${usage.endpoint}`,
+    });
+  }
+
   for (const link of links?.links ?? []) {
+    const route = link.route;
+
+    if (!route) {
+      items.push({
+        file: link.usage.sourceFile,
+        kind: 'frontend',
+        reason: `Frontend ${link.usage.transport} usage calls ${link.usage.method} ${link.usage.endpoint}, but no backend route was linked.`,
+        endpoint: `${link.usage.method} ${link.usage.endpoint}`,
+      });
+
+      continue;
+    }
+
     items.push({
       file: link.usage.sourceFile,
       kind: 'frontend',
-      reason: `Frontend ${link.usage.transport} usage calls ${link.usage.method} ${link.usage.endpoint}.`,
-      endpoint: `${link.usage.method} ${link.usage.endpoint}`,
+      reason: `Frontend call is linked to backend route ${route.method} ${route.path}.`,
+      endpoint: `${route.method} ${route.path}`,
     });
 
-    if (link.route) {
+    if (route.sourceFile) {
       items.push({
-        file: link.route.sourceFile,
+        file: route.sourceFile,
         kind: 'route',
-        reason: `Backend route matched from frontend usage.`,
-        endpoint: `${link.route.method} ${link.route.path}`,
+        reason: `Backend route handles frontend endpoint ${link.usage.endpoint}.`,
+        endpoint: `${route.method} ${route.path}`,
       });
     }
   }
@@ -105,7 +140,7 @@ function buildContextItems(
     items.push({
       file: route.sourceFile,
       kind: 'route',
-      reason: `Defines ${route.method} ${route.path}.`,
+      reason: `Express route ${route.method} ${route.path} is part of the current context.`,
       endpoint: `${route.method} ${route.path}`,
     });
 

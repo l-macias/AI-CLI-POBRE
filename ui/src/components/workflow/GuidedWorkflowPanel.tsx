@@ -15,6 +15,8 @@ import { NextBestActionPanel } from './NextBestActionPanel';
 import { WorkflowProgressHeader } from './WorkflowProgressHeader';
 import { WorkflowStepper } from './WorkflowStepper';
 import { WorkflowHealthBadges } from './WorkflowHealthBadges';
+import { formatWorkspaceModeShort } from '../../utils/workspaceModeLabels';
+
 import type {
   NextWorkflowAction,
   WorkflowProgressViewModel,
@@ -37,6 +39,7 @@ interface GuidedWorkflowPanelProps {
   runtimeWorkflowLoading: boolean;
   pendingQuestionCount: number;
   pendingHighPriorityQuestionCount: number;
+  workspaceMode?: string | null;
   onReviewQuestions: () => void;
   onPrepareWorkflow: () => void;
   onGeneratePlan: () => void;
@@ -72,9 +75,9 @@ export function GuidedWorkflowPanel(props: GuidedWorkflowPanelProps) {
 
       <NextBestActionPanel action={action} />
 
-      <details className="group border border-zinc-800/60 rounded-xl bg-zinc-950/30 [&_summary::-webkit-details-marker]:hidden">
-        <summary className="cursor-pointer p-4 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors select-none">
-          Show advanced workflow details
+      <details className="group border border-zinc-800/50 rounded-xl bg-zinc-950/20 [&_summary::-webkit-details-marker]:hidden">
+        <summary className="cursor-pointer p-4 text-sm font-medium text-zinc-400 hover:text-indigo-300 transition-colors select-none">
+          Advanced workflow details
         </summary>
 
         <div className="flex flex-col gap-6 p-4 pt-0 mt-2">
@@ -95,6 +98,36 @@ export function GuidedWorkflowPanel(props: GuidedWorkflowPanelProps) {
                 {usingRuntimeWorkflow ? 'state machine' : 'local fallback'}
               </strong>
             </span>
+            {props.runtimePlan?.plan.mode ? (
+              <span>
+                Plan mode:{' '}
+                <strong className="text-zinc-200">
+                  {props.runtimePlan.plan.mode === 'read_only'
+                    ? 'Read-only analysis'
+                    : 'Patch workflow'}
+                </strong>
+              </span>
+            ) : null}
+
+            {props.workspaceMode ? (
+              <span>
+                Workspace mode:{' '}
+                <strong className="text-zinc-200">
+                  {formatWorkspaceModeShort(props.workspaceMode)}
+                </strong>
+              </span>
+            ) : null}
+            {props.runtimePlan?.plan.mode ? (
+              <span>
+                Plan mode:{' '}
+                <strong className="text-zinc-200">
+                  {props.runtimePlan.plan.mode === 'read_only'
+                    ? 'Read-only analysis'
+                    : 'Patch workflow'}
+                </strong>
+              </span>
+            ) : null}
+
             {props.runtimeWorkflowLoading ? (
               <span className="animate-pulse text-indigo-400">Refreshing workflow state...</span>
             ) : null}

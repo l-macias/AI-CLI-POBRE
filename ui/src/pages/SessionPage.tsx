@@ -219,6 +219,7 @@ export function SessionPage({
   const [snapshotLoading, setSnapshotLoading] = useState(false);
 
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<SessionWorkspaceTab>('overview');
+  const [resumedSessionId, setResumedSessionId] = useState<string | null>(null);
   const startReadiness = useMemo(
     () => ({
       hasProject: selectedProject !== null || projectRoot.trim().length > 0,
@@ -277,12 +278,15 @@ export function SessionPage({
     setApprovedPatchDecision(null);
     setSessionMemory(null);
     setSnapshot(null);
+    setResumedSessionId(null);
   }
   function moveToWorkspaceTab(tab: SessionWorkspaceTab): void {
     setActiveWorkspaceTab(tab);
 
     window.setTimeout(() => {
-      document.querySelector('.session-workspace-tabs')?.scrollIntoView({
+      const targetSelector = tab === 'context' ? '#context-tab-top' : '.session-workspace-tabs';
+
+      document.querySelector(targetSelector)?.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
       });
@@ -378,6 +382,7 @@ export function SessionPage({
       });
 
       setSession(created);
+      setResumedSessionId(null);
       onSessionChange(created);
       setActiveWorkspaceTab('overview');
 
@@ -385,7 +390,7 @@ export function SessionPage({
 
       void refreshRuntimeSettings();
       void refreshSessionMemory(created);
-      void refreshArtifactStore();
+      void refreshArtifactStore(created.id);
     } finally {
       setSessionStartLoading(false);
     }
@@ -407,7 +412,7 @@ export function SessionPage({
     void refreshQuestions(updated);
     void refreshTasks(updated);
     void refreshSessionMemory(updated);
-    void refreshArtifactStore();
+    void refreshArtifactStore(updated.id);
   }
 
   async function refreshSuggestions(targetSession = session) {
@@ -644,18 +649,72 @@ export function SessionPage({
     }
   }
 
-  async function refreshArtifactStore() {
+  async function refreshArtifactStore(targetSessionId?: string): Promise<void> {
     setArtifactLoading(true);
 
     try {
       const result = await listRuntimeArtifacts();
 
       setArtifactIndex(result.artifactIndex);
+
+      const sessionId = targetSessionId ?? session?.id ?? null;
+
+      if (!sessionId) {
+        return;
+      }
+
+      const preferredArtifact = findPreferredArtifactForSession(result.artifactIndex, sessionId);
+
+      if (!preferredArtifact) {
+        return;
+      }
+
+      setSelectedArtifact(preferredArtifact);
+
+      const readResult = await readRuntimeArtifact(preferredArtifact.path);
+
+      setSelectedArtifact(readResult.artifact);
+      setSelectedArtifactContent(readResult.content);
     } finally {
       setArtifactLoading(false);
     }
   }
+  function findPreferredArtifactForSession(
+    index: RuntimeArtifactIndex,
+    sessionId: string,
+  ): RuntimeArtifactSummary | null {
+    const artifacts = index.artifacts.filter((artifact) => artifact.sessionId === sessionId);
 
+    if (artifacts.length === 0) {
+      return null;
+    }
+
+    const priority = [
+      'report_markdown',
+      'report_json',
+      'session_state',
+      'active_plan',
+      'runtime_plan',
+      'active_patch_diff',
+      'patch_diff',
+      'sandbox_result',
+    ];
+
+    return (
+      artifacts.slice().sort((a, b) => {
+        const priorityA = priority.indexOf(a.kind);
+        const priorityB = priority.indexOf(b.kind);
+        const safePriorityA = priorityA === -1 ? priority.length : priorityA;
+        const safePriorityB = priorityB === -1 ? priority.length : priorityB;
+
+        if (safePriorityA !== safePriorityB) {
+          return safePriorityA - safePriorityB;
+        }
+
+        return (b.updatedAt ?? b.createdAt ?? '').localeCompare(a.updatedAt ?? a.createdAt ?? '');
+      })[0] ?? null
+    );
+  }
   async function refreshSavedSessions() {
     setSavedSessionsLoading(true);
 
@@ -668,21 +727,31 @@ export function SessionPage({
     }
   }
 
-  async function resumeSession(nextSession: InteractiveSessionState) {
+  async function resumeSession(nextSession: InteractiveSessionState): Promise<void> {
+    resetSessionArtifacts();
+
     setSession(nextSession);
     setProjectRoot(nextSession.projectRoot);
     setProjectName(nextSession.projectName);
     setGoal(nextSession.goal.current);
+    setResumedSessionId(nextSession.id);
     onSessionChange(nextSession);
     setActiveWorkspaceTab('overview');
 
-    void refreshSuggestions(nextSession);
-    void refreshQuestions(nextSession);
-    void refreshTasks(nextSession);
-    void refreshVerify(nextSession);
-    void refreshRuntimeSettings();
-    void refreshSessionMemory(nextSession);
-    void refreshArtifactStore();
+    await Promise.all([
+      refreshSuggestions(nextSession),
+      refreshQuestions(nextSession),
+      refreshTasks(nextSession),
+      refreshVerify(nextSession),
+      refreshRuntimeSettings(),
+      refreshSessionMemory(nextSession),
+      refreshArtifactStore(nextSession.id),
+    ]);
+
+    window.setTimeout(() => {
+      void refreshRuntimeWorkflowState();
+      void refreshApprovalCenter();
+    }, 120);
   }
 
   async function selectArtifact(artifact: RuntimeArtifactSummary) {
@@ -759,7 +828,7 @@ export function SessionPage({
 
       setReportExport(result);
       moveToWorkspaceTab('artifacts');
-      void refreshArtifactStore();
+      void refreshArtifactStore(session.id);
     } finally {
       setReportLoading(false);
     }
@@ -812,6 +881,9 @@ export function SessionPage({
     }
 
     return null;
+  }
+  function isReadOnlyPlan(): boolean {
+    return runtimePlan?.plan.mode === 'read_only';
   }
 
   function buildWorkflowArtifactState(): RuntimeWorkflowArtifactState {
@@ -1131,7 +1203,14 @@ export function SessionPage({
       return;
     }
 
-    moveToWorkspaceTab('context');
+    setActiveWorkspaceTab('context');
+
+    window.setTimeout(() => {
+      document.querySelector('#context-tab-top')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 100);
   }
 
   async function cancelPlanAction(): Promise<void> {
@@ -1647,6 +1726,120 @@ export function SessionPage({
       </div>
     );
   }
+
+  function OverviewMetricCard({
+    label,
+    value,
+    detail,
+    tone,
+  }: {
+    label: string;
+    value: string;
+    detail: string;
+    tone: 'blue' | 'green' | 'yellow' | 'red' | 'slate';
+  }) {
+    return (
+      <article className="rounded-xl border border-zinc-800/60 bg-zinc-900/35 p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            {label}
+          </span>
+          <Badge tone={tone}>{value}</Badge>
+        </div>
+        <p className="mt-2 text-xs text-zinc-500 leading-relaxed">{detail}</p>
+      </article>
+    );
+  }
+  function ResumedSessionNotice({
+    session,
+    artifactCount,
+    onOpenArtifacts,
+    onRefreshArtifacts,
+  }: {
+    session: InteractiveSessionState;
+    artifactCount: number;
+    onOpenArtifacts: () => void;
+    onRefreshArtifacts: () => void;
+  }) {
+    return (
+      <article className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-5 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="blue">resumed</Badge>
+              <Badge tone={artifactCount > 0 ? 'green' : 'yellow'}>
+                {artifactCount} session artifacts
+              </Badge>
+            </div>
+
+            <h2 className="mt-3 text-lg font-semibold text-zinc-100">
+              Session restored from runtime state
+            </h2>
+
+            <p className="mt-1 text-sm text-zinc-400 leading-relaxed max-w-3xl">
+              The live React workflow state may not contain the previous plan, patch or report until
+              you regenerate or inspect evidence. Runtime artifacts are preserved and can be
+              reviewed from the Artifact Store.
+            </p>
+
+            <p className="mt-2 text-xs font-mono text-zinc-500 truncate">{session.id}</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <button
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors"
+              onClick={onOpenArtifacts}
+            >
+              Open artifacts
+            </button>
+
+            <button
+              className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 transition-colors"
+              onClick={onRefreshArtifacts}
+            >
+              Refresh evidence
+            </button>
+          </div>
+        </div>
+      </article>
+    );
+  }
+  function SecondaryToolsDetails({
+    children,
+    timelineCount,
+  }: {
+    children: React.ReactNode;
+    timelineCount: number;
+  }) {
+    return (
+      <details className="group rounded-xl border border-zinc-800/60 bg-zinc-950/30 shadow-sm [&_summary::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer items-center justify-between gap-4 p-5 select-none">
+          <div>
+            <strong className="block text-sm font-semibold text-zinc-200">
+              Secondary tools and evidence
+            </strong>
+            <p className="mt-1 text-xs text-zinc-500">
+              Chat, suggestions, saved sessions and recent timeline are available here without
+              competing with the main runtime action.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Badge tone={timelineCount > 0 ? 'blue' : 'slate'}>{timelineCount} events</Badge>
+            <span className="text-xs font-medium text-indigo-400 group-open:hidden">Show</span>
+            <span className="hidden text-xs font-medium text-indigo-400 group-open:inline">
+              Hide
+            </span>
+          </div>
+        </summary>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 border-t border-zinc-800/60 p-5">
+          {children}
+        </div>
+      </details>
+    );
+  }
+
   useEffect(() => {
     void refreshSavedSessions();
   }, []);
@@ -1688,7 +1881,7 @@ export function SessionPage({
 
   return (
     <section className="flex flex-col gap-6 w-full max-w-400 mx-auto pb-12">
-      <RuntimeStatusBar session={session} />
+      <RuntimeStatusBar session={session} workspaceMode={selectedProject?.workingMode ?? null} />
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/60 pb-5">
@@ -1949,6 +2142,66 @@ export function SessionPage({
       <section className="flex flex-col gap-6 w-full">
         {activeWorkspaceTab === 'overview' ? (
           <div className="flex flex-col gap-6">
+            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <OverviewMetricCard
+                label="Session"
+                value={session ? 'active' : 'not started'}
+                tone={session ? 'green' : 'slate'}
+                detail={
+                  session
+                    ? 'Runtime boundary is active for the selected project.'
+                    : 'Start a guided session to enable workflow actions.'
+                }
+              />
+
+              <OverviewMetricCard
+                label="Questions"
+                value={
+                  pendingHighPriorityQuestionCount > 0
+                    ? `${pendingHighPriorityQuestionCount} pending`
+                    : 'clear'
+                }
+                tone={pendingHighPriorityQuestionCount > 0 ? 'yellow' : 'green'}
+                detail={
+                  pendingHighPriorityQuestionCount > 0
+                    ? 'Important questions should be answered before planning.'
+                    : 'No high-priority questions are blocking the plan.'
+                }
+              />
+
+              <OverviewMetricCard
+                label="Plan"
+                value={
+                  runtimePlan?.validation.valid === true
+                    ? runtimePlan.plan.mode === 'read_only'
+                      ? 'read-only'
+                      : 'patch-ready'
+                    : runtimePlan?.validation.valid === false
+                      ? 'blocked'
+                      : 'not created'
+                }
+                tone={
+                  runtimePlan?.validation.valid === true
+                    ? 'green'
+                    : runtimePlan?.validation.valid === false
+                      ? 'red'
+                      : 'slate'
+                }
+                detail="The plan controls whether Zero is analyzing only or preparing a patch workflow."
+              />
+
+              <OverviewMetricCard
+                label="Approvals"
+                value={`${approvalCenter?.pendingCount ?? 0}`}
+                tone={(approvalCenter?.pendingCount ?? 0) > 0 ? 'yellow' : 'slate'}
+                detail={
+                  (approvalCenter?.pendingCount ?? 0) > 0
+                    ? 'Approval Center needs attention.'
+                    : 'No approval is currently competing for attention.'
+                }
+              />
+            </section>
+
             <GuidedWorkflowPanel
               session={session}
               runtimePlan={runtimePlan}
@@ -1960,6 +2213,7 @@ export function SessionPage({
               reportExport={reportExport}
               runtimeWorkflow={runtimeWorkflow}
               runtimeWorkflowLoading={runtimeWorkflowLoading}
+              workspaceMode={selectedProject?.workingMode ?? null}
               patchSandboxResult={patchSandboxResult}
               patchRecoveryResult={patchRecoveryResult}
               onPrepareWorkflow={() => void prepareWorkflow()}
@@ -1980,42 +2234,57 @@ export function SessionPage({
                   runtimePlan?.plan.scope.candidateFiles.map((file) => file.path) ?? [
                     'package.json',
                   ];
+
                 void createSessionSnapshot(targetFiles);
               }}
               onExportReport={() => void exportReport()}
             />
 
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {questions.length > 0 ? (
+              <RuntimeQuestionsPanel
+                questions={questions}
+                loading={questionsLoading}
+                onRefresh={() => void refreshQuestions()}
+                onAnswer={(questionId, answer) => void answerQuestion(questionId, answer)}
+              />
+            ) : null}
+
+            <SecondaryToolsDetails timelineCount={session?.timeline.length ?? 0}>
               <ChatPanel
                 session={session}
                 command={command}
                 onCommandChange={setCommand}
                 onSendCommand={() => void routeCommand()}
               />
+
               <SessionTimelinePanel session={session} />
-            </section>
 
-            <SessionResumePanel
-              sessions={savedSessions}
-              currentSession={session}
-              loading={savedSessionsLoading}
-              onRefresh={() => void refreshSavedSessions()}
-              onResume={(savedSession) => void resumeSession(savedSession)}
-            />
+              <SessionResumePanel
+                sessions={savedSessions}
+                currentSession={session}
+                loading={savedSessionsLoading}
+                onRefresh={() => void refreshSavedSessions()}
+                onResume={(savedSession) => void resumeSession(savedSession)}
+              />
 
-            <SuggestionPanel
-              suggestions={suggestions}
-              loading={suggestionsLoading}
-              onRefresh={() => void refreshSuggestions()}
-              onRunSuggestion={(input) => void routeCommand(input)}
-            />
-
-            <RuntimeQuestionsPanel
-              questions={questions}
-              loading={questionsLoading}
-              onRefresh={() => void refreshQuestions()}
-              onAnswer={(questionId, answer) => void answerQuestion(questionId, answer)}
-            />
+              <SuggestionPanel
+                suggestions={suggestions}
+                loading={suggestionsLoading}
+                onRefresh={() => void refreshSuggestions()}
+                onRunSuggestion={(input) => void routeCommand(input)}
+              />
+            </SecondaryToolsDetails>
+            {session && resumedSessionId === session.id ? (
+              <ResumedSessionNotice
+                session={session}
+                artifactCount={
+                  artifactIndex?.artifacts.filter((artifact) => artifact.sessionId === session.id)
+                    .length ?? 0
+                }
+                onOpenArtifacts={() => moveToWorkspaceTab('artifacts')}
+                onRefreshArtifacts={() => void refreshArtifactStore(session.id)}
+              />
+            ) : null}
           </div>
         ) : null}
 
@@ -2032,7 +2301,6 @@ export function SessionPage({
               onAddPlanRestriction={() => void addPlanRestrictionAction()}
               onViewPlanContext={viewPlanContextAction}
               onCancelPlan={() => void cancelPlanAction()}
-              onCommand={(input) => void routeCommand(input)}
             />
             <ApprovalPanel
               center={approvalCenter}
@@ -2090,9 +2358,40 @@ export function SessionPage({
         ) : null}
 
         {activeWorkspaceTab === 'context' ? (
-          <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ContextPanel session={session} />
+          <div id="context-tab-top" className="flex flex-col gap-6 scroll-mt-32">
+            <section className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+                    Runtime context
+                  </span>
+                  <h2 className="mt-2 text-2xl font-semibold text-zinc-100 tracking-tight">
+                    {isReadOnlyPlan()
+                      ? 'Context for read-only analysis'
+                      : 'Context for runtime planning'}
+                  </h2>
+                  <p className="mt-2 max-w-3xl text-sm text-zinc-400 leading-relaxed">
+                    {isReadOnlyPlan()
+                      ? 'These files and relationships are used for analysis and recommendations only. Zero should not treat them as patch candidates in this session.'
+                      : 'These files and relationships explain why Zero selected context before plan, patch, verification or report steps.'}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Badge tone={workflowPrepared ? 'green' : 'yellow'}>
+                    {workflowPrepared ? 'prepared' : 'needs prepare'}
+                  </Badge>
+                  <Badge tone={isReadOnlyPlan() ? 'green' : 'blue'}>
+                    {isReadOnlyPlan() ? 'read-only' : 'runtime context'}
+                  </Badge>
+                  <Badge tone="blue">{collectKnownFiles().length} linked files</Badge>
+                </div>
+              </div>
+            </section>
+
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ContextPanel session={session} readOnly={isReadOnlyPlan()} />
+
               <ProjectIntelligencePanel
                 stack={stackIntelligence}
                 routes={apiRoutes}
@@ -2102,9 +2401,13 @@ export function SessionPage({
                 onAnalyze={() => void analyzeProject()}
                 onPrepareWorkflow={() => void prepareWorkflow()}
               />
-            </div>
+            </section>
 
-            <IntelligentContextPanel routes={apiRoutes} links={frontendBackendLinks} />
+            <IntelligentContextPanel
+              routes={apiRoutes}
+              links={frontendBackendLinks}
+              readOnly={isReadOnlyPlan()}
+            />
 
             <ContextGraphPanel
               graph={contextGraph}
@@ -2197,7 +2500,8 @@ export function SessionPage({
               selectedArtifact={selectedArtifact}
               selectedContent={selectedArtifactContent}
               loading={artifactLoading}
-              onRefresh={() => void refreshArtifactStore()}
+              currentSessionId={session?.id ?? null}
+              onRefresh={() => void refreshArtifactStore(session?.id)}
               onSelect={(artifact) => void selectArtifact(artifact)}
             />
           </div>

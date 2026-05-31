@@ -34,7 +34,7 @@ export function PlanViewer({
   const plan = runtimePlan
     ? buildRuntimePlanViewModel(runtimePlan)
     : buildFallbackPlanViewModel(session);
-
+  const readOnly = runtimePlan?.plan.mode === 'read_only';
   return (
     <section className="flex flex-col gap-6 w-full">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
@@ -43,7 +43,9 @@ export function PlanViewer({
           <div>
             <h2 className="text-xl font-semibold text-zinc-100 tracking-tight">Runtime Plan</h2>
             <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
-              Structured runtime plan before patch generation.
+              {readOnly
+                ? 'Read-only analysis plan for recommendations. No patch flow is required.'
+                : 'Structured runtime plan before patch generation.'}
             </p>
           </div>
         </div>
@@ -215,10 +217,12 @@ export function PlanViewer({
             <article className="flex flex-col gap-5 p-6 rounded-xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm">
               <div className="border-b border-zinc-800/60 pb-4">
                 <strong className="block text-base font-medium text-zinc-100">
-                  Candidate files
+                  {readOnly ? 'Context files' : 'Candidate files'}
                 </strong>
                 <p className="text-sm text-zinc-400 mt-1">
-                  Files selected or inferred for the next patch proposal stage.
+                  {readOnly
+                    ? 'Files selected or inferred for read-only analysis and recommendations.'
+                    : 'Files selected or inferred for the next patch proposal stage.'}
                 </p>
               </div>
 

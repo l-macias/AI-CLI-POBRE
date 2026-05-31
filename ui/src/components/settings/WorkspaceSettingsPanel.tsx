@@ -1,4 +1,5 @@
 import { FolderLock } from 'lucide-react';
+import { workspaceModeOptions } from '../../utils/workspaceModeLabels';
 import { SettingsSection } from './SettingsSection';
 import type { WorkspaceSettings, WorkspaceMode } from './SettingsTypes';
 
@@ -8,6 +9,8 @@ interface WorkspaceSettingsPanelProps {
 }
 
 export function WorkspaceSettingsPanel({ value, onChange }: WorkspaceSettingsPanelProps) {
+  const selectedMode = workspaceModeOptions.find((option) => option.value === value.defaultMode);
+
   return (
     <SettingsSection
       title="Workspace mode"
@@ -16,10 +19,12 @@ export function WorkspaceSettingsPanel({ value, onChange }: WorkspaceSettingsPan
       <div className="flex flex-col gap-1.5 p-4 rounded-lg border border-zinc-800/40 bg-zinc-950/50 mb-2">
         <div className="flex items-start gap-3">
           <FolderLock size={18} className="text-zinc-400 mt-0.5 shrink-0" />
+
           <div className="flex-1 min-w-0">
             <strong className="block text-sm font-medium text-zinc-200">Default mode</strong>
+
             <span className="block text-xs text-zinc-500 mt-0.5">
-              Git is optional. local_snapshot is recommended.
+              Git is optional. Safe local mode is recommended.
             </span>
 
             <select
@@ -32,11 +37,22 @@ export function WorkspaceSettingsPanel({ value, onChange }: WorkspaceSettingsPan
                 })
               }
             >
-              <option value="local_snapshot">local_snapshot</option>
-              <option value="local_patchless">local_patchless</option>
-              <option value="git_diff">git_diff</option>
-              <option value="git_branch_pr">git_branch_pr</option>
+              {workspaceModeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
+
+            {selectedMode ? (
+              <p className="mt-2 text-xs text-zinc-500 leading-relaxed">
+                {selectedMode.description}
+              </p>
+            ) : null}
+
+            <p className="mt-2 text-[11px] font-mono text-zinc-600">
+              Internal value: {value.defaultMode}
+            </p>
           </div>
         </div>
       </div>

@@ -9,9 +9,11 @@ import {
 } from 'lucide-react';
 import type { InteractiveSessionState } from '../../types/runtime';
 import { Badge } from '../Badge';
+import { formatWorkspaceModeShort } from '../../utils/workspaceModeLabels';
 
 interface RuntimeStatusBarProps {
   session: InteractiveSessionState | null;
+  workspaceMode?: string | null;
 }
 
 type StatusTone = 'blue' | 'green' | 'yellow' | 'red' | 'slate';
@@ -31,7 +33,7 @@ const toneStyles: Record<StatusTone, string> = {
   slate: 'border-zinc-800/60 bg-zinc-900/40',
 };
 
-export function RuntimeStatusBar({ session }: RuntimeStatusBarProps) {
+export function RuntimeStatusBar({ session, workspaceMode }: RuntimeStatusBarProps) {
   const status = session?.status ?? 'no_session';
   const friendlyStatus = getFriendlyStatus(status);
 
@@ -98,7 +100,9 @@ export function RuntimeStatusBar({ session }: RuntimeStatusBarProps) {
         </div>
         <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono">
           <FolderGit2 size={14} className="text-zinc-500" />
-          <span>Workspace locked: {session ? 'Yes' : 'No'}</span>
+          <span>
+            Workspace: {session ? formatWorkspaceModeShort(workspaceMode) : 'Not selected'}
+          </span>
         </div>
       </div>
     </section>

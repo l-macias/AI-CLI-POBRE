@@ -18,6 +18,8 @@ export function SessionResumePanel({
   onRefresh,
   onResume,
 }: SessionResumePanelProps) {
+  const sortedSessions = sessions.slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
   return (
     <section className="flex flex-col rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-6 shadow-sm">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-800/60 pb-5 mb-5">
@@ -28,14 +30,16 @@ export function SessionResumePanel({
               Resume active session
             </h2>
             <p className="text-sm text-zinc-400 mt-1 max-w-xl">
-              Continue a non-archived runtime session. Archived sessions can be restored from
-              Settings &gt; Runtime data.
+              Restore a non-archived runtime session, then inspect preserved evidence from the
+              Artifact Store.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <Badge tone={sessions.length > 0 ? 'green' : 'slate'}>{sessions.length} active</Badge>
+          <Badge tone={sortedSessions.length > 0 ? 'green' : 'slate'}>
+            {sortedSessions.length} active
+          </Badge>
 
           <button
             className="flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-500"
@@ -43,13 +47,13 @@ export function SessionResumePanel({
             onClick={onRefresh}
           >
             <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
-            Refresh
+            {loading ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 overflow-y-auto max-h-[600px] pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-        {sessions.length === 0 ? (
+      <div className="flex flex-col gap-4 overflow-y-auto max-h-150 pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+        {sortedSessions.length === 0 ? (
           <article className="flex flex-col items-center justify-center p-10 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50">
             <strong className="text-sm font-medium text-zinc-300">No active sessions found.</strong>
             <p className="text-xs text-zinc-500 mt-2 max-w-sm">
@@ -57,7 +61,7 @@ export function SessionResumePanel({
             </p>
           </article>
         ) : (
-          sessions.map((savedSession) => (
+          sortedSessions.map((savedSession) => (
             <SessionResumeCard
               key={savedSession.id}
               session={savedSession}

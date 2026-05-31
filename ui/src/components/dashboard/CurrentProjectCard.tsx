@@ -1,4 +1,5 @@
 import { FolderKanban } from 'lucide-react';
+import { formatWorkspaceModeShort } from '../../utils/workspaceModeLabels';
 import { Badge } from '../Badge';
 import type { ProjectProfile } from '../../types/runtime';
 
@@ -28,7 +29,7 @@ export function CurrentProjectCard({ project, onOpenProjects }: CurrentProjectCa
 
           <div className="flex flex-wrap gap-2 mt-4 mb-5">
             <Badge tone="blue">{project.packageManager}</Badge>
-            <Badge tone="green">{project.workingMode}</Badge>
+            <Badge tone="green">{formatWorkspaceModeShort(project.workingMode)}</Badge>
             {project.stack.map((stack) => (
               <Badge key={stack} tone={stack === 'mern' || stack === 'pern' ? 'green' : 'blue'}>
                 {stack}
@@ -43,18 +44,21 @@ export function CurrentProjectCard({ project, onOpenProjects }: CurrentProjectCa
                 {project.hasPackageJson ? 'yes' : 'no'}
               </span>
             </div>
+
             <div className="flex justify-between items-center">
               <span className="text-zinc-500">tsconfig</span>
               <span className={project.hasTsConfig ? 'text-zinc-300' : 'text-zinc-600'}>
                 {project.hasTsConfig ? 'yes' : 'no'}
               </span>
             </div>
+
             <div className="flex justify-between items-center">
               <span className="text-zinc-500">src</span>
               <span className={project.hasSrcDirectory ? 'text-zinc-300' : 'text-zinc-600'}>
                 {project.hasSrcDirectory ? 'yes' : 'no'}
               </span>
             </div>
+
             <div className="flex justify-between items-center">
               <span className="text-zinc-500">prisma</span>
               <span className={project.hasPrismaSchema ? 'text-zinc-300' : 'text-zinc-600'}>
